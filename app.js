@@ -3690,3 +3690,27 @@ const element = document.getElementById('some-id');
 if (element) {
     element.addEventListener('click', () => { /* פעולה */ });
 }
+
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault(); // מונע מהדפדפן להציג את הברירת מחדל שלו
+    deferredPrompt = event;
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) {
+        installBtn.style.display = 'block';
+        installBtn.onclick = async () => {
+            installBtn.style.display = 'none';
+            deferredPrompt.prompt();
+            const choiceResult = await deferredPrompt.userChoice;
+            // אפשר להוסיף הודעה שההתקנה הצליחה או בוטלה כאן
+            deferredPrompt = null;
+        };
+    }
+});
+
+// אופציונלי: להסתיר את הכפתור אם כבר מותקן
+window.addEventListener('appinstalled', () => {
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) installBtn.style.display = 'none';
+});
