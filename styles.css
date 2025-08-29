@@ -1,0 +1,241 @@
+/* Import Inter font from Google Fonts for a modern, clean look */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+/* Base styles for the body, setting font, background, and right-to-left direction */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6;
+    direction: rtl;
+}
+
+/* Style for required form fields, adding a red asterisk */
+.required-field::after {
+    content: '*';
+    color: #ef4444;
+    margin-right: 4px;
+}
+
+/* Styles for selected runner buttons in the crawling drills page */
+/* FIX: Increased specificity to ensure override of Tailwind classes */
+#sack-carrier-container .runner-sack-btn.selected {
+    background-color: #f59e0b; /* Amber 500 */
+    border: 2px solid #ea580c; /* Amber 700 */
+    color: white;
+}
+
+/* Styles for selected runner buttons in the sociometric stretcher page (stretcher carriers) */
+/* FIX: Increased specificity to ensure override of Tailwind classes */
+#stretcher-carrier-container .runner-stretcher-btn.selected {
+    background-color: #3b82f6; /* Blue 500 */
+    border: 2px solid #2563eb; /* Blue 700 */
+    color: white;
+}
+
+/* Styles for disabled runner buttons (stretcher carriers) when not selected */
+#stretcher-carrier-container .runner-stretcher-btn:disabled:not(.selected) {
+    background-color: #d1d5db; /* Gray 300 */
+    cursor: not-allowed;
+    color: #6b7280; /* Gray 500 */
+}
+
+/* Styles for selected runner buttons in the sociometric stretcher page (jerrican carriers) */
+/* FIX: Increased specificity to ensure override of Tailwind classes */
+#jerrican-carrier-container .runner-jerrican-btn.selected {
+    background-color: #10b981; /* Emerald 500 */
+    border: 2px solid #059669; /* Emerald 700 */
+    color: white;
+}
+
+/* Styles for disabled runner buttons (jerrican carriers) when not selected */
+#jerrican-carrier-container .runner-jerrican-btn:disabled:not(.selected) {
+    background-color: #d1d5db; /* Gray 300 */
+    cursor: not-allowed;
+    color: #6b7280; /* Gray 500 */
+}
+
+/* Monospace font for timer display for consistent digit width */
+.timer-display {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* V1 - Optimized Nav Tabs for mobile */
+/* Default styles for navigation tabs (mobile-first) */
+.nav-tab {
+    white-space: nowrap;
+    font-size: 0.65rem; /* Smaller font for mobile */
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    flex-direction: column; /* Stack icon and text vertically */
+}
+
+/* Icon size for mobile tabs */
+.nav-tab span:first-child {
+    font-size: 1.25rem;
+}
+
+/* Margin for text below icon on mobile tabs */
+.nav-tab span:last-child {
+    margin-top: 0.25rem;
+}
+
+/* Media query for larger screens (md breakpoint and up) */
+@media (min-width: 768px) {
+    .nav-tab {
+        font-size: 0.875rem; /* Larger font for desktop */
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        flex-direction: row; /* Align icon and text horizontally */
+    }
+
+    /* Icon size for desktop tabs */
+    .nav-tab span:first-child {
+        font-size: 1rem;
+    }
+
+    /* Margin for text next to icon on desktop tabs */
+    .nav-tab span:last-child {
+        margin-left: 0.5rem;
+        margin-right: 0.25rem;
+        margin-top: 0;
+    }
+}
+
+/* Prevent double-tap zoom on interactive elements for better touch experience */
+.runner-btn {
+    touch-action: manipulation;
+}
+
+/* V1 - Highlight top runners in report for visual distinction */
+.highlight-gold {
+    background-color: #FFD700; /* Gold color */
+}
+
+.highlight-silver {
+    background-color: #C0C0C0; /* Silver color */
+}
+
+.highlight-bronze {
+    background-color: #CD7F32; /* Bronze color */
+}
+
+/* V1.1 - Dark Mode Styles */
+.dark body {
+    background-color: #1a202c; /* Gray 900 */
+    color: #e2e8f0; /* Gray 200 */
+}
+
+.dark .bg-white {
+    background-color: #2d3748; /* Gray 800 */
+}
+
+.dark .bg-gray-50 {
+    background-color: #2a2a2a;
+}
+
+.dark .bg-gray-100 {
+    background-color: #4a5568; /* Gray 700 */
+}
+
+.dark .bg-gray-200 {
+    background-color: #718096; /* Gray 600 */
+}
+
+.dark .bg-gray-300:not(.selected) {
+    background-color: #4a5568;
+}
+
+.dark .text-gray-800 {
+    color: #f7fafc; /* Gray 100 */
+}
+
+.dark .text-gray-700 {
+    color: #edf2f7; /* Gray 200 */
+}
+
+.dark .text-gray-600 {
+    color: #a0aec0; /* Gray 400 */
+}
+
+.dark .text-gray-500 {
+    color: #718096; /* Gray 500 */
+}
+
+.dark .text-blue-600 {
+    color: #63b3ed; /* Blue 400 */
+}
+
+.dark .border-b-2.border-blue-500 {
+    border-color: #63b3ed;
+}
+
+.dark .text-blue-500 {
+    color: #63b3ed;
+}
+
+.dark .border-gray-200 {
+    border-color: #4a5568;
+}
+
+.dark .border-gray-300 {
+    border-color: #718096;
+}
+
+.dark .shadow-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.dark .shadow-inner {
+    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+}
+
+.dark input,
+.dark textarea {
+    background-color: #4a5568; /* Gray 700 */
+    color: #f7fafc; /* Gray 100 */
+    border-color: #718096; /* Gray 600 */
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+    color: #a0aec0; /* Gray 400 */
+}
+
+/* Ensure selected/special buttons retain their color */
+.dark #sack-carrier-container .runner-sack-btn.selected,
+.dark #stretcher-carrier-container .runner-stretcher-btn.selected,
+.dark #jerrican-carrier-container .runner-jerrican-btn.selected {
+    color: white; /* Keep text white on colored buttons */
+}
+
+.dark .highlight-gold {
+    background-color: #FFD700;
+    color: #1a202c;
+}
+
+.dark .highlight-silver {
+    background-color: #C0C0C0;
+    color: #1a202c;
+}
+
+.dark .highlight-bronze {
+    background-color: #CD7F32;
+    color: #1a202c;
+}
+
+/* Modal styles */
+.dark #confirmation-modal .bg-white {
+    background-color: #2d3748; /* Gray 800 */
+}
+
+.dark #confirmation-modal #cancel-btn {
+    background-color: #4a5568; /* Gray 700 */
+    color: #f7fafc; /* Gray 100 */
+}
+
+.dark #confirmation-modal #cancel-btn:hover {
+    background-color: #718096; /* Gray 600 */
+}
