@@ -97,7 +97,7 @@ const state = {
 
     sociometricStretcher: {},    // אובייקט לנתוני אלונקה סוציומטרית (מקצים, נושאים, הערות)
 
-    theme: 'light',           // V1.1 - העדפת ערכת נושא ('light' או 'dark')
+    themeMode: 'auto', // אפשרויות: 'auto', 'light', 'dark'
 
     manualScores: {},
 
@@ -2209,7 +2209,16 @@ function renderAdminSettingsPage() {
 
     </div>`;
 
-
+const themeModeSelect = document.getElementById('theme-mode-select');
+    if (themeModeSelect) {
+        themeModeSelect.value = state.themeMode || 'auto';
+        themeModeSelect.addEventListener('change', (e) => {
+            state.themeMode = e.target.value;
+            applyTheme();
+            saveState();
+            render();
+        });
+    }
 
     // Event listener for saving settings with confirmation
 
@@ -3615,23 +3624,25 @@ async function exportToExcel() {
  */
 
 function applyTheme() {
-
-    const themeIcon = document.getElementById('theme-icon');
-
-    if (state.theme === 'dark') {
-
-        document.documentElement.classList.add('dark');
-
-        if (themeIcon) themeIcon.textContent = '☀️'; // Sun icon for dark mode
-
+    let theme;
+    if (state.themeMode === 'auto') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     } else {
-
-        document.documentElement.classList.remove('dark');
-
-        if (themeIcon) themeIcon.textContent = '🌙'; // Moon icon for light mode
-
+        theme = state.themeMode;
     }
-
+    if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+    // עידכון אייקון
+    const themeIcon = document.getElementById('theme-icon');
+    if (themeIcon) {
+        if (state.themeMode === 'auto') themeIcon.textContent = '🌓'; // סמל למצבי אוטומט
+        else if (theme === 'dark') themeIcon.textContent = '☀️';
+        else themeIcon.textContent = '🌙';
+        themeIcon.title = state.themeMode === 'auto' ? 'מצב אוטומטי' : (theme === 'dark' ? 'מצב כהה' : 'מצב בהיר');
+    }
 }
 
 
@@ -3663,7 +3674,6 @@ async function init() {
     }
 
 
-
     // Event listener for navigation tabs
 
     document.querySelector('nav').addEventListener('click', (e) => {
@@ -3680,18 +3690,22 @@ async function init() {
 
     });
 
-
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (state.themeMode === 'auto') {
+            applyTheme();
+            render();
+        }
+    });
 
     // V1.1 - Event listener for theme toggle button
 
     document.getElementById('theme-toggle-btn').addEventListener('click', () => {
-
-        state.theme = state.theme === 'light' ? 'dark' : 'light';
-
+        if (state.themeMode === 'light') state.themeMode = 'dark';
+        else if (state.themeMode === 'dark') state.themeMode = 'auto';
+        else state.themeMode = 'light';
         applyTheme();
-
         saveState();
-
+        render();
     });
 
 
