@@ -2306,15 +2306,12 @@ function renderQuickCommentBar(show) {
       style="min-width:80px;">
       שלח
     </button>
-    <div class="flex flex-row flex-grow items-center">
-  <input
-    id="quick-comment-input"
-    type="text"
-    class="flex-grow mr-2 ml-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 focus:ring-2 focus:ring-blue-400
-           text-sm text-right"
-    placeholder="הוסף הערה חפוזה...">
-  <button id="quick-comment-mic" type="button" class="ml-2 text-2xl" title="הכתבה קולית">🎤</button>
-</div>
+    <input
+      id="quick-comment-input"
+      type="text"
+      class="flex-grow mr-2 ml-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 focus:ring-2 focus:ring-blue-400
+             text-sm text-right"
+      placeholder="הוסף הערה חפוזה...">
     <select
       id="quick-comment-runner"
       class="p-2 border border-gray-300 rounded-lg bg-white dark:bg-gray-900 text-base shadow-sm"
@@ -2324,35 +2321,23 @@ function renderQuickCommentBar(show) {
   </div>
 `;
     // מאזין
-    document.getElementById('quick-comment-mic')?.addEventListener('click', () => {
-        const input = document.getElementById('quick-comment-input');
-        if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
-          alert('הדפדפן שלך לא תומך בהכתבה קולית (SpeechRecognition)');
-          return;
-        }
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'he-IL';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-      
-        input.placeholder = "מקשיב... דבר/י";
-        recognition.start();
-      
-        recognition.onresult = function(event) {
-          const speech = event.results[0][0].transcript;
-          input.value += (input.value ? ' ' : '') + speech;
-          input.focus();
-          input.placeholder = "הוסף הערה חפוזה...";
-        };
-        recognition.onerror = function(event) {
-          input.placeholder = "הוסף הערה חפוזה...";
-          alert("שגיאה בזיהוי דיבור: " + event.error);
-        };
-        recognition.onend = function() {
-          input.placeholder = "הוסף הערה חפוזה...";
-        };
-      });
+    document.getElementById('quick-comment-send')?.addEventListener('click', () => {
+      const selected = document.getElementById('quick-comment-runner').value;
+      const text = document.getElementById('quick-comment-input').value.trim();
+      if (selected && text) {
+          if (state.crawlingDrills.comments[selected]) {
+              state.crawlingDrills.comments[selected] += ' | ' + text;
+          } else {
+              state.crawlingDrills.comments[selected] = text;
+          }
+          saveState();
+          document.getElementById('quick-comment-input').value = '';
+          document.getElementById('quick-comment-input').placeholder = 'ההערה נוספה!';
+          setTimeout(() => {
+              document.getElementById('quick-comment-input').placeholder = 'הוסף הערה חפוזה...';
+          }, 1000);
+      }
+    });
 
     // האם יש קבוצה? לפחות רץ אחד ב-state
 const shouldShowQuickBar =
