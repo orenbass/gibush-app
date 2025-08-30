@@ -2105,6 +2105,12 @@ function renderRunnersPage() {
 
     document.getElementById('import-backup-input').addEventListener('change', importBackup);
 
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+state.runners && state.runners.length > 0 &&
+state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
 }
 
 
@@ -2272,9 +2278,74 @@ const themeModeSelect = document.getElementById('theme-mode-select');
 
     });
 
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+state.runners && state.runners.length > 0 &&
+state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
+
 }
 
+function renderQuickCommentBar(show) {
+    const quickBarDiv = document.getElementById('quick-comment-bar-container');
+    // הצגה/הסתרה בהתאם ל-show
+    if (!show) {
+        quickBarDiv.innerHTML = '';
+        return;
+    }
+    // בונה את אפשרויות הרצים
+    const runnerOptions = state.runners.map(r =>
+      `<option value="${r.shoulderNumber}">#${r.shoulderNumber}</option>`
+    ).join('');
+    quickBarDiv.innerHTML = `
+  <div class="flex items-center bg-gray-200 dark:bg-gray-800 rounded-xl shadow-inner px-3 py-2 mb-6 mt-4 w-full max-w-2xl mx-auto">
+    <button
+      id="quick-comment-send"
+      class="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg px-5 py-2 ml-2"
+      style="min-width:80px;">
+      שלח
+    </button>
+    <input
+      id="quick-comment-input"
+      type="text"
+      class="flex-grow mr-2 ml-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 focus:ring-2 focus:ring-blue-400
+             text-sm text-right"
+      placeholder="הוסף הערה חפוזה...">
+    <select
+      id="quick-comment-runner"
+      class="p-2 border border-gray-300 rounded-lg bg-white dark:bg-gray-900 text-base shadow-sm"
+      style="min-width:90px;">
+      ${runnerOptions}
+    </select>
+  </div>
+`;
+    // מאזין
+    document.getElementById('quick-comment-send')?.addEventListener('click', () => {
+      const selected = document.getElementById('quick-comment-runner').value;
+      const text = document.getElementById('quick-comment-input').value.trim();
+      if (selected && text) {
+          if (state.crawlingDrills.comments[selected]) {
+              state.crawlingDrills.comments[selected] += ' | ' + text;
+          } else {
+              state.crawlingDrills.comments[selected] = text;
+          }
+          saveState();
+          document.getElementById('quick-comment-input').value = '';
+          document.getElementById('quick-comment-input').placeholder = 'ההערה נוספה!';
+          setTimeout(() => {
+              document.getElementById('quick-comment-input').placeholder = 'הוסף הערה חפוזה...';
+          }, 1000);
+      }
+    });
 
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+state.runners && state.runners.length > 0 &&
+state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
+}
 
 /**
 
@@ -2348,19 +2419,21 @@ function renderStatusManagementPage() {
 
                     <span class="font-bold text-lg w-full md:w-1/4 text-center md:text-right">#${runner.shoulderNumber}</span>
 
-                    <div class="flex flex-grow w-full justify-center md:justify-end mt-2 md:mt-0 space-x-2 space-x-reverse">
-
-                        ${currentStatus === 'active' ? `
-
-                            <button class="status-btn bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold p-2 rounded-lg flex-grow flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="temp_removed"><span>⚠️</span><span class="ml-1">יצא לבדיקה</span></button>
-
-                            <button class="status-btn bg-red-500 hover:bg-red-600 text-white text-xs font-bold p-2 rounded-lg flex-grow flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="retired"><span>⛔</span><span class="ml-1">פרש</span></button>` :
-
-                `<span class="text-sm ${statusColorClass} flex-grow text-center flex items-center justify-center">${statusIcon}<span class="ml-1">${statusText}</span></span>
-
-                            <button class="status-btn bg-green-500 hover:bg-green-600 text-white text-xs font-bold p-2 rounded-lg flex-grow flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="active"><span>✅</span><span class="ml-1">${revertBtnText}</span></button>`}
-
-                    </div>
+                    <div class="flex flex-row gap-2 w-full">
+                        ${currentStatus === 'active' ? `
+                            <button class="status-btn flex-1 min-w-[110px] py-2 px-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold rounded-lg flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="temp_removed">
+                                <span>⚠️</span><span class="ml-1">יצא לבדיקה</span>
+                            </button>
+                            <button class="status-btn flex-1 min-w-[110px] py-2 px-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="retired">
+                                <span>⛔</span><span class="ml-1">פרש</span>
+                            </button>
+                        ` : `
+                            <span class="text-sm ${statusColorClass} flex-1 text-center flex items-center justify-center">${statusIcon}<span class="ml-1">${statusText}</span></span>
+                            <button class="status-btn flex-1 min-w-[110px] py-2 px-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="active">
+                                <span>✅</span><span class="ml-1">${revertBtnText}</span>
+                            </button>
+                        `}
+                    </div>
 
                 </div>`;
 
@@ -2398,6 +2471,13 @@ function renderStatusManagementPage() {
 
     document.getElementById('group-manage-btn').addEventListener('click', () => { state.currentPage = PAGES.RUNNERS; render(); });
 
+
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+state.runners && state.runners.length > 0 &&
+state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
 }
 
 
@@ -2547,6 +2627,13 @@ function renderHeatPage(heatIndex) {
         render();
 
     });
+
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+state.runners && state.runners.length > 0 &&
+state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
 
 }
 
@@ -2700,6 +2787,13 @@ function renderCrawlingDrillsCommentsPage() {
 
     });
 
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+state.runners && state.runners.length > 0 &&
+state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
+
 }
 
 
@@ -2833,6 +2927,13 @@ function renderCrawlingSprintPage(sprintIndex) {
         render();
 
     });
+
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+state.runners && state.runners.length > 0 &&
+state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
 
 }
 
@@ -3011,6 +3112,13 @@ function renderSociometricStretcherHeatPage(heatIndex) {
         render();
 
     });
+
+    // האם יש קבוצה? לפחות רץ אחד ב-state
+const shouldShowQuickBar =
+    state.runners && state.runners.length > 0 &&
+    state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
+
+renderQuickCommentBar(shouldShowQuickBar);
 
 }
 
