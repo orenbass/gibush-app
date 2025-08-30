@@ -97,7 +97,11 @@ const state = {
 
     sociometricStretcher: {},    // אובייקט לנתוני אלונקה סוציומטרית (מקצים, נושאים, הערות)
 
-    theme: 'light'           // V1.1 - העדפת ערכת נושא ('light' או 'dark')
+    theme: 'light',           // V1.1 - העדפת ערכת נושא ('light' או 'dark')
+
+    manualScores: {},
+
+    isEditingScores: false // מצב עריכה
 
 };
 
@@ -3014,6 +3018,7 @@ function renderSociometricStretcherHeatPage(heatIndex) {
 function renderReportPage() {
     headerTitle.textContent = 'דוח מסכם'; // עדכון כותרת
     state.manualScores = state.manualScores || {};
+    state.isEditingScores = typeof state.isEditingScores === 'boolean' ? state.isEditingScores : false;
     const allRunners = state.runners.map(runner => {
         const status = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] || 'פעיל';
         let sprintScore = '-', crawlingScore = '-', stretcherScore = '-';
@@ -3065,13 +3070,13 @@ function renderReportPage() {
                 <td>${index + 1}</td>
                 <td>${runner.shoulderNumber}</td>
                 <td>
-                  <input type="number" min="1" max="7" value="${scores.sprint}" data-shoulder="${runner.shoulderNumber}" data-type="sprint" ${isApproved ? 'disabled' : ''} style="width:55px; text-align:center;">
+                  <input type="number" min="1" max="7" value="${scores.sprint}" data-shoulder="${runner.shoulderNumber}" data-type="sprint" ${!state.isEditingScores ? 'disabled' : ''} style="width:55px; text-align:center;">
+                  </td>
+                <td>
+                  <input type="number" min="1" max="7" value="${scores.crawl}" data-shoulder="${runner.shoulderNumber}" data-type="crawl" ${!state.isEditingScores ? 'disabled' : ''} style="width:55px; text-align:center;">
                 </td>
                 <td>
-                  <input type="number" min="1" max="7" value="${scores.crawl}" data-shoulder="${runner.shoulderNumber}" data-type="crawl" ${isApproved ? 'disabled' : ''} style="width:55px; text-align:center;">
-                </td>
-                <td>
-                  <input type="number" min="1" max="7" value="${scores.stretcher}" data-shoulder="${runner.shoulderNumber}" data-type="stretcher" ${isApproved ? 'disabled' : ''} style="width:55px; text-align:center;">
+                  <input type="number" min="1" max="7" value="${scores.stretcher}" data-shoulder="${runner.shoulderNumber}" data-type="stretcher" ${!state.isEditingScores ? 'disabled' : ''} style="width:55px; text-align:center;">
                 </td>
             </tr>`;
     }).join('')}
@@ -3097,12 +3102,33 @@ ${inactiveRunners.length > 0 ? `
     </tbody>
 </table>
 </div>` : ''}
-${!isApproved ? `<button id="approve-scores-btn" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg mt-6">אישור ציונים</button>` : `<button id="export-excel-btn" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg mt-6">ייצא לאקסל</button>`}
+<div class="mt-6 flex flex-row gap-4 justify-center">
+  <button id="${state.isEditingScores ? 'save-scores-btn' : 'edit-scores-btn'}"
+          class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg">
+      ${state.isEditingScores ? 'שמירה' : 'עריכה'}
+  </button>
+  <button id="export-excel-btn"
+        class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg"
+        ${state.isEditingScores ? 'disabled style="opacity:0.5;pointer-events:none;"' : ''}>
+    ייצא לאקסל
+</button>
+</div>
 `;
-
+    const exportBtn = document.getElementById('export-excel-btn');
+    if (exportBtn) {
+        exportBtn.disabled = state.isEditingScores;
+        if (state.isEditingScores) {
+            exportBtn.style.opacity = '0.5';
+            exportBtn.style.pointerEvents = 'none';
+        } else {
+            exportBtn.style.opacity = '';
+            exportBtn.style.pointerEvents = '';
+        }
+    }
     // מאזינים לעריכת ציונים
     contentDiv.querySelectorAll('input[type="number"]').forEach(input => {
         input.addEventListener('input', (e) => {
+            if (!state.isEditingScores) return;
             const shoulder = e.target.dataset.shoulder;
             const type = e.target.dataset.type;
             state.manualScores[shoulder] = state.manualScores[shoulder] || {};
@@ -3112,8 +3138,12 @@ ${!isApproved ? `<button id="approve-scores-btn" class="bg-green-600 hover:bg-gr
     });
 
     // כפתור אישור ציונים
-    document.getElementById('approve-scores-btn')?.addEventListener('click', () => {
-        state.scoresApproved = true;
+    document.getElementById('edit-scores-btn')?.addEventListener('click', () => {
+        state.isEditingScores = true;
+        render();
+    });
+    document.getElementById('save-scores-btn')?.addEventListener('click', () => {
+        state.isEditingScores = false;
         saveState();
         render();
     });
