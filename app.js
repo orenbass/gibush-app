@@ -95,6 +95,8 @@ const state = {
 
     crawlingDrills: {},      // אובייקט לנתוני תרגילי זחילה (הערות, ספרינטים, נושאי שק)
 
+    generalComments: {}, // הוספת שדה להערות כלליות
+
     sociometricStretcher: {},    // אובייקט לנתוני אלונקה סוציומטרית (מקצים, נושאים, הערות)
 
     themeMode: 'auto', // אפשרויות: 'auto', 'light', 'dark'
@@ -118,6 +120,7 @@ const headerTitle = document.getElementById('header-title');
 const autosaveStatus = document.getElementById('autosave-status');
 
 const loadingOverlay = document.getElementById('loading-overlay'); // V1.11 - Added loading overlay
+let tempStateBackup = null; // גיבוי זמני למצב עריכה בדוח
 
 
 
@@ -202,7 +205,6 @@ function updateTimerDisplay(elapsedTime, showMilliseconds = true) {
         }
 
     }
-
 }
 
 
@@ -2299,25 +2301,37 @@ function renderQuickCommentBar(show) {
       `<option value="${r.shoulderNumber}">#${r.shoulderNumber}</option>`
     ).join('');
     quickBarDiv.innerHTML = `
-  <div class="flex items-center bg-gray-200 dark:bg-gray-800 rounded-xl shadow-inner px-3 py-2 mb-6 mt-4 w-full max-w-2xl mx-auto">
-    <button
-      id="quick-comment-send"
-      class="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg px-5 py-2 ml-2"
-      style="min-width:80px;">
-      שלח
-    </button>
-    <input
-      id="quick-comment-input"
-      type="text"
-      class="flex-grow mr-2 ml-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 focus:ring-2 focus:ring-blue-400
-             text-sm text-right"
-      placeholder="הוסף הערה חפוזה...">
-    <select
-      id="quick-comment-runner"
-      class="p-2 border border-gray-300 rounded-lg bg-white dark:bg-gray-900 text-base shadow-sm"
-      style="min-width:90px;">
-      ${runnerOptions}
-    </select>
+  <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-gray-200 dark:bg-gray-800 rounded-xl shadow-inner p-3 mb-6 mt-4 w-full max-w-4xl mx-auto">
+    
+    <!-- קבוצה של בחירת רץ והקלדת הערה -->
+    <div class="flex-grow flex items-center gap-2">
+        <select
+          id="quick-comment-runner"
+          class="p-2 border border-gray-300 rounded-lg bg-white dark:bg-gray-900 text-base shadow-sm"
+          aria-label="בחר רץ">
+          ${runnerOptions}
+        </select>
+        <input
+          id="quick-comment-input"
+          type="text"
+          class="flex-grow p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 focus:ring-2 focus:ring-blue-400 text-sm text-right"
+          placeholder="הוסף הערה חפוזה...">
+    </div>
+
+    <!-- קבוצה של כפתורי פעולה -->
+    <div class="flex items-stretch gap-2">
+        <button
+            id="quick-comment-mic"
+            class="flex-shrink-0 bg-gray-300 hover:bg-gray-400 text-gray-800 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold rounded-lg p-2 text-xl flex items-center justify-center"
+            aria-label="הקלט הערה קולית">
+          🎤
+        </button>
+        <button
+          id="quick-comment-send"
+          class="flex-grow md:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg px-5 py-2">
+          שלח
+        </button>
+    </div>
   </div>
 `;
     // מאזין
@@ -2325,10 +2339,10 @@ function renderQuickCommentBar(show) {
       const selected = document.getElementById('quick-comment-runner').value;
       const text = document.getElementById('quick-comment-input').value.trim();
       if (selected && text) {
-          if (state.crawlingDrills.comments[selected]) {
-              state.crawlingDrills.comments[selected] += ' | ' + text;
+          if (state.generalComments[selected]) {
+              state.generalComments[selected] += ' | ' + text;
           } else {
-              state.crawlingDrills.comments[selected] = text;
+              state.generalComments[selected] = text;
           }
           saveState();
           document.getElementById('quick-comment-input').value = '';
@@ -2339,13 +2353,65 @@ function renderQuickCommentBar(show) {
       }
     });
 
-    // האם יש קבוצה? לפחות רץ אחד ב-state
+    // Speech Recognition API
+    const micButton = document.getElementById('quick-comment-mic');
+    const commentInput = document.getElementById('quick-comment-input');
+    let recognition = null;
+    let isRecording = false;
+
+    if ('webkitSpeechRecognition' in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'he-IL';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            commentInput.value = transcript;
+            isRecording = false;
+            micButton.classList.remove('recording');
+            micButton.textContent = '🎤';
+        }
+
+        recognition.onerror = function(event) {
+            console.error('Speech recognition error', event.error);
+            isRecording = false;
+            micButton.classList.remove('recording');
+            micButton.textContent = '🎤';
+        }
+
+        recognition.onend = function() {
+            isRecording = false;
+            micButton.classList.remove('recording');
+            micButton.textContent = '🎤';
+        }
+
+        micButton.addEventListener('click', () => {
+            if (!isRecording) {
+                recognition.start();
+                isRecording = true;
+                micButton.classList.add('recording');
+                micButton.textContent = '🛑';
+            } else {
+                recognition.stop();
+                isRecording = false;
+                micButton.classList.remove('recording');
+                micButton.textContent = '🎤';
+            }
+        });
+    } else {
+        micButton.disabled = true;
+        micButton.textContent = 'לא נתמך';
+    }
+}
+
+// האם יש קבוצה? לפחות רץ אחד ב-state
 const shouldShowQuickBar =
 state.runners && state.runners.length > 0 &&
 state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
 
 renderQuickCommentBar(shouldShowQuickBar);
-}
 
 /**
 
@@ -2544,39 +2610,14 @@ function renderHeatPage(heatIndex) {
 
     </div>
 
-    <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
-
-        <h3 class="text-xl font-semibold mb-2">סדר הגעה</h3>
-
-        <div id="arrival-list" class="space-y-2">
-
+    <div id="arrival-list" class="space-y-2">
             ${heat.arrivals.map((arrival, index) => `
-
-            <div class="bg-white p-3 rounded-lg shadow-sm">
-
-                <div class="flex justify-between items-center mb-2">
-
-                    <span class="font-bold text-gray-700 text-sm md:text-base">${index + 1}. רץ #${arrival.shoulderNumber}</span>
-
-                    <span class="font-mono text-gray-500 text-sm md:text-base">${arrival.finishTime ? formatTime(arrival.finishTime) : arrival.comment}</span>
-
-                </div>
-
-                <div class="flex items-center">
-
-                    <span class="text-xs md:text-sm text-gray-600 ml-2">הערות:</span>
-
-                    <input type="text" placeholder="הוסף הערה (אופציונלי)" value="${arrival.comment || ''}" data-index="${index}" class="comment-input flex-grow p-2 border border-gray-300 rounded-lg text-sm text-right">
-
-                </div>
-
+            <div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
+                <span class="font-bold text-gray-700 text-sm md:text-base">${index + 1}. רץ #${arrival.shoulderNumber}</span>
+                <span class="font-mono text-gray-500 text-sm md:text-base">${arrival.finishTime ? formatTime(arrival.finishTime) : arrival.comment}</span>
             </div>`).join('')}
-
         </div>
-
     </div>`;
-
-
 
     // Start timer if heat is started and not finished, otherwise update display with last time
 
@@ -2695,12 +2736,6 @@ function renderCrawlingDrillsCommentsPage() {
 
             </div>
 
-            <div class="w-full mt-2 md:mt-0">
-
-                <textarea placeholder="הוסף הערה (אופציונלי)" data-shoulder-number="${runner.shoulderNumber}" class="w-full p-2 border border-gray-300 rounded-lg text-right comment-area" rows="1">${state.crawlingDrills.comments[runner.shoulderNumber] || ''}</textarea>
-
-            </div>
-
         </div>`;
 
     }).join('');
@@ -2735,7 +2770,7 @@ function renderCrawlingDrillsCommentsPage() {
 
     contentDiv.innerHTML = `
 
-    <h2 class="text-2xl font-semibold mb-4 text-center mt-6 text-blue-500">ניהול נשיאת שק והערות כלליות</h2>
+    <h2 class="text-2xl font-semibold mb-4 text-center mt-6 text-blue-500">ניהול נשיאת שק</h2>
 
     ${sackCarrierHtml}
 
@@ -3069,7 +3104,7 @@ function renderSociometricStretcherHeatPage(heatIndex) {
 
     // Combine all HTML sections
 
-    contentDiv.innerHTML = selectionHtml + navigationButtons + commentsHtml;
+    contentDiv.innerHTML = selectionHtml + navigationButtons;
 
 
 
@@ -3077,7 +3112,7 @@ function renderSociometricStretcherHeatPage(heatIndex) {
 
     document.querySelectorAll('.runner-stretcher-btn').forEach(btn => btn.addEventListener('click', handleSociometricStretcherSelection));
 
-    document.querySelectorAll('.runner-jerrican-btn').forEach(btn => btn.addEventListener('click', handleSociometricJerricanSelection));
+    document.querySelectorAll('.runner-jerrican-btn').forEach(btn.addEventListener('click', handleSociometricJerricanSelection));
 
 
 
@@ -3173,6 +3208,7 @@ function renderReportPage() {
             <th class="py-2 px-2 border-b">סופי ספרינטים<br>(1-7)</th>
             <th class="py-2 px-2 border-b">סופי זחילות<br>(1-7)</th>
             <th class="py-2 px-2 border-b">סופי ${CONFIG.STRETCHER_PAGE_LABEL}<br>(1-7)</th>
+            <th class="py-2 px-2 border-b">הערות כלליות</th>
         </tr>
     </thead>
     <tbody>
@@ -3182,6 +3218,7 @@ function renderReportPage() {
             crawl: runner.crawlingScore,
             stretcher: runner.stretcherScore
         };
+        const generalComment = state.generalComments[runner.shoulderNumber] || '';
         return `
             <tr class="text-center ${getRowClass(index)}">
                 <td>${index + 1}</td>
@@ -3194,6 +3231,9 @@ function renderReportPage() {
                 </td>
                 <td>
                   <input type="number" min="1" max="7" value="${scores.stretcher}" data-shoulder="${runner.shoulderNumber}" data-type="stretcher" ${!state.isEditingScores ? 'disabled' : ''} style="width:55px; text-align:center;">
+                </td>
+                <td>
+                  <textarea data-shoulder="${runner.shoulderNumber}" data-type="generalComment" ${!state.isEditingScores ? 'disabled' : ''} style="width:150px; text-align:right; font-size: 0.8rem; padding: 2px;" rows="2">${generalComment}</textarea>
                 </td>
             </tr>`;
     }).join('')}
@@ -3224,6 +3264,11 @@ ${inactiveRunners.length > 0 ? `
           class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg">
       ${state.isEditingScores ? 'שמירה' : 'עריכה'}
   </button>
+  ${state.isEditingScores ? `
+  <button id="cancel-scores-btn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg">
+      ביטול
+  </button>
+  ` : ''}
   <button id="export-excel-btn"
         class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg"
         ${state.isEditingScores ? 'disabled style="opacity:0.5;pointer-events:none;"' : ''}>
@@ -3243,29 +3288,51 @@ ${inactiveRunners.length > 0 ? `
         }
     }
     // מאזינים לעריכת ציונים
-    contentDiv.querySelectorAll('input[type="number"]').forEach(input => {
+    contentDiv.querySelectorAll('input[type="number"], textarea').forEach(input => {
         input.addEventListener('input', (e) => {
             if (!state.isEditingScores) return;
             const shoulder = e.target.dataset.shoulder;
             const type = e.target.dataset.type;
-            state.manualScores[shoulder] = state.manualScores[shoulder] || {};
-            state.manualScores[shoulder][type] = parseInt(e.target.value) || 1;
+            if (type === 'generalComment') {
+                state.generalComments[shoulder] = e.target.value;
+            } else {
+                state.manualScores[shoulder] = state.manualScores[shoulder] || {};
+                state.manualScores[shoulder][type] = parseInt(e.target.value) || 1;
+            }
             saveState();
         });
     });
 
-    // כפתור אישור ציונים
+    // כפתורי עריכה, שמירה וביטול
     document.getElementById('edit-scores-btn')?.addEventListener('click', () => {
+        // יצירת גיבוי עמוק של הנתונים לפני עריכה
+        tempStateBackup = {
+            manualScores: JSON.parse(JSON.stringify(state.manualScores || {})),
+            generalComments: JSON.parse(JSON.stringify(state.generalComments || {}))
+        };
         state.isEditingScores = true;
         render();
     });
+
     document.getElementById('save-scores-btn')?.addEventListener('click', () => {
         state.isEditingScores = false;
+        tempStateBackup = null; // ניקוי הגיבוי
         saveState();
         render();
     });
 
-    // כפתור ייצוא לאקסל (רק לאחר אישור)
+    document.getElementById('cancel-scores-btn')?.addEventListener('click', () => {
+        // שחזור הנתונים מהגיבוי
+        if (tempStateBackup) {
+            state.manualScores = tempStateBackup.manualScores;
+            state.generalComments = tempStateBackup.generalComments;
+        }
+        state.isEditingScores = false;
+        tempStateBackup = null; // ניקוי הגיבוי
+        render(); // רינדור מחדש ללא שמירת השינויים
+    });
+
+    // כפתור ייצוא לאקסל
     document.getElementById('export-excel-btn')?.addEventListener('click', exportToExcel);
 }
 
@@ -3347,16 +3414,12 @@ async function exportToExcel() {
             'דירוג',
             "מס' כתף",
             'סופי ספרינטים (1-7)',
-            'הערות ספרינטים',
             'סופי זחילות (1-7)',
-            'הערות זחילות',
             `סופי ${CONFIG.STRETCHER_PAGE_LABEL} (1-7)`,
-            `הערות ${CONFIG.STRETCHER_PAGE_LABEL}`,
+            'הערות כלליות',
             'שם מעריך',
-            'מספר קבוצה',
-            'תאריך ושעה'
+            'מספר קבוצה'
         ]);
-
         styleHeader(summaryHeader); // החלת סגנונות כותרת
 
 
@@ -3404,28 +3467,17 @@ async function exportToExcel() {
             const stretcherScore = manual?.stretcher ?? calculateStretcherFinalScore(r.runner);
 
             // הערות
-            const sprintsComments = state.heats
-                .map(h => h.arrivals.find(a => a.shoulderNumber === r.runner.shoulderNumber)?.comment)
-                .filter(Boolean).join('; ');
-
-            const crawlingComments = state.crawlingDrills.comments[r.runner.shoulderNumber] || '';
-
-            const stretcherComments = state.sociometricStretcher.heats
-                .map(h => h.allRunnersComments[r.runner.shoulderNumber])
-                .filter(Boolean).join('; ');
+            const generalComments = state.generalComments[r.runner.shoulderNumber] || '';
 
             const row = summarySheet.addRow([
                 index + 1,
                 r.runner.shoulderNumber,
                 sprintScore,
-                sprintsComments,
                 crawlingScore,
-                crawlingComments,
                 stretcherScore,
-                stretcherComments,
+                generalComments,
                 state.evaluatorName,
-                state.groupNumber,
-                new Date().toLocaleString('he-IL')
+                state.groupNumber
             ]);
             row.eachCell((cell) => {
                 cell.border = border;
@@ -3846,7 +3898,7 @@ if (element) {
 let deferredPrompt = null;
 
 window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault(); // מונע מהדפדפן להציג את הברירת מחדל שלו
+    event.preventDefault(); // מונע מהדפפן להציג את הברירת מחדל שלו
     deferredPrompt = event;
     const installBtn = document.getElementById('install-btn');
     if (installBtn) {
