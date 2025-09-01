@@ -2239,119 +2239,131 @@ function renderAdminSettingsPage() {
 
 }
 
+
 function renderQuickCommentBar(show) {
     const quickBarDiv = document.getElementById('quick-comment-bar-container');
-    if (!show) {
-        quickBarDiv.innerHTML = '';
-        return;
-    }
-    // Sort runners by shoulder number and remove '#'
+    if (!show) { quickBarDiv.innerHTML = ''; return; }
+
     const runnerOptions = state.runners
-        .slice() // Create a copy to avoid mutating the original state array
+        .slice()
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
         .map(r => `<option value="${r.shoulderNumber}">${r.shoulderNumber}</option>`).join('');
 
     quickBarDiv.innerHTML = `
-  <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-gray-200 dark:bg-gray-800 rounded-xl shadow-inner p-3 mb-6 mt-4 w-full max-w-4xl mx-auto">    <div class="flex-grow flex items-center gap-2">
-        <select id="quick-comment-runner" class="p-2 border border-gray-300 rounded-lg bg-white dark:bg-gray-900 text-base shadow-sm" aria-label="בחר רץ">${runnerOptions}</select>
-        <input id="quick-comment-input" type="text" class="flex-grow p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 focus:ring-2 focus:ring-blue-400 text-sm text-right" placeholder="הוסף הערה חפוזה...">
-    </div>
-    <div class="flex items-stretch gap-2">
-        <button id="quick-comment-mic" class="flex-shrink-0 bg-gray-300 hover:bg-gray-400 text-gray-800 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 font-bold rounded-lg p-2 text-xl flex items-center justify-center" aria-label="הקלט הערה קולית">🎤</button>
-        <button id="quick-comment-send" class="flex-grow md:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg px-5 py-2">שלח</button>
-    </div>
-  </div>`;
+      <div class="quickbar" role="region" aria-label="הערה חפוזה">
+        <div class="qc-group">
+          <span class="qc-label">מספר כתף:</span>
+          <select id="quick-comment-runner" class="qc-select qc-runner-select" aria-label="בחר מספר כתף">${runnerOptions}</select>
+        </div>
+        <div class="qc-group" style="flex:1">
+          <span class="qc-label">הערה:</span>
+          <input id="quick-comment-input" type="text" class="qc-input" placeholder="הוסף הערה חפוזה...">
+          <button id="quick-comment-mic" class="qc-micBtn" aria-label="הכתבה קולית">🎤</button>
+        </div>
+        <div class="qc-actions">
+          <button id="quick-comment-send" class="qc-sendBtn" disabled>שלח</button>
+        </div>
+      </div>`;
 
-    document.getElementById('quick-comment-send')?.addEventListener('click', () => {
-        const selected = document.getElementById('quick-comment-runner').value;
-        const text = document.getElementById('quick-comment-input').value.trim();
-        if (selected && text) {
-            if (state.generalComments[selected]) {
-                state.generalComments[selected] += ' | ' + text;
-            } else {
-                state.generalComments[selected] = text;
-            }
-            saveState();
-            document.getElementById('quick-comment-input').value = '';
-            document.getElementById('quick-comment-input').placeholder = 'ההערה נוספה!';
-            setTimeout(() => {
-                document.getElementById('quick-comment-input').placeholder = 'הוסף הערה חפוזה...';
-            }, 1000);
+    const selectEl = document.getElementById('quick-comment-runner');
+    const inputEl  = document.getElementById('quick-comment-input');
+    const micBtn   = document.getElementById('quick-comment-mic');
+    const sendBtn  = document.getElementById('quick-comment-send');
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    const updateSendEnabled = () => {
+        const hasText = inputEl.value.trim().length > 0;
+        sendBtn.disabled = !hasText;
+    };
+    inputEl.addEventListener('input', updateSendEnabled);
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!sendBtn.disabled) send();
         }
     });
 
-    const micButton = document.getElementById('quick-comment-mic');
-    const commentInput = document.getElementById('quick-comment-input');
-    let recognition = null;
-    let isRecording = false;
+    function send() {
+        const selected = selectEl.value;
+        const text = inputEl.value.trim();
+        if (!selected || !text) return;
+        if (state.generalComments[selected]) {
+            state.generalComments[selected] += ' | ' + text;
+        } else {
+            state.generalComments[selected] = text;
+        }
+        saveState();
+        if (navigator.vibrate) navigator.vibrate(10);
+        inputEl.value = '';
+        inputEl.placeholder = 'נשמר!';
+        updateSendEnabled();
+        setTimeout(() => { inputEl.placeholder = 'הוסף הערה חפוזה...'; }, 900);
+    }
+    sendBtn.addEventListener('click', send);
 
-    if ('webkitSpeechRecognition' in window) {
-        recognition = new webkitSpeechRecognition();
-        recognition.continuous = false;
+    // דיבור/חלופה לאייפון (כפי שכבר יושם קודם)
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null, isRecording = false;
+
+    if (SR) {
+        recognition = new SR();
         recognition.lang = 'he-IL';
+        recognition.continuous = false;
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
-        recognition.onresult = function (event) {
-            const transcript = event.results[0][0].transcript;
-            commentInput.value = transcript;
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript || '';
+            inputEl.value = transcript;
+            updateSendEnabled();
         };
-
-        recognition.onerror = function (event) {
-            console.error('Speech recognition error', event.error);
+        recognition.onerror = () => {
             isRecording = false;
-            micButton.classList.remove('recording');
-            micButton.textContent = '🎤';
+            micBtn.classList.remove('recording');
+            micBtn.textContent = '🎤';
         };
-
-        recognition.onend = function () {
+        recognition.onend = () => {
             isRecording = false;
-            micButton.classList.remove('recording');
-            micButton.textContent = '🎤';
+            micBtn.classList.remove('recording');
+            micBtn.textContent = '🎤';
         };
 
-        // --- Push-to-Talk Logic ---
-        const startRecording = (e) => {
+        const startRec = (e) => {
             e.preventDefault();
             if (!isRecording) {
-                recognition.start();
-                isRecording = true;
-                micButton.classList.add('recording');
-                micButton.textContent = '🛑';
+                try {
+                    recognition.start();
+                    isRecording = true;
+                    micBtn.classList.add('recording');
+                    micBtn.textContent = '🛑';
+                } catch {}
             }
         };
-
-        const stopRecording = (e) => {
+        const stopRec = (e) => {
             e.preventDefault();
-            if (isRecording) {
-                recognition.stop();
-            }
+            if (isRecording) recognition.stop();
         };
 
-        // Mouse events
-        micButton.addEventListener('mousedown', startRecording);
-        micButton.addEventListener('mouseup', stopRecording);
-        micButton.addEventListener('mouseleave', stopRecording);
-
-        // Touch events for mobile
-        micButton.addEventListener('touchstart', startRecording);
-        micButton.addEventListener('touchend', stopRecording);
-
+        micBtn.addEventListener('mousedown', startRec);
+        micBtn.addEventListener('mouseup', stopRec);
+        micBtn.addEventListener('mouseleave', stopRec);
+        micBtn.addEventListener('touchstart', startRec, { passive: false });
+        micBtn.addEventListener('touchend', stopRec);
     } else {
-        micButton.disabled = true;
-        micButton.innerHTML = `
-          <div style="position: relative; display: inline-block;">
-            🎤
-            <span style="position: absolute; top: -10px; right: -10px; font-size: 12px; background: red; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">!</span>
-          </div>`;
-        const isAppleDevice = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
-        if (isAppleDevice) {
-            micButton.title = "הכתבה קולית אינה נתמכת בדפדפן זה. טיפ: ניתן להשתמש בסמל המיקרופון שמופיע על המקלדת של אפל.";
-        } else {
-            micButton.title = "הקלטה קולית אינה נתמכת בדפדפן זה או דורשת חיבור מאובטח (HTTPS).";
-        }
+        micBtn.title = isIOS
+          ? "באייפון: מקסם מקלדת והשתמש בסמל 🎤 להכתבה."
+          : "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
+        const startNative = (e) => { e.preventDefault(); micBtn.classList.add('recording'); micBtn.textContent = '🛑'; inputEl.focus(); };
+        const stopNative  = (e) => { e.preventDefault(); micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
+        micBtn.addEventListener('mousedown', startNative);
+        micBtn.addEventListener('mouseup', stopNative);
+        micBtn.addEventListener('mouseleave', stopNative);
+        micBtn.addEventListener('touchstart', startNative, { passive: false });
+        micBtn.addEventListener('touchend', stopNative);
     }
 }
+
 /**
 
  * Renders the "Status Management" page, allowing global status changes for runners
