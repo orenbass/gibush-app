@@ -2251,10 +2251,14 @@ function renderQuickCommentBar(show) {
         quickBarDiv.innerHTML = '';
         return;
     }
-    const runnerOptions = state.runners.map(r => `<option value="${r.shoulderNumber}">#${r.shoulderNumber}</option>`).join('');
+    // Sort runners by shoulder number and remove '#'
+    const runnerOptions = state.runners
+        .slice() // Create a copy to avoid mutating the original state array
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
+        .map(r => `<option value="${r.shoulderNumber}">${r.shoulderNumber}</option>`).join('');
+
     quickBarDiv.innerHTML = `
-  <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-gray-200 dark:bg-gray-800 rounded-xl shadow-inner p-3 mb-6 mt-4 w-full max-w-4xl mx-auto">
-    <div class="flex-grow flex items-center gap-2">
+  <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-gray-200 dark:bg-gray-800 rounded-xl shadow-inner p-3 mb-6 mt-4 w-full max-w-4xl mx-auto">    <div class="flex-grow flex items-center gap-2">
         <select id="quick-comment-runner" class="p-2 border border-gray-300 rounded-lg bg-white dark:bg-gray-900 text-base shadow-sm" aria-label="בחר רץ">${runnerOptions}</select>
         <input id="quick-comment-input" type="text" class="flex-grow p-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 focus:ring-2 focus:ring-blue-400 text-sm text-right" placeholder="הוסף הערה חפוזה...">
     </div>
@@ -2366,8 +2370,6 @@ function renderStatusManagementPage() {
 
     headerTitle.textContent = 'סטטוס חיילים'; // Update header title
 
-
-
     contentDiv.innerHTML = `
 
     <h2 class="text-2xl font-semibold mb-4 text-center text-blue-500">ניהול סטטוס רצים</h2>
@@ -2376,7 +2378,10 @@ function renderStatusManagementPage() {
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            ${state.runners.map(runner => {
+            ${state.runners
+        .slice() // Create a copy for sorting
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
+        .map(runner => {
 
         // Determine current status and display properties
 
@@ -2424,7 +2429,7 @@ function renderStatusManagementPage() {
 
                 <div class="flex flex-col md:flex-row items-center md:space-x-2 md:space-x-reverse p-2 bg-white rounded-lg shadow-sm">
 
-                    <span class="font-bold text-lg w-full md:w-1/4 text-center md:text-right">#${runner.shoulderNumber}</span>
+                    <span class="font-bold text-lg w-full md:w-1/4 text-center md:text-right">${runner.shoulderNumber}</span>
 
                     <div class="flex flex-row gap-2 w-full">
                         ${currentStatus === 'active' ? `
@@ -2499,24 +2504,18 @@ function renderHeatPage(heatIndex) {
 
     headerTitle.textContent = `מקצה ספרינט ${heat.heatNumber}`; // Update header title
 
-
-
-    // Filter active runners who have not yet arrived in this heat
-
-    const activeRunners = state.runners.filter(runner =>
-
-        !heat.arrivals.some(arrival => arrival.shoulderNumber === runner.shoulderNumber) && // Not already arrived
-
-        !state.crawlingDrills.runnerStatuses[runner.shoulderNumber] // Not globally inactive
-
-    );
-
-
+    // Filter active runners who have not yet arrived in this heat and sort them
+    const activeRunners = state.runners
+        .filter(runner =>
+            runner.shoulderNumber && // Ensure runner has a shoulder number
+            !heat.arrivals.some(arrival => arrival.shoulderNumber === runner.shoulderNumber) && // Not already arrived
+            !state.crawlingDrills.runnerStatuses[runner.shoulderNumber] // Not globally inactive
+        )
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
     contentDiv.innerHTML = `
 
     <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00:000</div>
-
     <div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
 
         ${heatIndex > 0 ? `<button id="prev-heat-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
@@ -2541,14 +2540,14 @@ function renderHeatPage(heatIndex) {
 
         <h3 class="text-base md:text-xl font-semibold mb-2 text-center text-gray-700">לחץ על מספר הכתף של הרץ שהגיע</h3>
 
-        <div class="grid grid-cols-3 md:grid-cols-5 gap-3">${activeRunners.map(runner => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold p-3 md:p-4 rounded-lg shadow-md text-xl md:text-2xl" data-shoulder-number="${runner.shoulderNumber}">#${runner.shoulderNumber}</button>`).join('')}</div>
+        <div class="grid grid-cols-3 md:grid-cols-5 gap-3 justify-center">${activeRunners.map(runner => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold p-3 md:p-4 rounded-lg shadow-md text-xl md:text-2xl" data-shoulder-number="${runner.shoulderNumber}">${runner.shoulderNumber}</button>`).join('')}</div>
 
     </div>
 
     <div id="arrival-list" class="space-y-2">
             ${heat.arrivals.map((arrival, index) => `
             <div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
-                <span class="font-bold text-gray-700 text-sm md:text-base">${index + 1}. רץ #${arrival.shoulderNumber}</span>
+                <span class="font-bold text-gray-700 text-sm md:text-base">${index + 1}. רץ ${arrival.shoulderNumber}</span>
                 <span class="font-mono text-gray-500 text-sm md:text-base">${arrival.finishTime ? formatTime(arrival.finishTime) : arrival.comment}</span>
             </div>`).join('')}
         </div>
@@ -2617,115 +2616,66 @@ function renderHeatPage(heatIndex) {
  */
 
 function renderCrawlingDrillsCommentsPage() {
+    headerTitle.textContent = 'תרגילי זחילה - הערות כלליות';
 
-    headerTitle.textContent = 'תרגילי זחילה - הערות כלליות'; // Update header title
-
-
-
-    // Filter active runners for display
-
-    const activeRunners = state.runners.filter(runner => !state.crawlingDrills.runnerStatuses[runner.shoulderNumber]);
-
-
-
-    // Restart sack timers for currently active sack carriers
+    const activeRunners = state.runners
+        .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
     activeRunners.forEach(runner => {
-
         if (state.crawlingDrills.activeSackCarriers.includes(runner.shoulderNumber)) {
-
             startSackTimer(runner.shoulderNumber);
-
         }
-
     });
 
-
-
-    // Generate HTML for runner comments and sack times
-
     const commentsHtml = activeRunners.map(runner => {
-
         const sackData = state.crawlingDrills.sackCarriers[runner.shoulderNumber];
-
         const sackTime = sackData ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now() - sackData.startTime : 0)) : '00:00';
-
+        const generalComment = state.generalComments[runner.shoulderNumber] || '';
         return `
-
-        <div class="p-3 bg-white rounded-lg shadow-sm flex flex-col md:flex-row items-center justify-between">
-
-            <div class="text-lg font-bold">#${runner.shoulderNumber}</div>
-
-            <div class="flex-grow flex items-start md:items-center space-x-2 space-x-reverse px-0 md:px-4 mt-2 md:mt-0 w-full">
-
-                <span class="text-sm font-semibold whitespace-nowrap">זמן נשיאת שק:</span>
-
-                <span id="sack-timer-${runner.shoulderNumber}" class="text-lg font-mono text-gray-700">${sackTime}</span>
-
-            </div>
-
-        </div>`;
-
+        <div class="p-3 bg-white rounded-lg shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="text-lg font-bold"> ${runner.shoulderNumber}</div>
+            <div class="flex-grow flex items-center space-x-2 space-x-reverse w-full">
+                <span class="text-sm font-semibold whitespace-nowrap">שק:</span>
+                <span id="sack-timer-${runner.shoulderNumber}" class="text-lg font-mono text-gray-700">${sackTime}</span>
+            </div>
+            <div class="flex-grow w-full">
+                <textarea class="comment-area w-full p-2 border border-gray-200 rounded-md text-sm text-right" data-shoulder-number="${runner.shoulderNumber}" placeholder="הערה כללית...">${generalComment}</textarea>
+            </div>
+        </div>`;
     }).join('');
 
-
-
     // Generate HTML for sack carrier selection buttons
-
     const sackCarrierHtml = `
-
-    <div id="sack-carrier-container" class="my-6 p-4 bg-gray-100 rounded-lg">
-
-        <h3 class="text-xl font-semibold mb-4 text-center">בחר את נושאי השק (עד ${CONFIG.MAX_SACK_CARRIERS})</h3>
-
-        <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
-
-            ${activeRunners.map(runner => {
-
+<div id="sack-carrier-container" class="my-6 p-4 bg-gray-100 rounded-lg">
+    <h3 class="text-xl font-semibold mb-4 text-center">בחר את נושאי השק (עד ${CONFIG.MAX_SACK_CARRIERS})</h3>
+    <div class="grid w-full grid-cols-3 md:grid-cols-5 gap-3 justify-center">${activeRunners.map(runner => {
         const isSelected = state.crawlingDrills.activeSackCarriers.includes(runner.shoulderNumber);
-
         const canSelect = isSelected || state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
-
-        return `<button class="runner-sack-btn bg-gray-300 hover:bg-gray-400 font-bold p-4 rounded-lg text-xl ${isSelected ? 'selected' : ''}" data-shoulder-number="${runner.shoulderNumber}" ${!canSelect ? 'disabled' : ''}>#${runner.shoulderNumber}<br>🎒</button>`;
-
-    }).join('')}
-
-        </div>
-
-    </div>`;
+        return `<button class="runner-sack-btn bg-gray-300 hover:bg-gray-400 font-bold p-4 rounded-lg text-xl ${isSelected ? 'selected' : ''}" data-shoulder-number="${runner.shoulderNumber}" ${!canSelect ? 'disabled' : ''}>${runner.shoulderNumber}<br>🎒</button>`;
+    }).join('')}</div>
+</div>`;
 
 
 
-    contentDiv.innerHTML = `
-
-    <h2 class="text-2xl font-semibold mb-4 text-center mt-6 text-blue-500">ניהול נשיאת שק</h2>
-
-    ${sackCarrierHtml}
-
-    <div class="space-y-4 mb-6">${commentsHtml}</div>
-
-    <div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
-
-        <div></div><span>זחילות מתמשך 1/1</span>
-
-        <button id="next-crawl-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">התחל ספרינט זחילות <span class="text-xl">&rarr;</span></button>
-
-    </div>`;
+contentDiv.innerHTML = `
+<h2 class="text-2xl font-semibold mb-4 text-center mt-6 text-blue-500">ניהול נשיאת שק</h2>
+${sackCarrierHtml}
+<div class="space-y-4 mb-6">${commentsHtml}</div>
+<div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
+    <div></div><span>זחילות מתמשך 1/1</span>
+    <button id="next-crawl-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">התחל ספרינט זחילות <span class="text-xl">&rarr;</span></button>
+</div>`;
 
 
 
     // Attach event listeners for comment textareas
 
     document.querySelectorAll('.comment-area').forEach(textarea => {
-
         textarea.addEventListener('input', (e) => {
-
-            state.crawlingDrills.comments[e.target.dataset.shoulderNumber] = e.target.value;
-
+            state.generalComments[e.target.dataset.shoulderNumber] = e.target.value;
             saveState();
-
         });
-
     });
 
 
@@ -2765,77 +2715,29 @@ function renderCrawlingDrillsCommentsPage() {
  */
 
 function renderCrawlingSprintPage(sprintIndex) {
-
     const sprint = state.crawlingDrills.sprints[sprintIndex];
+    headerTitle.textContent = `מקצה זחילה ${sprint.heatNumber}`;
 
-    headerTitle.textContent = `מקצה זחילה ${sprint.heatNumber}`; // Update header title
-
-
-
-    // Filter active runners who have not yet arrived in this crawling sprint
-
-    const activeRunners = state.runners.filter(r =>
-
-        !state.crawlingDrills.runnerStatuses[r.shoulderNumber] && // Not globally inactive
-
-        !sprint.arrivals.some(a => a.shoulderNumber === r.shoulderNumber) // Not already arrived in this sprint
-
-    );
-
-
+    const activeRunners = state.runners
+        .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber] && !sprint.arrivals.some(a => a.shoulderNumber === r.shoulderNumber))
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
     contentDiv.innerHTML = `
-
-    <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00</div>
-
-    <div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
-
-        ${sprintIndex > 0 ? `<button id="prev-crawling-sprint-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
-
-        <span>מקצה זחילה ${sprintIndex + 1}/${CONFIG.MAX_CRAWLING_SPRINTS}</span>
-
-        ${sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1 ?
-
-            `<button id="next-crawling-sprint-btn-inline" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">הבא <span class="text-xl">&rarr;</span></button>` :
-
-            `<button id="next-crawling-sprint-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">${CONFIG.STRETCHER_PAGE_LABEL} <span class="text-xl">&rarr;</span></button>`}
-
-    </div>
-
-    <div class="flex justify-center space-x-2 space-x-reverse my-4 flex-wrap">
-
-        <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${sprint.started ? 'hidden' : ''}">התחל</button>
-
-        <button id="stop-btn" class="bg-red-500 hover:bg-red-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished ? 'hidden' : ''}">סיים</button>
-
-        <button id="undo-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished || sprint.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
-
-    </div>
-
-    <div id="runner-buttons-container" class="my-6 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
-
-        <h3 class="text-base md:text-xl font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
-
-        <div class="grid grid-cols-3 md:grid-cols-5 gap-3">
-
-            ${activeRunners.map(runner => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold p-3 md:p-4 rounded-lg text-xl" data-shoulder-number="${runner.shoulderNumber}">#${runner.shoulderNumber}</button>`).join('')}
-
-        </div>
-
-    </div>
-
-    <div class="bg-gray-50 p-4 rounded-lg shadow-inner">
-
-        <h3 class="text-xl font-semibold mb-2">סדר הגעה (זחילה)</h3>
-
-        <div class="space-y-2">
-
-            ${sprint.arrivals.map((arrival, index) => `<div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center text-sm md:text-base"><span class="font-bold">${index + 1}. רץ #${arrival.shoulderNumber}</span><span class="font-mono">${formatTime_no_ms(arrival.finishTime)}</span></div>`).join('')}
-
-        </div>
-
-    </div>`;
-
+    <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00</div>
+    <div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
+        ${sprintIndex > 0 ? `<button id="prev-crawling-sprint-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
+        <span>מקצה זחילה ${sprintIndex + 1}/${CONFIG.MAX_CRAWLING_SPRINTS}</span>
+        ${sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1 ? `<button id="next-crawling-sprint-btn-inline" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">הבא <span class="text-xl">&rarr;</span></button>` : `<button id="next-crawling-sprint-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">${CONFIG.STRETCHER_PAGE_LABEL} <span class="text-xl">&rarr;</span></button>`}
+    </div>
+    <div class="flex justify-center space-x-2 space-x-reverse my-4 flex-wrap">
+        <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${sprint.started ? 'hidden' : ''}">התחל</button>
+        <button id="stop-btn" class="bg-red-500 hover:bg-red-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished ? 'hidden' : ''}">סיים</button>
+        <button id="undo-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished || sprint.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
+    </div>
+    <div id="runner-buttons-container" class="my-6 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
+        <h3 class="text-base md:text-xl font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
+        <div class="grid w-full grid-cols-3 md:grid-cols-5 gap-3 justify-center">${activeRunners.map(runner => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold p-3 md:p-4 rounded-lg text-xl" data-shoulder-number="${runner.shoulderNumber}">${runner.shoulderNumber}</button>`).join('')}</div>
+    </div>`;
 
 
     // Start timer if sprint is started and not finished, otherwise update display
@@ -2843,7 +2745,6 @@ function renderCrawlingSprintPage(sprintIndex) {
     if (sprint.started && !sprint.finished) startTimer();
 
     else updateTimerDisplay(sprint.arrivals.length > 0 ? sprint.arrivals[sprint.arrivals.length - 1].finishTime : 0, false);
-
 
 
     // Attach event listeners
@@ -2856,242 +2757,16 @@ function renderCrawlingSprintPage(sprintIndex) {
 
     document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, sprint, -1)); // -1 indicates crawling sprint context
 
-
-
-    // Navigation between crawling sprints
-
-    document.getElementById('prev-crawling-sprint-btn-inline')?.addEventListener('click', () => { state.crawlingDrills.currentSprintIndex--; saveState(); render(); });
-
     document.getElementById('next-crawling-sprint-btn-inline').addEventListener('click', () => {
-
         if (sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1) {
-
             state.crawlingDrills.currentSprintIndex++;
-
         } else {
-
             // If last crawling sprint, navigate to sociometric stretcher page
-
             state.currentPage = PAGES.STRETCHER_HEAT;
-
             state.sociometricStretcher.currentHeatIndex = 0; // Start from the first stretcher heat
-
-        }
-
-        saveState();
-
-        render();
-
-    });
-
-}
-
-
-
-/**
-
- * Renders a specific sociometric stretcher heat page with a grid of runner cards.
-
- * Each card has controls to track time for stretcher or jerrican carrying.
-
- * @param {number} heatIndex - The index of the stretcher heat to render.
-
- */
-
-function renderSociometricStretcherHeatPage(heatIndex) {
-    headerTitle.textContent = `${CONFIG.STRETCHER_PAGE_LABEL} - מקצה ${heatIndex + 1}`;
-
-    const heat = state.sociometricStretcher.heats[heatIndex];
-    if (!heat) {
-        contentDiv.innerHTML = `<p>מקצה אלונקות לא נמצא.</p>`;
-        return;
-    }
-
-    const activeRunners = state.runners.filter(runner => !state.crawlingDrills.runnerStatuses[runner.shoulderNumber]);
-
-    const runnerCardsHtml = activeRunners.map(runner => {
-        const shoulderNumber = runner.shoulderNumber;
-        const isStretcherCarrier = heat.stretcherCarriers.find(c => c.shoulderNumber === shoulderNumber);
-        const isJerricanCarrier = heat.jerricanCarriers.find(c => c.shoulderNumber === shoulderNumber);
-
-        let timeDisplay = '00:00';
-        let cardBgClass = 'bg-white dark:bg-gray-800';
-        let activeTask = null;
-
-        if (isStretcherCarrier) {
-            activeTask = 'stretcher';
-            cardBgClass = 'bg-green-100 dark:bg-green-900';
-            const totalTime = isStretcherCarrier.totalTime + (isStretcherCarrier.startTime ? Date.now() - isStretcherCarrier.startTime : 0);
-            timeDisplay = formatTime_no_ms(totalTime);
-        } else if (isJerricanCarrier) {
-            activeTask = 'jerrican';
-            cardBgClass = 'bg-blue-100 dark:bg-blue-900';
-            const totalTime = isJerricanCarrier.totalTime + (isJerricanCarrier.startTime ? Date.now() - isJerricanCarrier.startTime : 0);
-            timeDisplay = formatTime_no_ms(totalTime);
-        }
-
-        return `
-        <div id="runner-card-${shoulderNumber}" class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${cardBgClass}">
-            <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">#${shoulderNumber}</div>
-            <div id="task-timer-${shoulderNumber}" class="text-lg font-mono my-2 text-gray-600 dark:text-gray-400">${timeDisplay}</div>
-            <div class="flex items-center justify-center gap-3 w-full">
-                <button 
-                    data-shoulder-number="${shoulderNumber}" 
-                    data-type="stretcher"
-                    class="task-btn flex-1 p-2 rounded-lg text-2xl transition-opacity ${activeTask === 'stretcher' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'} ${activeTask && activeTask !== 'stretcher' ? 'opacity-30 cursor-not-allowed' : 'hover:bg-green-200 dark:hover:bg-green-700'}"
-                    ${activeTask && activeTask !== 'stretcher' ? 'disabled' : ''}
-                    title="נשיאת אלונקה">
-                    🚁
-                </button>
-                <button 
-                    data-shoulder-number="${shoulderNumber}" 
-                    data-type="jerrican"
-                    class="task-btn flex-1 p-2 rounded-lg text-2xl transition-opacity ${activeTask === 'jerrican' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600'} ${activeTask && activeTask !== 'jerrican' ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-700'}"
-                    ${activeTask && activeTask !== 'jerrican' ? 'disabled' : ''}
-                    title="נשיאת ג'ריקן">
-                    💧
-                </button>
-            </div>
-        </div>
-        `;
-    }).join('');
-
-    const navigationButtons = `
-    <div class="flex justify-between items-center mt-6 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-inner">
-        <button id="prev-stretcher-heat-btn-inline" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg" ${heatIndex === 0 ? 'disabled' : ''}>הקודם</button>
-        <span class="font-semibold text-gray-800 dark:text-gray-200">${CONFIG.STRETCHER_PAGE_LABEL} ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}</span>
-        <button id="next-stretcher-heat-btn-inline" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg">${heatIndex === CONFIG.NUM_STRETCHER_HEATS - 1 ? 'לדוחות' : 'הבא'}</button>
-    </div>`;
-
-    contentDiv.innerHTML = `
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-            ${runnerCardsHtml}
-        </div>
-        ${navigationButtons}
-    `;
-
-    // Attach event listeners
-    document.querySelectorAll('.task-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const shoulderNumber = e.currentTarget.dataset.shoulderNumber;
-            const type = e.currentTarget.dataset.type;
-            toggleSociometricCarrier(parseInt(shoulderNumber), type, heatIndex);
-        });
-    });
-
-    document.getElementById('prev-stretcher-heat-btn-inline')?.addEventListener('click', () => { state.sociometricStretcher.currentHeatIndex--; saveState(); render(); });
-    document.getElementById('next-stretcher-heat-btn-inline')?.addEventListener('click', () => {
-        if (heatIndex < CONFIG.NUM_STRETCHER_HEATS - 1) {
-            state.sociometricStretcher.currentHeatIndex++;
-        } else {
-            state.currentPage = PAGES.REPORT;
         }
         saveState();
         render();
-    });
-
-    // Start timers for active carriers to ensure they continue running on re-render
-    startAllSociometricTimers(heatIndex);
-}
-
-/**
- * Toggles a runner's status as a carrier (stretcher or jerrican) and manages their timer.
- * @param {number} shoulderNumber - The shoulder number of the runner.
- * @param {string} type - The type of carrier ('stretcher' or 'jerrican').
- * @param {number} heatIndex - The index of the current heat.
- */
-function toggleSociometricCarrier(shoulderNumber, type, heatIndex) {
-    const heat = state.sociometricStretcher.heats[heatIndex];
-    const carriers = type === 'stretcher' ? heat.stretcherCarriers : heat.jerricanCarriers;
-    const otherCarriers = type === 'stretcher' ? heat.jerricanCarriers : heat.stretcherCarriers;
-    const maxCarriers = type === 'stretcher' ? CONFIG.MAX_STRETCHER_CARRIERS : CONFIG.MAX_JERRICAN_CARRIERS;
-
-    const carrierIndex = carriers.findIndex(c => c.shoulderNumber === shoulderNumber);
-
-    if (carrierIndex > -1) {
-        // If already a carrier of this type, stop their timer and remove them.
-        stopSociometricTimer(shoulderNumber, type, heatIndex);
-        carriers.splice(carrierIndex, 1);
-    } else {
-        // If not a carrier of this type, check if they can be added.
-        const isOtherCarrier = otherCarriers.some(c => c.shoulderNumber === shoulderNumber);
-        if (!isOtherCarrier && carriers.length < maxCarriers) {
-            // Add them, initialize their data, and start their timer.
-            carriers.push({ shoulderNumber, startTime: Date.now(), totalTime: 0, timerInterval: null });
-            startSociometricTimer(shoulderNumber, type, heatIndex);
-        }
-    }
-
-    saveState();
-    render(); // Re-render the entire page to reflect changes
-}
-
-/**
- * Starts the timer for a specific runner in a sociometric heat.
- * @param {number} shoulderNumber - The shoulder number of the runner.
- * @param {string} type - The type of carrier ('stretcher' or 'jerrican').
- * @param {number} heatIndex - The index of the current heat.
- */
-function startSociometricTimer(shoulderNumber, type, heatIndex) {
-    const heat = state.sociometricStretcher.heats[heatIndex];
-    const carriers = type === 'stretcher' ? heat.stretcherCarriers : heat.jerricanCarriers;
-    const carrier = carriers.find(c => c.shoulderNumber === shoulderNumber);
-
-    if (!carrier || carrier.timerInterval) return; // Do nothing if no carrier found or timer already running
-
-    // Ensure startTime is set if it's null (can happen on re-render)
-    if (!carrier.startTime) {
-        carrier.startTime = Date.now();
-    }
-
-    carrier.timerInterval = setInterval(() => {
-        const timerDisplay = document.getElementById(`task-timer-${shoulderNumber}`);
-        if (timerDisplay && carrier.startTime) {
-            const elapsedTime = carrier.totalTime + (Date.now() - carrier.startTime);
-            timerDisplay.textContent = formatTime_no_ms(elapsedTime);
-        }
-    }, 100); // Update every 100ms for a smooth display
-}
-
-/**
- * Stops the timer for a specific runner in a sociometric heat.
- * @param {number} shoulderNumber - The shoulder number of the runner.
- * @param {string} type - The type of carrier ('stretcher' or 'jerrican').
- * @param {number} heatIndex - The index of the current heat.
- */
-function stopSociometricTimer(shoulderNumber, type, heatIndex) {
-    const heat = state.sociometricStretcher.heats[heatIndex];
-    const carriers = type === 'stretcher' ? heat.stretcherCarriers : heat.jerricanCarriers;
-    const carrier = carriers.find(c => c.shoulderNumber === shoulderNumber);
-
-    if (carrier) {
-        clearInterval(carrier.timerInterval); // Stop the interval
-        carrier.timerInterval = null;
-        if (carrier.startTime) {
-            carrier.totalTime += Date.now() - carrier.startTime; // Add the last duration to total
-        }
-        carrier.startTime = null; // Reset start time
-    }
-}
-
-/**
- * Starts timers for all currently active carriers in a sociometric heat.
- * This is useful on page re-render to resume timers that were running.
- * @param {number} heatIndex - The index of the current heat.
- */
-function startAllSociometricTimers(heatIndex) {
-    const heat = state.sociometricStretcher.heats[heatIndex];
-    if (!heat) return;
-
-    heat.stretcherCarriers.forEach(carrier => {
-        if (carrier.startTime) { // Only start timers for those that were actively running
-            startSociometricTimer(carrier.shoulderNumber, 'stretcher', heatIndex);
-        }
-    });
-    heat.jerricanCarriers.forEach(carrier => {
-        if (carrier.startTime) { // Only start timers for those that were actively running
-            startSociometricTimer(carrier.shoulderNumber, 'jerrican', heatIndex);
-        }
     });
 }
 
@@ -3229,10 +2904,25 @@ ${inactiveRunners.length > 0 ? `
             if (!state.isEditingScores) return;
             const shoulder = e.target.dataset.shoulder;
             const type = e.target.dataset.type;
+
+            // Find the original calculated data for this runner
+            const runnerData = allRunners.find(r => r.shoulderNumber == shoulder);
+            if (!runnerData) return;
+
+            // Ensure the manualScores object for the runner exists, initializing it with calculated scores if needed.
+            if (!state.manualScores[shoulder]) {
+                state.manualScores[shoulder] = {
+                    sprint: runnerData.sprintScore,
+                    crawl: runnerData.crawlingScore,
+                    stretcher: runnerData.stretcherScore
+                };
+            }
+
             if (type === 'generalComment') {
+                // If editing a comment, just update the comment state.
                 state.generalComments[shoulder] = e.target.value;
             } else {
-                state.manualScores[shoulder] = state.manualScores[shoulder] || {};
+                // If editing a score, update the specific score in manualScores.
                 state.manualScores[shoulder][type] = parseInt(e.target.value) || 1;
             }
             saveState();
@@ -3853,7 +3543,13 @@ function renderSociometricStretcherHeatPage(heatIndex) {
         return;
     }
 
-    const activeRunners = state.runners.filter(runner => !state.crawlingDrills.runnerStatuses[runner.shoulderNumber]);
+    // Ensure data structures exist for safety
+    if (!heat.selections) heat.selections = {};
+    if (!heat.usedChoices) heat.usedChoices = {};
+
+    const activeRunners = state.runners
+        .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
     const runnerCardsHtml = activeRunners.map(runner => {
         const shoulderNumber = runner.shoulderNumber;
@@ -3872,7 +3568,7 @@ function renderSociometricStretcherHeatPage(heatIndex) {
 
         return `
         <div class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${isStretcherSelected ? 'bg-green-100 dark:bg-green-900' : ''} ${isJerricanSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}">
-            <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">#${shoulderNumber}</div>
+            <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">${shoulderNumber}</div>
             <div class="flex items-center justify-center gap-3 w-full mt-2">
                 <button 
                     data-shoulder-number="${shoulderNumber}" 
@@ -3949,7 +3645,7 @@ function handleSociometricSelection(shoulderNumber, type, heatIndex) {
     if (!heat.usedChoices[shoulderNumber]) heat.usedChoices[shoulderNumber] = [];
 
     const currentSelection = heat.selections[shoulderNumber];
-    const isChoiceUsed = heat.usedChoices[shoulderNumber].includes(type);
+    const isChoiceUsed = heat.usedChoices[shoulderNumber].includes(type);    
 
     if (currentSelection === type) {
         // --- Rule: Deselecting an item ---
