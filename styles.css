@@ -268,14 +268,14 @@ html { -webkit-text-size-adjust: 100%; }
 
 /* כרטיסי אלונקות: תאי גריד רחבים יותר, הכרטיס ממלא את התא */
 .auto-grid.stretcher-grid {
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); /* היה 160+ */
+  gap: 8px; /* היה 12-14 */
 }
 @media (min-width: 480px){
-  .auto-grid.stretcher-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .auto-grid.stretcher-grid { grid-template-columns: repeat(auto-fit, minmax(116px, 1fr)); gap: 9px; }
 }
 @media (min-width: 768px){
-  .auto-grid.stretcher-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .auto-grid.stretcher-grid { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
 }
 
 /* הכרטיס ימלא תא, בלי גלישה, והכפתורים יתפרסו כשתי עמודות */
@@ -569,3 +569,55 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
 .quickbar .qc-input:focus,
 .quickbar .qc-sendBtn:focus,
 .quickbar .qc-micBtn:focus{ box-shadow: 0 0 0 3px var(--ring); }
+
+/* Compact stretcher cards: more items per row */
+.auto-grid.stretcher-grid{
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); /* היה 160+ */
+  gap: 8px; /* היה 12-14 */
+}
+@media (min-width: 480px){
+  .auto-grid.stretcher-grid{ grid-template-columns: repeat(auto-fit, minmax(116px, 1fr)); gap: 9px; }
+}
+@media (min-width: 768px){
+  .auto-grid.stretcher-grid{ grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
+}
+
+/* Card padding + header number size */
+.stretcher-grid .runner-card{
+  padding: 6px !important;          /* override p-3 של Tailwind */
+  border-radius: calc(var(--radius) - 6px);
+}
+.stretcher-grid .runner-card .text-3xl{
+  font-size: 1.05rem !important;    /* הקטנת מספר הכרטיס */
+  line-height: 1.1;
+}
+
+/* Two action buttons row – tighter */
+.stretcher-grid .task-row{
+  gap: 6px;
+}
+
+/* Make action buttons smaller and dense */
+.stretcher-grid .task-btn{
+  min-height: 40px;                  /* היה 56+ */
+  padding: 6px 6px;
+  font-size: 1.05rem !important;     /* דריסה של text-2xl */
+  line-height: 1;
+  min-width: 0;                      /* שלא יגדיל תא */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Optional: slightly smaller icons if צריך עוד מקום
+.stretcher-grid .task-btn { font-size: 0.95rem !important; }
+*/
+
+/* Keep emoji centered and avoid extra height */
+.stretcher-grid .task-btn span,
+.stretcher-grid .task-btn svg{
+  vertical-align: middle;
+}
+
+/* Reduce card shadow a bit to save space visually */
+.stretcher-grid .runner-card{
+  box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04);
+}
