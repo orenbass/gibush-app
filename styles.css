@@ -395,3 +395,177 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   line-height: 1.1;     /* לאזן גובה האימוג'י */
   padding: 10px 12px;   /* גובה נוח למגע */
 }
+
+/* Quick Comment Bar */
+.quickbar{
+  /* מרכז ופיזור כמו העליונה */
+  width: min(100%, 980px);
+  margin: 0 auto;
+
+  /* פריסה: select | input+mic | send */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+
+  /* רקע/טשטוש/גבול כמו ה-toolbar העליון */
+  background: rgba(17,24,39,.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* Quickbar fits parent (max-w-6xl from container). Spacing controlled by container */
+.quickbar{
+  width: 100%;
+  margin: 0;                  /* הרווחים מגיעים מה-container ב-HTML */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  background: rgba(17,24,39,.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* Quick Comment Bar – רוחב/רקע תואמים לשורה העליונה + רווחים אחידים */
+.quickbar{
+  /* אותו רוחב צד כמו העליונה */
+  width: calc(100% - 40px);
+  margin: 12px 20px;          /* רווח זהה מעל ומתחת */
+
+  /* פריסה: select | input+mic | send */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+
+  /* רקע/טשטוש/גבול – זהים לשורה העליונה */
+  background: rgba(17,24,39,.75); /* זהה לכותרת/טאבים */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var (--radius);
+  padding: 8px 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* מובייל – ערימה אנכית ושמירת מרווחי הצד */
+@media (max-width: 640px){
+  .quickbar{
+    width: calc(100% - 24px);  /* 12px מכל צד במסכים צרים */
+    margin: 8px 12px 14px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .quickbar .qc-actions{ justify-self: start; }
+}
+
+/* מובייל – שומר אותם מרווחי צד ורוחב */
+@media (max-width: 640px){
+  .quickbar{
+    width: calc(100% - 24px);  /* 12px מכל צד כמו העליונה במסכים צרים */
+    margin: 12px 12px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Quickbar fits parent (max-w-6xl from container). Spacing controlled by container */
+.quickbar{
+  width: 100%;
+  margin: 0;                  /* הרווחים מגיעים מה-container ב-HTML */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  background: rgba(17,24,39,.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+@media (max-width: 640px){
+  .quickbar{ grid-template-columns: 1fr; gap: 8px; }
+}
+
+/* קבוצות שדה */
+.quickbar .qc-group{
+  display:flex; align-items:center; gap:8px;
+  min-width: 0; /* מאפשר לשדה ההערה להתכווץ בלי לשבור גריד */
+}
+.quickbar .qc-label{ font-size:.85rem; color: var(--muted); white-space:nowrap; }
+
+/* פקדים */
+.quickbar .qc-select, 
+.quickbar .qc-input{
+  height: 44px;
+  border-radius: calc(var(--radius) - 8px);
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  color: var(--text);
+  padding: 8px 12px;
+  outline: none;
+  -webkit-appearance: none; appearance: none;
+  box-sizing: border-box;
+}
+.quickbar .qc-input{
+  flex: 1 1 auto;           /* שדה ההערה רחב וגמיש */
+  min-width: 0;             /* כדי שלא יגרום ל-overflow */
+  font-size: 16px;          /* מונע זום באייפון */
+}
+.quickbar .qc-select{
+  width: 120px;             /* ברירת מחדל */
+}
+
+/* select קטן למספרי כתף (מימין) */
+.quickbar .qc-runner-select{
+  width: 92px;
+  min-width: 84px;
+  text-align: center;
+  text-align-last: center;
+  font-weight: 600;
+  background: rgba(255,255,255,.08);
+}
+
+/* קריאות ה-options */
+.quickbar .qc-select option{ background:#F9FAFB; color:#111827; }
+.dark .quickbar .qc-select option{ background:#111827; color:#F9FAFB; }
+
+/* placeholder קריא */
+.quickbar .qc-input::placeholder{ color: rgba(226,232,240,.72); }
+
+/* מיקרופון צמוד לשדה ההערה */
+.quickbar .qc-micBtn{
+  min-width:44px; height:44px;
+  border-radius: calc(var(--radius) - 8px);
+  border:1px solid rgba(255,255,255,.10);
+  background:#374151; color:#fff;
+  -webkit-tap-highlight-color: transparent;
+}
+.quickbar .qc-micBtn:hover{ background:#4b5563; }
+.quickbar .qc-micBtn.recording{ background:#ef4444; border-color:#dc2626; }
+
+/* כפתור שלח בקצה שמאל – עקבי עם העליונה */
+.quickbar .qc-actions{ display:flex; align-items:stretch; }
+.quickbar .qc-sendBtn{
+  height:44px; padding: 0 16px; min-width: 84px;
+  border-radius: calc(var(--radius) - 8px);
+  border:1px solid rgba(255,255,255,.10);
+  background: var(--accent); color:#fff;
+  box-shadow: 0 6px 16px rgba(0,0,0,.18);
+}
+.quickbar .qc-sendBtn:hover{ background:#2563eb; }
+.quickbar .qc-sendBtn:disabled{ opacity:.55; cursor:not-allowed; }
+
+/* פוקוס נגיש */
+.quickbar .qc-select:focus,
+.quickbar .qc-input:focus,
+.quickbar .qc-sendBtn:focus,
+.quickbar .qc-micBtn:focus{ box-shadow: 0 0 0 3px var(--ring); }
