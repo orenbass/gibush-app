@@ -25,7 +25,7 @@ let CONFIG = {
 
     MAX_STRETCHER_CARRIERS: 4, // מספר נושאי אלונקה מקסימלי למקצה
 
-    MAX_JERRICAN_CARRIERS: 4,  // מספר נושאי ג'ריקן מקסימלי למקצה
+    MAX_JERRICAN_CARRIERS: 3,  // שינוי לברירת מחדל 3
 
     STRETCHER_PAGE_LABEL: 'אלונקות', // התווית ללשונית ולכותרת הדף
 
@@ -176,7 +176,26 @@ function formatTime_no_ms(ms) {
 
 }
 
+/**
+ * Normalizes a numeric value to a score in range[1..7].
+ * - If min < max: value = min -> 1, value = max -> 7.
+    * - If min > max: mapping is inverted(value = min -> 7, value = max -> 1).
+ * Values מחוץ לטווח נחתכים.התוצאה מעוגלת למספר שלם.
+ */
+function normalizeScore(value, min, max) {
+    if (min === max) {
+        return value > min ? 7 : 1;
+    }
+    const inverted = max < min;
+    const lo = inverted ? max : min;
+    const hi = inverted ? min : max;
 
+    const v = Math.min(Math.max(value, lo), hi);
+    let t = (v - lo) / (hi - lo); // 0..1
+    if (inverted) t = 1 - t;
+
+    return Math.min(7, Math.max(1, Math.round(1 + t * 6)));
+}
 
 /**
 
@@ -207,7 +226,51 @@ function updateTimerDisplay(elapsedTime, showMilliseconds = true) {
     }
 }
 
+/**
 
+ * Shows leave-confirmation if leaving Crawling Comments while there are active sack carriers.
+
+ * Returns true אם נפתח דיאלוג (הפעולה יורטה), false אחרת.
+
+ */
+
+function confirmLeaveCrawlingComments(onConfirm) {
+
+    const onCrawlingComments = state.currentPage === PAGES.CRAWLING_COMMENTS;
+
+    const hasActive = Array.isArray(state.crawlingDrills?.activeSackCarriers) && state.crawlingDrills.activeSackCarriers.length > 0;
+
+    if (onCrawlingComments && hasActive) {
+
+        showModal(
+
+            'אישור יציאה',
+
+            'יציאה תפסיק את כל נושאי השק ותנקה את הבחירות. להמשיך?',
+
+            () => {
+
+                // הפסקת כל הטיימרים וניקוי בחירות
+
+                stopAllSackTimers();
+
+                state.crawlingDrills.activeSackCarriers = [];
+
+                saveState();
+
+                if (onConfirm) onConfirm();
+
+            }
+
+        );
+
+        return true; // interception
+
+    }
+
+    return false; // no interception
+
+}
 
 /**
 
@@ -1561,147 +1624,78 @@ function handleSociometricComment(event) {
 
 // --- Score Calculation ---
 
-
-
 /**
-
- * Normalizes a given value within a specified range to a new scale (default 1-7).
-
- * Used for converting raw performance metrics into a standardized score.
-
- * @param {number} value - The value to normalize.
-
- * @param {number} min - The minimum value in the original range.
-
- * @param {number} max - The maximum value in the original range.
-
- * @param {number} [scaleMin=1] - The minimum value of the target scale.
-
- * @param {number} [scaleMax=7] - The maximum value of the target scale.
-
- * @returns {number} The normalized score, rounded to the nearest integer.
-
+ * Computes per-heat sprint results: rank and relative score (1-7) per runner.
+ * Winner gets 7. Others get 7 * (fastestTime / runnerTime), clamped to [1..7].
+ * @param {object} heat
+ * @returns {Array<{shoulderNumber:number, finishTime:number, rank:number, score:number, comment?:string}>}
  */
+function getSprintHeatResults(heat) {
+    // Finished, active arrivals only
+    const finished = heat.arrivals
+        .filter(a => a.status === 'active' && typeof a.finishTime === 'number' && a.finishTime > 0)
+        .sort((a, b) => a.finishTime - b.finishTime);
 
-function normalizeScore(value, min, max, scaleMin = 1, scaleMax = 7) {
+    if (finished.length === 0) return [];
 
-    if (max - min === 0) {
+    const fastest = finished[0].finishTime;
 
-        // Handle division by zero: if all values are the same, return max score if value > 0, else min score
-
-        return value > 0 ? scaleMax : scaleMin;
-
-    }
-
-    // Linear interpolation to scale the value
-
-    const score = scaleMin + (scaleMax - scaleMin) * ((value - min) / (max - min));
-
-    // Clamp the score within the target scale and round to nearest integer
-
-    return Math.min(scaleMax, Math.max(scaleMin, Math.round(score)));
-
+    return finished.map((a, idx) => {
+        const ratio = fastest / a.finishTime; // <= 1
+        const score = Math.max(1, Math.round(7 * ratio));
+        return { shoulderNumber: a.shoulderNumber, finishTime: a.finishTime, rank: idx + 1, score, comment: a.comment || '' };
+    });
 }
 
-
+/** תוצאות מקצה ספרינט-זחילות לפי זמן יחסי (כמו בספרינטים) */
+function getCrawlingSprintHeatResults(sprint) {
+    const finished = sprint.arrivals
+        .filter(a => a.status === 'active' && typeof a.finishTime === 'number' && a.finishTime > 0)
+        .sort((a, b) => a.finishTime - b.finishTime);
+    if (finished.length === 0) return [];
+    const fastest = finished[0].finishTime;
+    return finished.map((a, idx) => {
+        const ratio = fastest / a.finishTime;
+        const score = Math.max(1, Math.round(7 * ratio)); // 1..7
+        return { shoulderNumber: a.shoulderNumber, finishTime: a.finishTime, rank: idx + 1, score, comment: a.comment || '' };
+    });
+}
 
 /**
-
- * Calculates the final sprint score for a given runner.
-
- * This is based on their average rank across all sprint heats.
-
- * A lower average rank (closer to 1) should result in a higher score (closer to 7).
-
- * @param {object} runner - The runner object.
-
- * @returns {number} The normalized sprint score (1-7).
-
+ * Calculates the final sprint score for a runner as the average of per-heat relative scores.
+ * Winner in a heat gets 7; others are proportional to (fastest / time). Min score per heat is 1.
+ * @param {object} runner
+ * @returns {number} Average rounded to nearest integer in [1..7]
  */
-
 function calculateSprintFinalScore(runner) {
+    const perHeatScores = state.heats.flatMap(heat => {
+        const results = getSprintHeatResults(heat);
+        const entry = results.find(r => r.shoulderNumber === runner.shoulderNumber);
+        return entry ? [entry.score] : [];
+    });
 
-    // Get the total number of active runners for normalization context
-
-    const allActiveRunners = state.runners.filter(r => !state.crawlingDrills.runnerStatuses[r.shoulderNumber]).length;
-
-
-
-    // Collect all ranks for the runner across all heats they participated in
-
-    const rankings = state.heats.flatMap(heat => {
-
-        // Filter for active arrivals and sort by finish time to determine rank
-
-        const finishedRunners = heat.arrivals.filter(a => a.status === 'active').sort((a, b) => a.finishTime - b.finishTime);
-
-        const rank = finishedRunners.findIndex(r => r.shoulderNumber === runner.shoulderNumber);
-
-        return rank !== -1 ? rank + 1 : null; // Return rank (1-indexed) or null if not found
-
-    }).filter(r => r !== null); // Filter out nulls
-
-
-
-    if (rankings.length === 0) return 1; // If no ranks, return minimum score
-
-
-
-    const avgRank = rankings.reduce((sum, rank) => sum + rank, 0) / rankings.length;
-
-
-
-    // Normalize: lower average rank (closer to 1) gets higher score (closer to 7).
-
-    // So, min rank (1) maps to scaleMax (7), and max rank (allActiveRunners) maps to scaleMin (1).
-
-    return normalizeScore(avgRank, allActiveRunners, 1); // Note: min and max are swapped for inverse scaling
-
+    if (perHeatScores.length === 0) return 1;
+    const avg = perHeatScores.reduce((s, v) => s + v, 0) / perHeatScores.length;
+    return Math.min(7, Math.max(1, Math.round(avg)));
 }
 
-
-
 /**
-
  * Calculates the crawling sprint score for a given runner.
-
  * Similar to sprint score, but for crawling sprints.
-
  * @param {object} runner - The runner object.
-
  * @returns {number} The normalized crawling sprint score (1-7).
-
  */
 
 function getCrawlingSprintScore(runner) {
-
-    const activeCrawlers = state.runners.filter(r => !state.crawlingDrills.runnerStatuses[r.shoulderNumber]).length;
-
-
-
-    const sprintRankings = state.crawlingDrills.sprints.flatMap(sprint => {
-
-        const finishedRunners = sprint.arrivals.filter(a => a.status === 'active').sort((a, b) => a.finishTime - b.finishTime);
-
-        const rank = finishedRunners.findIndex(r => r.shoulderNumber === runner.shoulderNumber);
-
-        return rank !== -1 ? rank + 1 : null;
-
-    }).filter(r => r !== null);
-
-
-
-    if (sprintRankings.length === 0) return 1;
-
-
-
-    const avgRank = sprintRankings.reduce((sum, rank) => sum + rank, 0) / sprintRankings.length;
-
-    return normalizeScore(avgRank, activeCrawlers, 1); // Inverse scaling
-
+    const perHeatScores = state.crawlingDrills.sprints.flatMap(sprint => {
+        const results = getCrawlingSprintHeatResults(sprint);
+        const entry = results.find(r => r.shoulderNumber === runner.shoulderNumber);
+        return entry ? [entry.score] : [];
+    });
+    if (perHeatScores.length === 0) return 1;
+    const avg = perHeatScores.reduce((s, v) => s + v, 0) / perHeatScores.length;
+    return Math.min(7, Math.max(1, Math.round(avg)));
 }
-
-
 
 /**
 
@@ -1779,7 +1773,7 @@ function calculateStretcherFinalScore(runner) {
     // Count selections across all heats from the new 'selections' object
     const stretcherCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'stretcher').length;
     const jerricanCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'jerrican').length;
-    
+
     // Apply weighting
     const totalWeightedCarries = (stretcherCount * 1.14) + (jerricanCount * 0.57);
 
@@ -2053,7 +2047,7 @@ function renderRunnersPage() {
 
         // Reset CONFIG to default values
 
-        CONFIG = { NUM_HEATS: 14, MAX_CRAWLING_SPRINTS: 4, MAX_RUNNERS: 20, MAX_SACK_CARRIERS: 3, NUM_STRETCHER_HEATS: 8, MAX_STRETCHER_CARRIERS: 4, MAX_JERRICAN_CARRIERS: 4, STRETCHER_PAGE_LABEL: 'אלונקות', STRETCHER_CARRIER_NOUN_PLURAL: 'רצים שלקחו אלונקה', APP_STATE_KEY: 'sprintAppState_v1.11' };
+        CONFIG = { NUM_HEATS: 14, MAX_CRAWLING_SPRINTS: 4, MAX_RUNNERS: 20, MAX_SACK_CARRIERS: 3, NUM_STRETCHER_HEATS: 8, MAX_STRETCHER_CARRIERS: 4, MAX_JERRICAN_CARRIERS: 3, STRETCHER_PAGE_LABEL: 'אלונקות', STRETCHER_CARRIER_NOUN_PLURAL: 'רצים שלקחו אלונקה', APP_STATE_KEY: 'sprintAppState_v1.11' };
 
         state.currentPage = PAGES.RUNNERS; // Go back to runners page
 
@@ -2180,7 +2174,7 @@ function renderAdminSettingsPage() {
 
     </div>`;
 
-const themeModeSelect = document.getElementById('theme-mode-select');
+    const themeModeSelect = document.getElementById('theme-mode-select');
     if (themeModeSelect) {
         themeModeSelect.value = state.themeMode || 'auto';
         themeModeSelect.addEventListener('change', (e) => {
@@ -2298,19 +2292,19 @@ function renderQuickCommentBar(show) {
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
-        recognition.onresult = function(event) {
+        recognition.onresult = function (event) {
             const transcript = event.results[0][0].transcript;
             commentInput.value = transcript;
         };
 
-        recognition.onerror = function(event) {
+        recognition.onerror = function (event) {
             console.error('Speech recognition error', event.error);
             isRecording = false;
             micButton.classList.remove('recording');
             micButton.textContent = '🎤';
         };
 
-        recognition.onend = function() {
+        recognition.onend = function () {
             isRecording = false;
             micButton.classList.remove('recording');
             micButton.textContent = '🎤';
@@ -2379,53 +2373,53 @@ function renderStatusManagementPage() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             ${state.runners
-        .slice() // Create a copy for sorting
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
-        .map(runner => {
+            .slice() // Create a copy for sorting
+            .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
+            .map(runner => {
 
-        // Determine current status and display properties
+                // Determine current status and display properties
 
-        const currentStatus = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] || 'active';
+                const currentStatus = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] || 'active';
 
-        let revertBtnText = currentStatus === 'temp_removed' ? 'השב לפעילות' : 'בטל פרישה';
+                let revertBtnText = currentStatus === 'temp_removed' ? 'השב לפעילות' : 'בטל פרישה';
 
-        let statusIcon = '';
+                let statusIcon = '';
 
-        let statusText = '';
+                let statusText = '';
 
-        let statusColorClass = '';
-
-
-
-        if (currentStatus === 'active') {
-
-            statusIcon = '✅';
-
-            statusText = 'פעיל';
-
-            statusColorClass = 'text-green-500 dark:text-green-400';
-
-        } else if (currentStatus === 'temp_removed') {
-
-            statusIcon = '⚠️';
-
-            statusText = 'גריעה זמנית';
-
-            statusColorClass = 'text-yellow-500 dark:text-yellow-400';
-
-        } else { // retired
-
-            statusIcon = '⛔';
-
-            statusText = 'פרש';
-
-            statusColorClass = 'text-red-500 dark:text-red-400';
-
-        }
+                let statusColorClass = '';
 
 
 
-        return `
+                if (currentStatus === 'active') {
+
+                    statusIcon = '✅';
+
+                    statusText = 'פעיל';
+
+                    statusColorClass = 'text-green-500 dark:text-green-400';
+
+                } else if (currentStatus === 'temp_removed') {
+
+                    statusIcon = '⚠️';
+
+                    statusText = 'גריעה זמנית';
+
+                    statusColorClass = 'text-yellow-500 dark:text-yellow-400';
+
+                } else { // retired
+
+                    statusIcon = '⛔';
+
+                    statusText = 'פרש';
+
+                    statusColorClass = 'text-red-500 dark:text-red-400';
+
+                }
+
+
+
+                return `
 
                 <div class="flex flex-col md:flex-row items-center md:space-x-2 md:space-x-reverse p-2 bg-white rounded-lg shadow-sm">
 
@@ -2449,7 +2443,7 @@ function renderStatusManagementPage() {
 
                 </div>`;
 
-    }).join('')}
+            }).join('')}
 
         </div>
 
@@ -2658,7 +2652,7 @@ function renderCrawlingDrillsCommentsPage() {
 
 
 
-contentDiv.innerHTML = `
+    contentDiv.innerHTML = `
 <h2 class="text-2xl font-semibold mb-4 text-center mt-6 text-blue-500">ניהול נשיאת שק</h2>
 ${sackCarrierHtml}
 <div class="space-y-4 mb-6">${commentsHtml}</div>
@@ -2689,16 +2683,15 @@ ${sackCarrierHtml}
     // Navigation to crawling sprint page
 
     document.getElementById('next-crawl-btn-inline').addEventListener('click', () => {
-
+    const go = () => {
         state.currentPage = PAGES.CRAWLING_SPRINT;
-
-        state.crawlingDrills.currentSprintIndex = 0; // Start from the first crawling sprint
-
+        state.crawlingDrills.currentSprintIndex = 0;
         saveState();
-
         render();
-
-    });
+    };
+    const intercepted = confirmLeaveCrawlingComments(go);
+    if (!intercepted) go();
+});
 
 }
 
@@ -2802,7 +2795,7 @@ function renderReportPage() {
         if (index === 0) return 'highlight-gold';
         if (index === 1) return 'highlight-silver';
         if (index === 2) return 'highlight-bronze';
-        return index % 2 === 0 ? 'bg-gray-50': ' ';
+        return index % 2 === 0 ? 'bg-gray-50' : ' ';
     };
 
     let isApproved = state.scoresApproved || false;
@@ -3149,51 +3142,55 @@ async function exportToExcel() {
 
         }
 
-
-
         // --- 2. גיליון ספרינטים ---
-
         const sprintsSheet = workbook.addWorksheet('ספרינטים');
-
         sprintsSheet.views = [{ rightToLeft: true }];
 
-        sprintsSheet.addRow(['טבלת סיכום ספרינטים']).font = { bold: true, size: 14 };
-
+        // טבלת סיכום ממוצעי ציונים לכל רץ
+        sprintsSheet.addRow(['ממוצע ציוני ספרינטים']).font = { bold: true, size: 14 };
         sprintsSheet.addRow([]);
+        const sprintsSummaryHeader = sprintsSheet.addRow(["מס' כתף", "ממוצע ציון (1-7)"]);
+        styleHeader(sprintsSummaryHeader);
 
-        const sprintsHeader = sprintsSheet.addRow(["מס' כתף", "דירוג ממוצע (1-7)", "הערות"]);
-
-        styleHeader(sprintsHeader);
-
-        state.runners.forEach((runner, index) => {
-
-            const score = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateSprintFinalScore(runner);
-
-            // איסוף הערות מכל מקצי הספרינט עבור הרץ
-
-            const comments = state.heats
-
-                .map(h => h.arrivals.find(a => a.shoulderNumber === runner.shoulderNumber)?.comment)
-
-                .filter(Boolean) // סינון הערות ריקות
-
-                .join('; '); // חיבור הערות בפסיק
-
-            const row = sprintsSheet.addRow([runner.shoulderNumber, score, comments]);
-
-            row.eachCell((cell) => {
-
-                cell.border = border;
-
-                if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-
+        // ממוצעי ציונים
+        state.runners
+            .slice()
+            .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
+            .forEach((runner, index) => {
+                const avgScore = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateSprintFinalScore(runner);
+                const row = sprintsSheet.addRow([runner.shoulderNumber, avgScore]);
+                row.eachCell((cell) => {
+                    cell.border = border;
+                    if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+                });
             });
 
-        });
+        sprintsSheet.addRow([]); // רווח
 
-        sprintsSheet.columns = [{ width: 15 }, { width: 20 }, { width: 80 }];
+        // פירוט לכל מקצה: דירוג, זמן, ציון, הערה
+        for (let i = 0; i < state.heats.length; i++) {
+            const heat = state.heats[i];
 
+            sprintsSheet.addRow([`מקצה ספרינט ${i + 1}`]).font = { bold: true, size: 12 };
+            const heatHeader = sprintsSheet.addRow(['דירוג', "מס' כתף", 'זמן', 'ציון (1-7)', 'הערה']);
+            styleHeader(heatHeader);
 
+            // חישוב תוצאות המקצה לפי היחס למנצח
+            const results = getSprintHeatResults(heat);
+
+            results.forEach((r, idx) => {
+                const row = sprintsSheet.addRow([r.rank, r.shoulderNumber, formatTime(r.finishTime), r.score, r.comment || '']);
+                row.eachCell((cell) => {
+                    cell.border = border;
+                    if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+                });
+            });
+
+            sprintsSheet.addRow([]); // רווח בין מקצים
+        }
+
+        // רוחב עמודות
+        sprintsSheet.columns = [{ width: 10 }, { width: 15 }, { width: 18 }, { width: 14 }, { width: 40 }];
 
         // --- 3. גיליון סיכום זחילות ---
 
@@ -3212,11 +3209,9 @@ async function exportToExcel() {
         state.runners.forEach((runner, index) => {
 
             const sackData = state.crawlingDrills.sackCarriers[runner.shoulderNumber];
-
-            const sackTime = sackData ? formatTime_no_ms(sackData.totalTime) : '00:00';
-
+            const sackTimeMs = sackData ? (sackData.totalTime + (sackData.startTime ? Date.now() - sackData.startTime : 0)) : 0;
+            const sackTime = formatTime_no_ms(sackTimeMs);
             const comment = state.crawlingDrills.comments[runner.shoulderNumber] || '';
-
             const row = crawlingSheet.addRow([runner.shoulderNumber, sackTime, comment]);
 
             row.eachCell((cell) => {
@@ -3238,6 +3233,24 @@ async function exportToExcel() {
         crawlingSheet.addRow([]);
 
         const crawlingHeader2 = crawlingSheet.addRow(["מס' כתף", "דירוג ממוצע (1-7)"]);
+
+        crawlingSheet.addRow([]);
+        for (let i = 0; i < state.crawlingDrills.sprints.length; i++) {
+            const sprint = state.crawlingDrills.sprints[i];
+            crawlingSheet.addRow([`מקצה ספרינט זחילות ${i + 1}`]).font = { bold: true, size: 12 };
+            const heatHeader = crawlingSheet.addRow(['דירוג', "מס' כתף", 'זמן', 'ציון (1-7)', 'הערה']);
+            styleHeader(heatHeader);
+            const results = getCrawlingSprintHeatResults(sprint);
+            results.forEach((r, idx) => {
+                const row = crawlingSheet.addRow([r.rank, r.shoulderNumber, formatTime(r.finishTime), r.score, r.comment || '']);
+                row.eachCell((cell) => {
+                    cell.border = border;
+                    if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+                });
+            });
+
+            crawlingSheet.addRow([]);
+        }
 
         styleHeader(crawlingHeader2);
 
@@ -3262,33 +3275,51 @@ async function exportToExcel() {
         // --- 4. גיליון אלונקה סוציומטרית ---
 
         const stretcherSheet = workbook.addWorksheet(CONFIG.STRETCHER_PAGE_LABEL);
+stretcherSheet.views = [{ rightToLeft: true }];
+stretcherSheet.addRow([`טבלת סיכום ${CONFIG.STRETCHER_PAGE_LABEL}`]).font = { bold: true, size: 14 };
+stretcherSheet.addRow([]);
 
-        stretcherSheet.views = [{ rightToLeft: true }];
+const stretcherHeader = stretcherSheet.addRow(["מס' כתף", `מס' פעמים ${CONFIG.STRETCHER_PAGE_LABEL}`, "מס' פעמים ג'ריקן", "ציון (1-7)"]); // עדכון כותרת
+styleHeader(stretcherHeader);
 
-        stretcherSheet.addRow([`טבלת סיכום ${CONFIG.STRETCHER_PAGE_LABEL}`]).font = { bold: true, size: 14 };
+state.runners.forEach((runner, index) => {
+    const score = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateStretcherFinalScore(runner);
+    const stretcherCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'stretcher').length;
+    const jerricanCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'jerrican').length;
 
-        stretcherSheet.addRow([]);
+    const row = stretcherSheet.addRow([runner.shoulderNumber, stretcherCount, jerricanCount, score]);
+    row.eachCell((cell) => {
+        cell.border = border;
+        if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+    });
+});
+stretcherSheet.columns = [{ width: 15 }, { width: 22 }, { width: 22 }, { width: 16 }];
 
-        const stretcherHeader = stretcherSheet.addRow(["מס' כתף", `מספר פעמים שסחב ${CONFIG.STRETCHER_PAGE_LABEL}`, "מספר פעמים שסחב ג'ריקן", "דירוג ממוצע (1-7)"]);
+// פירוט לכל מקצה: מי נבחר ובאיזה תפקיד
+stretcherSheet.addRow([]);
+stretcherSheet.addRow([`פירוט בחירות לפי מקצה`]).font = { bold: true, size: 14 };
+stretcherSheet.addRow([]);
 
-        styleHeader(stretcherHeader);
+for (let i = 0; i < state.sociometricStretcher.heats.length; i++) {
+    const heat = state.sociometricStretcher.heats[i];
+    stretcherSheet.addRow([`${CONFIG.STRETCHER_PAGE_LABEL} ${i + 1}`]).font = { bold: true, size: 12 };
+    const detailHeader = stretcherSheet.addRow(["מס' כתף", 'תפקיד']);
+    styleHeader(detailHeader);
 
-        state.runners.forEach((runner, index) => {
-            const score = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateStretcherFinalScore(runner);
-            // Use the new counting logic
-            const stretcherCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'stretcher').length;
-            const jerricanCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'jerrican').length;
-            
-            const row = stretcherSheet.addRow([runner.shoulderNumber, stretcherCount, jerricanCount, score]);
-            row.eachCell((cell) => {
-                cell.border = border;
-                if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-            });
+    const entries = Object.entries(heat.selections || {})
+        .map(([shoulder, type]) => ({ shoulder: parseInt(shoulder), type }))
+        .sort((a, b) => a.shoulder - b.shoulder);
+
+    entries.forEach((e, idx) => {
+        const row = stretcherSheet.addRow([e.shoulder, e.type === 'stretcher' ? CONFIG.STRETCHER_PAGE_LABEL : "ג'ריקן"]);
+        row.eachCell((cell) => {
+            cell.border = border;
+            if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
         });
-        stretcherSheet.columns = [{ width: 15 }, { width: 30 }, { width: 30 }, { width: 20 }];
+    });
 
-
-
+    stretcherSheet.addRow([]);
+}
         // --- 5. גיליון נתוני הגעה גולמיים ---
 
         const rawDataSheet = workbook.addWorksheet('נתוני הגעה גולמיים');
@@ -3445,18 +3476,16 @@ async function init() {
     // Event listener for navigation tabs
 
     document.querySelector('nav').addEventListener('click', (e) => {
-
-        const target = e.target.closest('.nav-tab');
-
-        if (target) {
-
-            state.currentPage = target.dataset.page; // Update current page
-
-            render(); // Re-render the UI
-
+    const target = e.target.closest('.nav-tab');
+    if (target) {
+        const nextPage = target.dataset.page;
+        const intercepted = confirmLeaveCrawlingComments(() => { state.currentPage = nextPage; render(); });
+        if (!intercepted) {
+            state.currentPage = nextPage;
+            render();
         }
-
-    });
+    }
+});
 
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (state.themeMode === 'auto') {
@@ -3547,26 +3576,32 @@ function renderSociometricStretcherHeatPage(heatIndex) {
     if (!heat.selections) heat.selections = {};
     if (!heat.usedChoices) heat.usedChoices = {};
 
+    // סיכומי בחירות נוכחיים למגבלות
+    const selections = heat.selections;
+    const stretcherCount = Object.values(selections).filter(v => v === 'stretcher').length;
+    const jerricanCount = Object.values(selections).filter(v => v === 'jerrican').length;
+    const stretcherLimitReached = stretcherCount >= CONFIG.MAX_STRETCHER_CARRIERS;
+    const jerricanLimitReached = jerricanCount >= CONFIG.MAX_JERRICAN_CARRIERS;
+    
     const activeRunners = state.runners
         .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
-    const runnerCardsHtml = activeRunners.map(runner => {
-        const shoulderNumber = runner.shoulderNumber;
-        const selection = heat.selections[shoulderNumber]; // 'stretcher', 'jerrican', or undefined
-        const used = heat.usedChoices[shoulderNumber] || []; // e.g., ['stretcher']
-
-        const isStretcherSelected = selection === 'stretcher';
-        const isJerricanSelected = selection === 'jerrican';
-
-        const isStretcherUsed = used.includes('stretcher');
-        const isJerricanUsed = used.includes('jerrican');
-
-        // A button is disabled if its choice has been used, or if the other choice is currently selected.
-        const stretcherDisabled = isStretcherUsed || isJerricanSelected;
-        const jerricanDisabled = isJerricanUsed || isStretcherSelected;
-
-        return `
+        const runnerCardsHtml = activeRunners.map(runner => {
+            const shoulderNumber = runner.shoulderNumber;
+            const selection = heat.selections[shoulderNumber];
+            const used = heat.usedChoices[shoulderNumber] || [];
+    
+            const isStretcherSelected = selection === 'stretcher';
+            const isJerricanSelected = selection === 'jerrican';
+    
+            const isStretcherUsed = used.includes('stretcher');
+            const isJerricanUsed = used.includes('jerrican');
+    
+            const stretcherDisabled = isStretcherUsed || isJerricanSelected || (!isStretcherSelected && stretcherLimitReached);
+            const jerricanDisabled = isJerricanUsed || isStretcherSelected || (!isJerricanSelected && jerricanLimitReached);
+    
+            return `
         <div class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${isStretcherSelected ? 'bg-green-100 dark:bg-green-900' : ''} ${isJerricanSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}">
             <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">${shoulderNumber}</div>
             <div class="flex items-center justify-center gap-3 w-full mt-2">
@@ -3638,25 +3673,39 @@ function renderSociometricStretcherHeatPage(heatIndex) {
  */
 function handleSociometricSelection(shoulderNumber, type, heatIndex) {
     const heat = state.sociometricStretcher.heats[heatIndex];
-    
-    // Initialize data structures if they don't exist
+
     if (!heat.selections) heat.selections = {};
     if (!heat.usedChoices) heat.usedChoices = {};
     if (!heat.usedChoices[shoulderNumber]) heat.usedChoices[shoulderNumber] = [];
 
     const currentSelection = heat.selections[shoulderNumber];
-    const isChoiceUsed = heat.usedChoices[shoulderNumber].includes(type);    
+    const isChoiceUsed = heat.usedChoices[shoulderNumber].includes(type);
+
+    // מניעת חריגה מהמכסה לפני בחירה חדשה
+    if (!currentSelection && !isChoiceUsed) {
+        const counts = Object.values(heat.selections).reduce((acc, v) => {
+            if (v === 'stretcher') acc.stretcher++;
+            if (v === 'jerrican') acc.jerrican++;
+            return acc;
+        }, { stretcher: 0, jerrican: 0 });
+
+        const max = type === 'stretcher' ? CONFIG.MAX_STRETCHER_CARRIERS : CONFIG.MAX_JERRICAN_CARRIERS;
+        const cur = type === 'stretcher' ? counts.stretcher : counts.jerrican;
+        if (cur >= max) {
+            showModal('מגבלה הושגה', `לא ניתן לבחור יותר מ-${max} ${type === 'stretcher' ? 'נושאי אלונקה' : "נושאי ג'ריקן"} במקצה זה.`);
+            return;
+        }
+    }
 
     if (currentSelection === type) {
-        // --- Rule: Deselecting an item ---
-        // This action "burns" the choice for this heat.
+        // ביטול בחירה – שורף את האפשרות בחום זה
         delete heat.selections[shoulderNumber];
         heat.usedChoices[shoulderNumber].push(type);
     } else if (!currentSelection && !isChoiceUsed) {
-        // --- Rule: Selecting a new, unused item ---
+        // בחירה חדשה
         heat.selections[shoulderNumber] = type;
     }
-    // Note: If the other item is selected, the button is disabled in the UI, so no action is needed here.
+    // אם יש בחירה מסוג אחר – הכפתור ממילא מנוטרל ב-UI
 
     saveState();
     render();
