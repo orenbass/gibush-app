@@ -12,14 +12,14 @@
 </head>
 <body>
     <div id="app" class="min-h-screen flex flex-col items-center p-4 bg-gray-100 text-gray-800">
-        <header class="w-full max-w-6xl p-4 bg-white rounded-lg shadow-md mb-6 text-center relative">
+        <header class="w-full max-w-6xl p-4 bg-white rounded-lg shadow-md mb-4 text-center relative">
             <h1 id="header-title" class="text-2xl md:text-3xl font-bold text-blue-600">מערכת גיבוש חת"מ</h1>
             <p class="text-sm text-gray-500 mt-1" id="version-text">V1.11 (10/8/2025)</p>
             <button id="theme-toggle-btn" type="button" style="position:absolute;top:14px;left:12px; background:none; border:none; font-size:2em; cursor:pointer;">
                 <span id="theme-icon">🌓</span>
               </button>
         </header>
-        <nav class="w-full max-w-6xl bg-white rounded-lg shadow-md overflow-x-auto mb-6">
+        <nav class="w-full max-w-6xl bg-white rounded-lg shadow-md overflow-x-auto mb-4">
             <ul
                 class="flex justify-start md:justify-center text-sm font-semibold text-gray-600 divide-x divide-x-reverse divide-gray-200">
                 <li class="flex-shrink-0"><button
@@ -48,11 +48,11 @@
                         data-page="report"><span>📄</span><span class="text-xs mt-1">דוחות</span></button></li>
             </ul>
         </nav>
-        <div id="quick-comment-bar-container"></div>
+        <div id="quick-comment-bar-container" class="w-full max-w-6xl mb-4"></div>
         <main id="content" class="w-full max-w-6xl bg-white p-4 md:p-6 rounded-lg shadow-md flex-grow">
             <div id="runner-list" class="space-y-2"></div>
         </main>
-        <footer id="footer-navigation" class="w-full max-w-6xl p-4 mt-6"></footer>
+        <footer id="footer-navigation" class="w-full max-w-6xl p-4 mt-4"></footer>
         <!-- סטטוס שמירה אוטומטית -->
         <div id="autosave-status"
             class="fixed bottom-4 left-4 bg-gray-800 text-white text-xs py-1 px-3 rounded-full opacity-0 transition-opacity duration-300">
