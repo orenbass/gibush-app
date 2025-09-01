@@ -2510,15 +2510,11 @@ function renderHeatPage(heatIndex) {
     contentDiv.innerHTML = `
 
     <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00:000</div>
-    <div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
-
-        ${heatIndex > 0 ? `<button id="prev-heat-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
-
-        <span>מקצה ספרינט ${heatIndex + 1}/${CONFIG.NUM_HEATS}</span>
-
-        ${heatIndex < CONFIG.NUM_HEATS - 1 ? `<button id="next-heat-btn-inline" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">הבא <span class="text-xl">&rarr;</span></button>` : `<button id="next-heat-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">למסך זחילות<span class="text-xl">&rarr;</span></button>`}
-
-    </div>
+    <div class="flex justify-between items-center my-4 p-2 rounded-lg shadow-inner sticky-bottom">
+        ${heatIndex > 0 ? `<button id="prev-heat-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
+        <span>מקצה ספרינט ${heatIndex + 1}/${CONFIG.NUM_HEATS}</span>
+        ${heatIndex < CONFIG.NUM_HEATS - 1 ? `<button id="next-heat-btn-inline" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">הבא <span class="text-xl">&rarr;</span></button>` : `<button id="next-heat-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">למסך זחילות<span class="text-xl">&rarr;</span></button>`}
+    </div>
 
     <div class="flex justify-center space-x-2 space-x-reverse my-4 flex-wrap">
 
@@ -2531,12 +2527,14 @@ function renderHeatPage(heatIndex) {
     </div>
 
     <div id="runner-buttons-container" class="my-6 ${!heat.started || heat.finished ? 'hidden' : ''}">
-
-        <h3 class="text-base md:text-xl font-semibold mb-2 text-center text-gray-700">לחץ על מספר הכתף של הרץ שהגיע</h3>
-
-        <div class="grid grid-cols-3 md:grid-cols-5 gap-3 justify-center">${activeRunners.map(runner => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold p-3 md:p-4 rounded-lg shadow-md text-xl md:text-2xl" data-shoulder-number="${runner.shoulderNumber}">${runner.shoulderNumber}</button>`).join('')}</div>
-
-    </div>
+        <h3 class="text-base md:text-xl font-semibold mb-2 text-center text-gray-300">לחץ על מספר הכתף של הרץ שהגיע</h3>
+        <div class="auto-grid">
+            ${activeRunners.map(runner => `
+                <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md text-xl md:text-2xl" data-shoulder-number="${runner.shoulderNumber}">
+                    ${runner.shoulderNumber}
+                </button>`).join('')}
+        </div>
+    </div>
 
     <div id="arrival-list" class="space-y-2">
             ${heat.arrivals.map((arrival, index) => `
@@ -2641,15 +2639,18 @@ function renderCrawlingDrillsCommentsPage() {
 
     // Generate HTML for sack carrier selection buttons
     const sackCarrierHtml = `
-<div id="sack-carrier-container" class="my-6 p-4 bg-gray-100 rounded-lg">
+<div id="sack-carrier-container" class="my-6 p-4 rounded-lg">
     <h3 class="text-xl font-semibold mb-4 text-center">בחר את נושאי השק (עד ${CONFIG.MAX_SACK_CARRIERS})</h3>
-    <div class="grid w-full grid-cols-3 md:grid-cols-5 gap-3 justify-center">${activeRunners.map(runner => {
+    <div class="auto-grid">
+        ${activeRunners.map(runner => {
         const isSelected = state.crawlingDrills.activeSackCarriers.includes(runner.shoulderNumber);
         const canSelect = isSelected || state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
-        return `<button class="runner-sack-btn bg-gray-300 hover:bg-gray-400 font-bold p-4 rounded-lg text-xl ${isSelected ? 'selected' : ''}" data-shoulder-number="${runner.shoulderNumber}" ${!canSelect ? 'disabled' : ''}>${runner.shoulderNumber}<br>🎒</button>`;
-    }).join('')}</div>
+        return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} bg-gray-300 hover:bg-gray-400 font-bold text-xl" data-shoulder-number="${runner.shoulderNumber}" ${!canSelect ? 'disabled' : ''}>
+                        ${runner.shoulderNumber} <span>🎒</span>
+                    </button>`;
+    }).join('')}
+    </div>
 </div>`;
-
 
 
     contentDiv.innerHTML = `
@@ -2683,15 +2684,15 @@ ${sackCarrierHtml}
     // Navigation to crawling sprint page
 
     document.getElementById('next-crawl-btn-inline').addEventListener('click', () => {
-    const go = () => {
-        state.currentPage = PAGES.CRAWLING_SPRINT;
-        state.crawlingDrills.currentSprintIndex = 0;
-        saveState();
-        render();
-    };
-    const intercepted = confirmLeaveCrawlingComments(go);
-    if (!intercepted) go();
-});
+        const go = () => {
+            state.currentPage = PAGES.CRAWLING_SPRINT;
+            state.crawlingDrills.currentSprintIndex = 0;
+            saveState();
+            render();
+        };
+        const intercepted = confirmLeaveCrawlingComments(go);
+        if (!intercepted) go();
+    });
 
 }
 
@@ -2715,22 +2716,22 @@ function renderCrawlingSprintPage(sprintIndex) {
         .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber] && !sprint.arrivals.some(a => a.shoulderNumber === r.shoulderNumber))
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
-    contentDiv.innerHTML = `
-    <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00</div>
-    <div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
-        ${sprintIndex > 0 ? `<button id="prev-crawling-sprint-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
-        <span>מקצה זחילה ${sprintIndex + 1}/${CONFIG.MAX_CRAWLING_SPRINTS}</span>
-        ${sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1 ? `<button id="next-crawling-sprint-btn-inline" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">הבא <span class="text-xl">&rarr;</span></button>` : `<button id="next-crawling-sprint-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">${CONFIG.STRETCHER_PAGE_LABEL} <span class="text-xl">&rarr;</span></button>`}
-    </div>
-    <div class="flex justify-center space-x-2 space-x-reverse my-4 flex-wrap">
-        <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${sprint.started ? 'hidden' : ''}">התחל</button>
-        <button id="stop-btn" class="bg-red-500 hover:bg-red-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished ? 'hidden' : ''}">סיים</button>
-        <button id="undo-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished || sprint.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
-    </div>
-    <div id="runner-buttons-container" class="my-6 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
-        <h3 class="text-base md:text-xl font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
-        <div class="grid w-full grid-cols-3 md:grid-cols-5 gap-3 justify-center">${activeRunners.map(runner => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold p-3 md:p-4 rounded-lg text-xl" data-shoulder-number="${runner.shoulderNumber}">${runner.shoulderNumber}</button>`).join('')}</div>
-    </div>`;
+        contentDiv.innerHTML = `
+        <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00</div>
+        <div class="flex justify-between items-center my-4 p-2 rounded-lg shadow-inner sticky-bottom">
+            ${sprintIndex > 0 ? `<button id="prev-crawling-sprint-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
+            <span>מקצה זחילה ${sprintIndex + 1}/${CONFIG.MAX_CRAWLING_SPRINTS}</span>
+            ${sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1 ? `<button id="next-crawling-sprint-btn-inline" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">הבא <span class="text-xl">&rarr;</span></button>` : `<button id="next-crawling-sprint-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">${CONFIG.STRETCHER_PAGE_LABEL} <span class="text-xl">&rarr;</span></button>`}
+        </div>
+        <div class="flex justify-center space-x-2 space-x-reverse my-4 flex-wrap">
+            <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${sprint.started ? 'hidden' : ''}">התחל</button>
+            <button id="stop-btn" class="bg-red-500 hover:bg-red-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished ? 'hidden' : ''}">סיים</button>
+            <button id="undo-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished || sprint.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
+        </div>
+        <div id="runner-buttons-container" class="my-6 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
+            <h3 class="text-base md:text-xl font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
+            <div class="auto-grid">${activeRunners.map(r => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg text-xl" data-shoulder-number="${r.shoulderNumber}">${r.shoulderNumber}</button>`).join('')}</div>
+        </div>`;
 
 
     // Start timer if sprint is started and not finished, otherwise update display
@@ -2748,7 +2749,7 @@ function renderCrawlingSprintPage(sprintIndex) {
 
     document.getElementById('undo-btn')?.addEventListener('click', () => handleUndoArrival(sprint));
 
-    document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, sprint, -1)); // -1 indicates crawling sprint context
+    document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, sprint, -1));
 
     document.getElementById('next-crawling-sprint-btn-inline').addEventListener('click', () => {
         if (sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1) {
@@ -3275,51 +3276,51 @@ async function exportToExcel() {
         // --- 4. גיליון אלונקה סוציומטרית ---
 
         const stretcherSheet = workbook.addWorksheet(CONFIG.STRETCHER_PAGE_LABEL);
-stretcherSheet.views = [{ rightToLeft: true }];
-stretcherSheet.addRow([`טבלת סיכום ${CONFIG.STRETCHER_PAGE_LABEL}`]).font = { bold: true, size: 14 };
-stretcherSheet.addRow([]);
+        stretcherSheet.views = [{ rightToLeft: true }];
+        stretcherSheet.addRow([`טבלת סיכום ${CONFIG.STRETCHER_PAGE_LABEL}`]).font = { bold: true, size: 14 };
+        stretcherSheet.addRow([]);
 
-const stretcherHeader = stretcherSheet.addRow(["מס' כתף", `מס' פעמים ${CONFIG.STRETCHER_PAGE_LABEL}`, "מס' פעמים ג'ריקן", "ציון (1-7)"]); // עדכון כותרת
-styleHeader(stretcherHeader);
+        const stretcherHeader = stretcherSheet.addRow(["מס' כתף", `מס' פעמים ${CONFIG.STRETCHER_PAGE_LABEL}`, "מס' פעמים ג'ריקן", "ציון (1-7)"]); // עדכון כותרת
+        styleHeader(stretcherHeader);
 
-state.runners.forEach((runner, index) => {
-    const score = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateStretcherFinalScore(runner);
-    const stretcherCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'stretcher').length;
-    const jerricanCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'jerrican').length;
+        state.runners.forEach((runner, index) => {
+            const score = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateStretcherFinalScore(runner);
+            const stretcherCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'stretcher').length;
+            const jerricanCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'jerrican').length;
 
-    const row = stretcherSheet.addRow([runner.shoulderNumber, stretcherCount, jerricanCount, score]);
-    row.eachCell((cell) => {
-        cell.border = border;
-        if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-    });
-});
-stretcherSheet.columns = [{ width: 15 }, { width: 22 }, { width: 22 }, { width: 16 }];
-
-// פירוט לכל מקצה: מי נבחר ובאיזה תפקיד
-stretcherSheet.addRow([]);
-stretcherSheet.addRow([`פירוט בחירות לפי מקצה`]).font = { bold: true, size: 14 };
-stretcherSheet.addRow([]);
-
-for (let i = 0; i < state.sociometricStretcher.heats.length; i++) {
-    const heat = state.sociometricStretcher.heats[i];
-    stretcherSheet.addRow([`${CONFIG.STRETCHER_PAGE_LABEL} ${i + 1}`]).font = { bold: true, size: 12 };
-    const detailHeader = stretcherSheet.addRow(["מס' כתף", 'תפקיד']);
-    styleHeader(detailHeader);
-
-    const entries = Object.entries(heat.selections || {})
-        .map(([shoulder, type]) => ({ shoulder: parseInt(shoulder), type }))
-        .sort((a, b) => a.shoulder - b.shoulder);
-
-    entries.forEach((e, idx) => {
-        const row = stretcherSheet.addRow([e.shoulder, e.type === 'stretcher' ? CONFIG.STRETCHER_PAGE_LABEL : "ג'ריקן"]);
-        row.eachCell((cell) => {
-            cell.border = border;
-            if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+            const row = stretcherSheet.addRow([runner.shoulderNumber, stretcherCount, jerricanCount, score]);
+            row.eachCell((cell) => {
+                cell.border = border;
+                if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            });
         });
-    });
+        stretcherSheet.columns = [{ width: 15 }, { width: 22 }, { width: 22 }, { width: 16 }];
 
-    stretcherSheet.addRow([]);
-}
+        // פירוט לכל מקצה: מי נבחר ובאיזה תפקיד
+        stretcherSheet.addRow([]);
+        stretcherSheet.addRow([`פירוט בחירות לפי מקצה`]).font = { bold: true, size: 14 };
+        stretcherSheet.addRow([]);
+
+        for (let i = 0; i < state.sociometricStretcher.heats.length; i++) {
+            const heat = state.sociometricStretcher.heats[i];
+            stretcherSheet.addRow([`${CONFIG.STRETCHER_PAGE_LABEL} ${i + 1}`]).font = { bold: true, size: 12 };
+            const detailHeader = stretcherSheet.addRow(["מס' כתף", 'תפקיד']);
+            styleHeader(detailHeader);
+
+            const entries = Object.entries(heat.selections || {})
+                .map(([shoulder, type]) => ({ shoulder: parseInt(shoulder), type }))
+                .sort((a, b) => a.shoulder - b.shoulder);
+
+            entries.forEach((e, idx) => {
+                const row = stretcherSheet.addRow([e.shoulder, e.type === 'stretcher' ? CONFIG.STRETCHER_PAGE_LABEL : "ג'ריקן"]);
+                row.eachCell((cell) => {
+                    cell.border = border;
+                    if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+                });
+            });
+
+            stretcherSheet.addRow([]);
+        }
         // --- 5. גיליון נתוני הגעה גולמיים ---
 
         const rawDataSheet = workbook.addWorksheet('נתוני הגעה גולמיים');
@@ -3476,16 +3477,16 @@ async function init() {
     // Event listener for navigation tabs
 
     document.querySelector('nav').addEventListener('click', (e) => {
-    const target = e.target.closest('.nav-tab');
-    if (target) {
-        const nextPage = target.dataset.page;
-        const intercepted = confirmLeaveCrawlingComments(() => { state.currentPage = nextPage; render(); });
-        if (!intercepted) {
-            state.currentPage = nextPage;
-            render();
+        const target = e.target.closest('.nav-tab');
+        if (target) {
+            const nextPage = target.dataset.page;
+            const intercepted = confirmLeaveCrawlingComments(() => { state.currentPage = nextPage; render(); });
+            if (!intercepted) {
+                state.currentPage = nextPage;
+                render();
+            }
         }
-    }
-});
+    });
 
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (state.themeMode === 'auto') {
@@ -3572,19 +3573,19 @@ function renderSociometricStretcherHeatPage(heatIndex) {
         return;
     }
 
-    // Ensure data structures exist for safety
-    if (!heat.selections) heat.selections = {};
-    if (!heat.usedChoices) heat.usedChoices = {};
+    // Ensure data structures
+    heat.selections = heat.selections || {};
+    heat.usedChoices = heat.usedChoices || {};
 
-    // סיכומי בחירות נוכחיים למגבלות
+    // Counts for limits
     const selections = heat.selections;
     const stretcherCount = Object.values(selections).filter(v => v === 'stretcher').length;
-    const jerricanCount = Object.values(selections).filter(v => v === 'jerrican').length;
+    const jerricanCount  = Object.values(selections).filter(v => v === 'jerrican').length;
     const stretcherLimitReached = stretcherCount >= CONFIG.MAX_STRETCHER_CARRIERS;
-    const jerricanLimitReached = jerricanCount >= CONFIG.MAX_JERRICAN_CARRIERS;
-    
+    const jerricanLimitReached  = jerricanCount  >= CONFIG.MAX_JERRICAN_CARRIERS;
+
     const activeRunners = state.runners
-        .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
+        .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
         const runnerCardsHtml = activeRunners.map(runner => {
@@ -3593,67 +3594,73 @@ function renderSociometricStretcherHeatPage(heatIndex) {
             const used = heat.usedChoices[shoulderNumber] || [];
     
             const isStretcherSelected = selection === 'stretcher';
-            const isJerricanSelected = selection === 'jerrican';
+            const isJerricanSelected  = selection === 'jerrican';
     
             const isStretcherUsed = used.includes('stretcher');
-            const isJerricanUsed = used.includes('jerrican');
+            const isJerricanUsed  = used.includes('jerrican');
     
             const stretcherDisabled = isStretcherUsed || isJerricanSelected || (!isStretcherSelected && stretcherLimitReached);
-            const jerricanDisabled = isJerricanUsed || isStretcherSelected || (!isJerricanSelected && jerricanLimitReached);
+            const jerricanDisabled  = isJerricanUsed  || isStretcherSelected  || (!isJerricanSelected  && jerricanLimitReached);
     
             return `
-        <div class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${isStretcherSelected ? 'bg-green-100 dark:bg-green-900' : ''} ${isJerricanSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}">
-            <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">${shoulderNumber}</div>
-            <div class="flex items-center justify-center gap-3 w-full mt-2">
-                <button 
-                    data-shoulder-number="${shoulderNumber}" 
-                    data-type="stretcher"
-                    class="task-btn flex-1 p-2 rounded-lg text-2xl transition-all 
-                           ${isStretcherSelected ? 'bg-green-500 text-white scale-110' : 'bg-gray-200 dark:bg-gray-600'}
-                           ${stretcherDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-green-200 dark:hover:bg-green-700'}"
-                    ${stretcherDisabled && !isStretcherSelected ? 'disabled' : ''}
-                    title="נשיאת אלונקה">
-                    🚁
-                </button>
-                <button 
-                    data-shoulder-number="${shoulderNumber}" 
-                    data-type="jerrican"
-                    class="task-btn flex-1 p-2 rounded-lg text-2xl transition-all
-                           ${isJerricanSelected ? 'bg-blue-500 text-white scale-110' : 'bg-gray-200 dark:bg-gray-600'}
-                           ${jerricanDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-700'}"
-                    ${jerricanDisabled && !isJerricanSelected ? 'disabled' : ''}
-                    title="נשיאת ג'ריקן">
-                    💧
-                </button>
+            <div class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${isStretcherSelected ? 'bg-green-100 dark:bg-green-900' : ''} ${isJerricanSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}">
+                <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">${shoulderNumber}</div>
+                <div class="task-row w-full mt-2">
+                    <button 
+                        data-shoulder-number="${shoulderNumber}" 
+                        data-type="stretcher"
+                        class="task-btn p-2 rounded-lg text-2xl transition-all 
+                               ${isStretcherSelected ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
+                               ${stretcherDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-green-200 dark:hover:bg-green-700'}"
+                        ${stretcherDisabled && !isStretcherSelected ? 'disabled' : ''}
+                        title="נשיאת אלונקה">
+                        🚁
+                    </button>
+                    <button 
+                        data-shoulder-number="${shoulderNumber}" 
+                        data-type="jerrican"
+                        class="task-btn p-2 rounded-lg text-2xl transition-all
+                               ${isJerricanSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
+                               ${jerricanDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-700'}"
+                        ${jerricanDisabled && !isJerricanSelected ? 'disabled' : ''}
+                        title="נשיאת ג'ריקן">
+                        💧
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+
+
+        const navigationButtons = `
+        <div class="flex justify-between items-center mt-6 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-inner">
+            <button id="prev-stretcher-heat-btn-inline" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg" ${heatIndex === 0 ? 'disabled' : ''}>הקודם</button>
+            <span class="font-semibold text-gray-800 dark:text-gray-200">${CONFIG.STRETCHER_PAGE_LABEL} ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}</span>
+            <button id="next-stretcher-heat-btn-inline" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg">${heatIndex === CONFIG.NUM_STRETCHER_HEATS - 1 ? 'לדוחות' : 'הבא'}</button>
+        </div>`;
+    
+        contentDiv.innerHTML = `
+            <div id="stretcher-grid" class="auto-grid stretcher-grid">
+                ${runnerCardsHtml}
             </div>
-        </div>
+            ${navigationButtons}
         `;
-    }).join('');
 
-    const navigationButtons = `
-    <div class="flex justify-between items-center mt-6 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-inner">
-        <button id="prev-stretcher-heat-btn-inline" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg" ${heatIndex === 0 ? 'disabled' : ''}>הקודם</button>
-        <span class="font-semibold text-gray-800 dark:text-gray-200">${CONFIG.STRETCHER_PAGE_LABEL} ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}</span>
-        <button id="next-stretcher-heat-btn-inline" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg">${heatIndex === CONFIG.NUM_STRETCHER_HEATS - 1 ? 'לדוחות' : 'הבא'}</button>
-    </div>`;
-
-    contentDiv.innerHTML = `
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
-            ${runnerCardsHtml}
-        </div>
-        ${navigationButtons}
-    `;
-
-    // Attach event listeners
-    document.querySelectorAll('.task-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const shoulderNumber = parseInt(e.currentTarget.dataset.shoulderNumber);
-            const type = e.currentTarget.dataset.type;
-            handleSociometricSelection(shoulderNumber, type, heatIndex);
-        });
+    // Delegated click for task buttons
+    document.getElementById('stretcher-grid')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.task-btn');
+        if (!btn || btn.disabled) return;
+        const shoulderNumber = parseInt(btn.dataset.shoulderNumber, 10);
+        const type = btn.dataset.type;
+        handleSociometricSelection(shoulderNumber, type, heatIndex);
     });
 
-    document.getElementById('prev-stretcher-heat-btn-inline')?.addEventListener('click', () => { state.sociometricStretcher.currentHeatIndex--; saveState(); render(); });
+    document.getElementById('prev-stretcher-heat-btn-inline')?.addEventListener('click', () => { 
+        if (heatIndex > 0) {
+            state.sociometricStretcher.currentHeatIndex--;
+            saveState();
+            render();
+        }
+    });
     document.getElementById('next-stretcher-heat-btn-inline')?.addEventListener('click', () => {
         if (heatIndex < CONFIG.NUM_STRETCHER_HEATS - 1) {
             state.sociometricStretcher.currentHeatIndex++;
