@@ -1,11 +1,31 @@
 /* Import Inter font from Google Fonts for a modern, clean look */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
+:root{
+  --bg: #0f172a;           /* slate-900 */
+  --bg-2: #111827;         /* gray-900 */
+  --card: #0b1220;         /* deep card */
+  --text: #e5e7eb;         /* gray-200 */
+  --muted: #94a3b8;        /* slate-400 */
+  --accent: #3b82f6;       /* blue-500 */
+  --accent-2: #22d3ee;     /* cyan-400 */
+  --success: #10b981;      /* emerald-500 */
+  --danger: #ef4444;       /* red-500 */
+  --warn: #f59e0b;         /* amber-500 */
+  --ring: rgba(59,130,246,.45);
+  --radius: 14px;
+}
+
 /* Base styles for the body, setting font, background, and right-to-left direction */
-body {
-    font-family: 'Inter', sans-serif;
-    background-color: #f3f4f6;
-    direction: rtl;
+html,body{
+  height:100%;
+  font-family: 'Inter', sans-serif;
+  background:
+    radial-gradient(1000px 500px at 100% -50%, rgba(34,211,238,.10), transparent 65%),
+    radial-gradient(900px 500px at -10% 0%, rgba(59,130,246,.12), transparent 55%),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
+  color: var(--text);
+  direction: rtl;
 }
 
 /* Style for required form fields, adding a red asterisk */
@@ -56,6 +76,9 @@ body {
 /* Monospace font for timer display for consistent digit width */
 .timer-display {
     font-family: 'Courier New', Courier, monospace;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(59,130,246,.35);
 }
 
 /* V1 - Optimized Nav Tabs for mobile */
@@ -239,3 +262,115 @@ body {
 .dark #confirmation-modal #cancel-btn:hover {
     background-color: #718096; /* Gray 600 */
 }
+
+/* כרטיסי אלונקות: תאי גריד רחבים יותר, הכרטיס ממלא את התא */
+.auto-grid.stretcher-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+@media (min-width: 480px){
+  .auto-grid.stretcher-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+}
+@media (min-width: 768px){
+  .auto-grid.stretcher-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+}
+
+/* הכרטיס ימלא תא, בלי גלישה, והכפתורים יתפרסו כשתי עמודות */
+.runner-card{ width:100%; height:100%; display:flex; flex-direction:column; box-sizing:border-box; }
+.task-row{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; width:100%; }
+
+/* הכפתורים ממלאים רוחב התא, גובה נוח למגע */
+.task-btn, .runner-btn, .runner-sack-btn { width:100%; min-height:56px; box-sizing:border-box; }
+
+/* מניעת ניפוח שמזיז/חותך (מבטל scale-110) */
+.task-btn.scale-110 { transform:none !important; }
+
+/* כותרות */
+h1,h2,h3{ color: var(--text); }
+h2{ letter-spacing:.2px; }
+
+/* כפתורים כלליים */
+button{
+  border-radius: calc(var(--radius) - 6px);
+  transition: transform .12s ease, box-shadow .12s ease, background-color .15s ease, opacity .15s ease;
+  will-change: transform;
+}
+button:active{ transform: translateY(1px) scale(.995); }
+button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
+
+/* כפתורי ריצה/שק/אלונקה */
+.runner-btn, .runner-sack-btn, .task-btn{
+  min-height: 64px;
+  min-width: 86px;
+  border-radius: var(--radius);
+  box-shadow: 0 6px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.runner-btn{ font-size: 1.25rem; }
+.runner-sack-btn.selected{ box-shadow: 0 0 0 3px rgba(59,130,246,.35); }
+
+/* גריד אוטומטי ידידותי לנייד */
+.auto-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px,1fr));
+  gap: 12px;
+  justify-items: stretch;
+  align-items: stretch;
+}
+@media (min-width: 768px){
+  .auto-grid{ grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap:14px; }
+}
+
+/* Layout fixes: grid children fill cell without overflow */
+.auto-grid > * { width: 100%; }
+.runner-card{
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.task-btn, .runner-btn, .runner-sack-btn{
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Optional: avoid unintended gaps around grid items */
+.auto-grid { gap: 12px; }
+@media (min-width: 768px){
+  .auto-grid{ gap: 14px; }
+}
+
+/* סרגל פעולות דביק תחתון */
+.sticky-bottom{
+  position: sticky; bottom: 0;
+  background: rgba(17,24,39,.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,.06);
+  z-index: 30;
+}
+
+/* כרטיסים */
+.runner-card{
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.12));
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radius);
+}
+
+/* טבלת דוח – הדגשות */
+.highlight-gold   { background: linear-gradient(90deg, rgba(234,179,8,.20), transparent); }
+.highlight-silver { background: linear-gradient(90deg, rgba(148,163,184,.20), transparent); }
+.highlight-bronze { background: linear-gradient(90deg, rgba(234,88,12,.18), transparent); }
+
+/* מודאל */
+#confirmation-modal .bg-white{
+  background: linear-gradient(180deg, #0b1220, #0b1018) !important;
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radius);
+}
+
+/* שדרוג גלילה במובייל */
+*{ scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+::-webkit-scrollbar{ height:10px; width:10px; }
+::-webkit-scrollbar-thumb{ background:#334155; border-radius:10px; }
+::-webkit-scrollbar-track{ background: transparent; }
