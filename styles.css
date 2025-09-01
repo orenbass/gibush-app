@@ -28,6 +28,9 @@ html,body{
   direction: rtl;
 }
 
+/* מניעת הזחות אוטומטיות באייפון */
+html { -webkit-text-size-adjust: 100%; }
+
 /* Style for required form fields, adding a red asterisk */
 .required-field::after {
     content: '*';
@@ -354,6 +357,7 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.12));
   border: 1px solid rgba(255,255,255,.06);
   border-radius: var(--radius);
+  overflow: hidden; /* חשוב לאייפון */
 }
 
 /* טבלת דוח – הדגשות */
@@ -374,3 +378,20 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
 ::-webkit-scrollbar{ height:10px; width:10px; }
 ::-webkit-scrollbar-thumb{ background:#334155; border-radius:10px; }
 ::-webkit-scrollbar-track{ background: transparent; }
+
+/* פריסת הכפתורים בפנים – שתי עמודות גמישות ללא גלישה */
+.task-row{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); /* minmax(0,1fr) מונע גלישת min-content */
+  gap: 10px;
+  width: 100%;
+}
+
+/* בתוך כרטיסי אלונקות – לבטל min-width הגלובלי שגורם לשבירה */
+.stretcher-grid .task-btn{
+  min-width: 0;         /* דריסה של min-width:86px */
+  width: 100%;
+  box-sizing: border-box;
+  line-height: 1.1;     /* לאזן גובה האימוג'י */
+  padding: 10px 12px;   /* גובה נוח למגע */
+}
