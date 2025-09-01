@@ -619,8 +619,8 @@ function initializeSociometricStretcherHeats() {
     state.sociometricStretcher = {
         heats: Array.from({ length: CONFIG.NUM_STRETCHER_HEATS }, (_, i) => ({
             heatNumber: i + 1,
-            selections: {}, // Stores the current selection for each runner (e.g., { '101': 'stretcher' })
-            usedChoices: {}  // Stores which choices have been used and deselected (e.g., { '101': ['stretcher'] })
+            selections: {} // { '101': 'stretcher' | 'jerrican' }
+            // usedChoices הוסר – ניתן לבחור/לבטל חופשי
         })),
         currentHeatIndex: 0
     };
@@ -2244,6 +2244,34 @@ function renderQuickCommentBar(show) {
     const quickBarDiv = document.getElementById('quick-comment-bar-container');
     if (!show) { quickBarDiv.innerHTML = ''; return; }
 
+    // הזרקת CSS פעם אחת עבור המיקרופון והבר
+    if (!document.getElementById('qc-style')) {
+        const style = document.createElement('style');
+        style.id = 'qc-style';
+        style.textContent = `
+.quickbar { display:flex; gap:12px; align-items:center; }
+.quickbar .qc-group{ display:flex; align-items:center; gap:8px; min-width:0; }
+.quickbar .qc-input-wrap{ position:relative; display:flex; align-items:center; flex:1 1 auto; min-width:0; }
+.quickbar .qc-input{
+  width:100%; height:44px; line-height:44px; font-size:16px; text-align:right;
+  padding:8px 12px; padding-right:46px; /* מקום לאייקון */
+  border:1px solid rgba(255,255,255,.1); border-radius:10px;
+  background: rgba(255,255,255,.06); color:inherit; box-sizing:border-box;
+}
+.quickbar .qc-micBtn.mic-inside{
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+  border-radius:8px; background:#374151; color:#fff; border:1px solid rgba(255,255,255,.1);
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.quickbar .qc-micBtn.mic-inside:hover{ background:#4b5563; }
+.quickbar .qc-micBtn.mic-inside.recording{ background:#ef4444; border-color:#dc2626; }
+.quickbar .qc-runner-select{ width:92px; min-width:84px; text-align:center; text-align-last:center; font-weight:600; }
+.qc-sendBtn[disabled]{ opacity:.5; cursor:not-allowed; }
+        `;
+        document.head.appendChild(style);
+    }
+
     const runnerOptions = state.runners
         .slice()
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
@@ -2257,8 +2285,10 @@ function renderQuickCommentBar(show) {
         </div>
         <div class="qc-group" style="flex:1">
           <span class="qc-label">הערה:</span>
-          <input id="quick-comment-input" type="text" class="qc-input" placeholder="הוסף הערה חפוזה...">
-          <button id="quick-comment-mic" class="qc-micBtn" aria-label="הכתבה קולית">🎤</button>
+          <div class="qc-input-wrap">
+            <input id="quick-comment-input" type="text" class="qc-input" placeholder="הוסף הערה חפוזה...">
+            <button id="quick-comment-mic" class="qc-micBtn mic-inside" aria-label="הכתבה קולית" title="הכתבה קולית">🎤</button>
+          </div>
         </div>
         <div class="qc-actions">
           <button id="quick-comment-send" class="qc-sendBtn" disabled>שלח</button>
@@ -3580,16 +3610,10 @@ function renderSociometricStretcherHeatPage(heatIndex) {
     headerTitle.textContent = `${CONFIG.STRETCHER_PAGE_LABEL} - מקצה ${heatIndex + 1}`;
 
     const heat = state.sociometricStretcher.heats[heatIndex];
-    if (!heat) {
-        contentDiv.innerHTML = `<p>מקצה לא נמצא.</p>`;
-        return;
-    }
+    if (!heat) { contentDiv.innerHTML = `<p>מקצה לא נמצא.</p>`; return; }
 
-    // Ensure data structures
     heat.selections = heat.selections || {};
-    heat.usedChoices = heat.usedChoices || {};
 
-    // Counts for limits
     const selections = heat.selections;
     const stretcherCount = Object.values(selections).filter(v => v === 'stretcher').length;
     const jerricanCount  = Object.values(selections).filter(v => v === 'jerrican').length;
@@ -3600,47 +3624,40 @@ function renderSociometricStretcherHeatPage(heatIndex) {
         .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
-        const runnerCardsHtml = activeRunners.map(runner => {
-            const shoulderNumber = runner.shoulderNumber;
-            const selection = heat.selections[shoulderNumber];
-            const used = heat.usedChoices[shoulderNumber] || [];
-    
-            const isStretcherSelected = selection === 'stretcher';
-            const isJerricanSelected  = selection === 'jerrican';
-    
-            const isStretcherUsed = used.includes('stretcher');
-            const isJerricanUsed  = used.includes('jerrican');
-    
-            const stretcherDisabled = isStretcherUsed || isJerricanSelected || (!isStretcherSelected && stretcherLimitReached);
-            const jerricanDisabled  = isJerricanUsed  || isStretcherSelected  || (!isJerricanSelected  && jerricanLimitReached);
-    
-            return `
+    const runnerCardsHtml = activeRunners.map(runner => {
+        const shoulderNumber = runner.shoulderNumber;
+        const selection = heat.selections[shoulderNumber];
+
+        const isStretcherSelected = selection === 'stretcher';
+        const isJerricanSelected  = selection === 'jerrican';
+
+        // נטרול רק לפי מכסה נוכחית והאם כבר מסומן תפקיד אחר
+        const stretcherDisabled = isJerricanSelected || (!isStretcherSelected && stretcherLimitReached);
+        const jerricanDisabled  = isStretcherSelected || (!isJerricanSelected && jerricanLimitReached);
+
+        return `
             <div class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${isStretcherSelected ? 'bg-green-100 dark:bg-green-900' : ''} ${isJerricanSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}">
-                <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">${shoulderNumber}</div>
-                <div class="task-row w-full mt-2">
-                    <button 
-                        data-shoulder-number="${shoulderNumber}" 
-                        data-type="stretcher"
-                        class="task-btn p-2 rounded-lg text-2xl transition-all 
-                               ${isStretcherSelected ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
-                               ${stretcherDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-green-200 dark:hover:bg-green-700'}"
-                        ${stretcherDisabled && !isStretcherSelected ? 'disabled' : ''}
-                        title="נשיאת אלונקה">
-                        🚁
-                    </button>
-                    <button 
-                        data-shoulder-number="${shoulderNumber}" 
-                        data-type="jerrican"
-                        class="task-btn p-2 rounded-lg text-2xl transition-all
-                               ${isJerricanSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
-                               ${jerricanDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-700'}"
-                        ${jerricanDisabled && !isJerricanSelected ? 'disabled' : ''}
-                        title="נשיאת ג'ריקן">
-                        💧
-                    </button>
-                </div>
-            </div>`;
-        }).join('');
+            <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">${shoulderNumber}</div>
+            <div class="task-row w-full mt-2">
+                <button 
+                    data-shoulder-number="${shoulderNumber}" 
+                    data-type="stretcher"
+                    class="task-btn p-2 rounded-lg text-2xl transition-all 
+                           ${isStretcherSelected ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
+                           ${stretcherDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-green-200 dark:hover:bg-green-700'}"
+                    ${stretcherDisabled && !isStretcherSelected ? 'disabled' : ''}
+                    title="נשיאת אלונקה">🚁</button>
+                <button 
+                    data-shoulder-number="${shoulderNumber}" 
+                    data-type="jerrican"
+                    class="task-btn p-2 rounded-lg text-2xl transition-all
+                           ${isJerricanSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
+                           ${jerricanDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-700'}"
+                    ${jerricanDisabled && !isJerricanSelected ? 'disabled' : ''}
+                    title="נשיאת ג'ריקן">💧</button>
+            </div>
+        </div>`;
+    }).join('');
 
 
         const navigationButtons = `
@@ -3692,39 +3709,38 @@ function renderSociometricStretcherHeatPage(heatIndex) {
  */
 function handleSociometricSelection(shoulderNumber, type, heatIndex) {
     const heat = state.sociometricStretcher.heats[heatIndex];
-
     if (!heat.selections) heat.selections = {};
-    if (!heat.usedChoices) heat.usedChoices = {};
-    if (!heat.usedChoices[shoulderNumber]) heat.usedChoices[shoulderNumber] = [];
 
-    const currentSelection = heat.selections[shoulderNumber];
-    const isChoiceUsed = heat.usedChoices[shoulderNumber].includes(type);
+    const current = heat.selections[shoulderNumber];
 
-    // מניעת חריגה מהמכסה לפני בחירה חדשה
-    if (!currentSelection && !isChoiceUsed) {
-        const counts = Object.values(heat.selections).reduce((acc, v) => {
-            if (v === 'stretcher') acc.stretcher++;
-            if (v === 'jerrican') acc.jerrican++;
-            return acc;
-        }, { stretcher: 0, jerrican: 0 });
+    // חישוב ספירות נוכחיות
+    const counts = Object.values(heat.selections).reduce((acc, v) => {
+        if (v === 'stretcher') acc.stretcher++;
+        else if (v === 'jerrican') acc.jerrican++;
+        return acc;
+    }, { stretcher: 0, jerrican: 0 });
 
-        const max = type === 'stretcher' ? CONFIG.MAX_STRETCHER_CARRIERS : CONFIG.MAX_JERRICAN_CARRIERS;
-        const cur = type === 'stretcher' ? counts.stretcher : counts.jerrican;
-        if (cur >= max) {
-            showModal('מגבלה הושגה', `לא ניתן לבחור יותר מ-${max} ${type === 'stretcher' ? 'נושאי אלונקה' : "נושאי ג'ריקן"} במקצה זה.`);
+    const maxForType = type === 'stretcher' ? CONFIG.MAX_STRETCHER_CARRIERS : CONFIG.MAX_JERRICAN_CARRIERS;
+    const curForType = type === 'stretcher' ? counts.stretcher : counts.jerrican;
+
+    if (current === type) {
+        // ביטול בחירה – לא “שורף” כלום
+        delete heat.selections[shoulderNumber];
+    } else if (!current) {
+        // בחירה חדשה
+        if (curForType >= maxForType) {
+            showModal('מגבלה הושגה', `לא ניתן לבחור יותר מ-${maxForType} ${type === 'stretcher' ? 'נושאי אלונקה' : "נושאי ג'ריקן"} במקצה זה.`);
             return;
         }
-    }
-
-    if (currentSelection === type) {
-        // ביטול בחירה – שורף את האפשרות בחום זה
-        delete heat.selections[shoulderNumber];
-        heat.usedChoices[shoulderNumber].push(type);
-    } else if (!currentSelection && !isChoiceUsed) {
-        // בחירה חדשה
+        heat.selections[shoulderNumber] = type;
+    } else {
+        // מעבר מסוג אחד לאחר – בדיקת מכסה לסוג היעד
+        if (curForType >= maxForType) {
+            showModal('מגבלה הושגה', `לא ניתן לבחור יותר מ-${maxForType} ${type === 'stretcher' ? 'נושאי אלונקה' : "נושאי ג'ריקן"} במקצה זה.`);
+            return;
+        }
         heat.selections[shoulderNumber] = type;
     }
-    // אם יש בחירה מסוג אחר – הכפתור ממילא מנוטרל ב-UI
 
     saveState();
     render();
