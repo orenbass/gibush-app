@@ -1822,14 +1822,12 @@ function render() {
         state.runners && state.runners.length > 0 &&
         state.currentPage !== PAGES.RUNNERS; // אל תציג במסך יצירת קבוצה
 
-    // הסתרת הבר הישן למעלה והצגת בועה
+    // הצגת שורת התגובה המהירה (מותאמת לטלפון) במקום הבועה
     const quickBarDiv = document.getElementById('quick-comment-bar-container');
-    if (quickBarDiv) { quickBarDiv.innerHTML = ''; quickBarDiv.style.display = 'none'; }
+    if (quickBarDiv) { quickBarDiv.style.display = ''; } // וודא שמוצג
 
-    // renderQuickCommentBar(shouldShowQuickBar); // הוסר: לא להציג את השורה העליונה
-    renderQuickCommentFAB(shouldShowQuickBar);
-
-
+    renderQuickCommentBar(shouldShowQuickBar);
+    // renderQuickCommentFAB(shouldShowQuickBar); // הסרת הבועה
 
     // Update active navigation tab highlighting
 
@@ -2236,30 +2234,127 @@ function renderQuickCommentBar(show) {
     const quickBarDiv = document.getElementById('quick-comment-bar-container');
     if (!show) { quickBarDiv.innerHTML = ''; return; }
 
-    // הזרקת CSS פעם אחת עבור המיקרופון והבר
+    // CSS מותאם לטלפון עם פריסה רספונסיבית
     if (!document.getElementById('qc-style')) {
         const style = document.createElement('style');
         style.id = 'qc-style';
         style.textContent = `
-.quickbar { display:flex; gap:12px; align-items:center; }
-.quickbar .qc-group{ display:flex; align-items:center; gap:8px; min-width:0; }
-.quickbar .qc-input-wrap{ position:relative; display:flex; align-items:center; flex:1 1 auto; min-width:0; }
-.quickbar .qc-input{
-  width:100%; height:44px; line-height:44px; font-size:16px; text-align:right;
-  padding:8px 12px; padding-right:46px; /* מקום לאייקון */
-  border:1px solid rgba(255,255,255,.1); border-radius:10px;
-  background: rgba(255,255,255,.06); color:inherit; box-sizing:border-box;
+.quickbar { 
+  display: grid; 
+  grid-template-columns: 1fr; 
+  gap: 10px; 
+  padding: 12px;
+  background: rgba(0,0,0,.08);
+  border-radius: 12px;
+  margin: 8px 0;
 }
-.quickbar .qc-micBtn.mic-inside{
-  position:absolute; right:6px; top:50%; transform:translateY(-50%);
-  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
-  border-radius:8px; background:#374151; color:#fff; border:1px solid rgba(255,255,255,.1);
-  cursor:pointer; -webkit-tap-highlight-color:transparent;
+
+/* במסכים גדולים - פריסה אופקית */
+@media (min-width: 640px) {
+  .quickbar { 
+    grid-template-columns: auto 1fr auto; 
+    align-items: center; 
+    gap: 12px; 
+  }
 }
-.quickbar .qc-micBtn.mic-inside:hover{ background:#4b5563; }
-.quickbar .qc-micBtn.mic-inside.recording{ background:#ef4444; border-color:#dc2626; }
-.quickbar .qc-runner-select{ width:92px; min-width:84px; text-align:center; text-align-last:center; font-weight:600; }
-.qc-sendBtn[disabled]{ opacity:.5; cursor:not-allowed; }
+
+.qc-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+.qc-label { 
+  font-size: 14px; 
+  font-weight: 600; 
+  color: inherit; 
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+.qc-runner-select { 
+  width: 80px; 
+  height: 40px;
+  text-align: center; 
+  text-align-last: center; 
+  font-weight: 600; 
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,.15);
+  background: #ffffff;
+  color: #111827;
+}
+
+.dark .qc-runner-select {
+  background: #374151;
+  color: #f9fafb;
+  border-color: rgba(255,255,255,.2);
+}
+
+/* תיקון הרשימה הנפתחת להיות ברורה */
+.qc-runner-select option {
+  background: #ffffff;
+  color: #111827;
+}
+
+.dark .qc-runner-select option {
+  background: #374151;
+  color: #f9fafb;
+}
+
+.qc-input-row {
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  flex: 1; 
+  min-width: 0;
+}
+
+.qc-input { 
+  flex: 1; 
+  height: 40px; 
+  padding: 8px 12px; 
+  border-radius: 8px; 
+  border: 1px solid rgba(0,0,0,.15);
+  background: rgba(255,255,255,.9);
+  color: #111827;
+  font-size: 16px;
+  text-align: right;
+  min-width: 0;
+}
+
+.dark .qc-input {
+  background: rgba(255,255,255,.06);
+  color: inherit;
+  border-color: rgba(255,255,255,.14);
+}
+
+.qc-micBtn { 
+  width: 40px; 
+  height: 40px; 
+  border-radius: 8px; 
+  border: 1px solid rgba(0,0,0,.15);
+  background: #374151; 
+  color: #fff; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.qc-micBtn:hover { background: #4b5563; }
+.qc-micBtn.recording { background: #ef4444; border-color: #dc2626; }
+
+.qc-sendBtn { 
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  background: #10b981;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.qc-sendBtn:disabled { opacity: .5; cursor: not-allowed; }
+.qc-sendBtn:not(:disabled):hover { background: #059669; }
         `;
         document.head.appendChild(style);
     }
@@ -2270,29 +2365,25 @@ function renderQuickCommentBar(show) {
         .map(r => `<option value="${r.shoulderNumber}">${r.shoulderNumber}</option>`).join('');
 
     quickBarDiv.innerHTML = `
-      <div class="quickbar" role="region" aria-label="הערה חפוזה">
-        <div class="qc-group">
-          <span class="qc-label">מספר כתף:</span>
-          <select id="quick-comment-runner" class="qc-select qc-runner-select" aria-label="בחר מספר כתף">${runnerOptions}</select>
+      <div class="quickbar" role="region" aria-label="הערה מהירה">
+        <div class="qc-row">
+          <span class="qc-label">מס' כתף:</span>
+          <select id="quick-comment-runner" class="qc-runner-select" aria-label="בחר מספר כתף">${runnerOptions}</select>
         </div>
-        <div class="qc-group" style="flex:1">
+        <div class="qc-row">
           <span class="qc-label">הערה:</span>
-          <div class="qc-input-wrap">
-            <input id="quick-comment-input" type="text" class="qc-input" placeholder="הוסף הערה חפוזה...">
-            <button id="quick-comment-mic" class="qc-micBtn mic-inside" aria-label="הכתבה קולית" title="הכתבה קולית">🎤</button>
+          <div class="qc-input-row">
+            <input id="quick-comment-input" type="text" class="qc-input" placeholder="הוסף הערה מהירה...">
+            <button id="quick-comment-mic" class="qc-micBtn" aria-label="הכתבה קולית" title="הכתבה קולית">🎤</button>
           </div>
         </div>
-        <div class="qc-actions">
-          <button id="quick-comment-send" class="qc-sendBtn" disabled>שלח</button>
-        </div>
+        <button id="quick-comment-send" class="qc-sendBtn" disabled>שלח</button>
       </div>`;
 
     const selectEl = document.getElementById('quick-comment-runner');
     const inputEl  = document.getElementById('quick-comment-input');
     const micBtn   = document.getElementById('quick-comment-mic');
     const sendBtn  = document.getElementById('quick-comment-send');
-
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
     const updateSendEnabled = () => {
         const hasText = inputEl.value.trim().length > 0;
@@ -2320,11 +2411,11 @@ function renderQuickCommentBar(show) {
         inputEl.value = '';
         inputEl.placeholder = 'נשמר!';
         updateSendEnabled();
-        setTimeout(() => { inputEl.placeholder = 'הוסף הערה חפוזה...'; }, 900);
+        setTimeout(() => { inputEl.placeholder = 'הוסף הערה מהירה...'; }, 900);
     }
     sendBtn.addEventListener('click', send);
 
-    // דיבור/חלופה לאייפון (כפי שכבר יושם קודם)
+    // הכתבה קולית
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null, isRecording = false;
 
@@ -2373,16 +2464,10 @@ function renderQuickCommentBar(show) {
         micBtn.addEventListener('touchstart', startRec, { passive: false });
         micBtn.addEventListener('touchend', stopRec);
     } else {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         micBtn.title = isIOS
-          ? "באייפון: מקסם מקלדת והשתמש בסמל 🎤 להכתבה."
+          ? "באייפון: השתמש בכפתור 🎤 במקלדת להכתבה."
           : "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
-        const startNative = (e) => { e.preventDefault(); micBtn.classList.add('recording'); micBtn.textContent = '🛑'; inputEl.focus(); };
-        const stopNative  = (e) => { e.preventDefault(); micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
-        micBtn.addEventListener('mousedown', startNative);
-        micBtn.addEventListener('mouseup', stopNative);
-        micBtn.addEventListener('mouseleave', stopNative);
-        micBtn.addEventListener('touchstart', startNative, { passive: false });
-        micBtn.addEventListener('touchend', stopNative);
     }
 }
 
