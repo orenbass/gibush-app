@@ -1,9 +1,6 @@
 if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js").then(() => {
-        console.log("Service Worker Registered");
-    }).catch((error) => {
-        console.error("Service Worker Registration Failed:", error);
-    });
+    // Use root path so scope covers the whole app
+    navigator.serviceWorker.register("/service-worker.js").catch(console.error);
 }
 // --- Application Constants & Config ---
 
@@ -152,7 +149,47 @@ function formatTime(ms) {
 
 }
 
+let deferredInstallPrompt = null;
 
+function setupPWAInstallUI() {
+    const installBtn = document.getElementById('install-btn');
+    if (!installBtn) return;
+
+    const isApple = /iP(hone|ad|od)|Mac/i.test(navigator.userAgent);
+    // iOS doesn’t support beforeinstallprompt – hide the button there
+    installBtn.style.display = isApple ? 'none' : 'none';
+
+    installBtn.addEventListener('click', async () => {
+        if (!deferredInstallPrompt) {
+            showModal('התקנה', 'לא ניתן להתקין כעת. ודא שעמוד נטען דרך HTTPS ונסה מאוחר יותר.');
+            return;
+        }
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice.catch(() => {});
+        deferredInstallPrompt = null;
+        installBtn.style.display = 'none';
+    });
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) installBtn.style.display = 'inline-flex';
+});
+
+window.addEventListener('appinstalled', () => {
+    const installBtn = document.getElementById('install-btn');
+    if (installBtn) installBtn.style.display = 'none';
+    deferredInstallPrompt = null;
+});
+
+// Call once in init()
+async function init() {
+    // ...existing code...
+    setupPWAInstallUI();
+    // ...existing code...
+}
 
 /**
 
@@ -163,6 +200,7 @@ function formatTime(ms) {
  * @returns {string} Formatted time string.
 
  */
+
 
 function formatTime_no_ms(ms) {
 
@@ -3155,11 +3193,11 @@ function renderQuickCommentBar(show) {
         </div>
       </div>`;
 
-    const selectEl = document.getElementById('quick-comment-runner');
-    const inputEl = document.getElementById('quick-comment-input');
-    const micBtn = document.getElementById('quick-comment-mic');
-    const sendBtn = document.getElementById('quick-comment-send');
-
+      const selectEl = document.getElementById('quick-comment-runner');
+      const inputEl  = document.getElementById('quick-comment-input');
+      const micBtn   = document.getElementById('quick-comment-mic');
+      const sendBtn  = document.getElementById('quick-comment-send');
+  
     const updateSendEnabled = () => {
         const hasText = inputEl.value.trim().length > 0;
         sendBtn.disabled = !hasText;
@@ -3195,60 +3233,59 @@ function renderQuickCommentBar(show) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null, isRecording = false;
 
-    if (SR) {
-        recognition = new SR();
-        recognition.lang = 'he-IL';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript || '';
-            inputEl.value = transcript;
-            updateSendEnabled();
-        };
-        recognition.onerror = () => {
-            isRecording = false;
-            micBtn.classList.remove('recording');
-            micBtn.textContent = '🎤';
-        };
-        recognition.onend = () => {
-            isRecording = false;
-            micBtn.classList.remove('recording');
-            micBtn.textContent = '🎤';
-        };
-
-        const startRec = (e) => {
-            e.preventDefault();
-            if (!isRecording) {
-                try {
-                    recognition.start();
-                    isRecording = true;
-                    micBtn.classList.add('recording');
-                    micBtn.textContent = '🛑';
-                } catch { }
-            }
-        };
-        const stopRec = (e) => {
-            e.preventDefault();
-            if (isRecording) recognition.stop();
-        };
-
-        micBtn.addEventListener('mousedown', startRec);
-        micBtn.addEventListener('mouseup', stopRec);
-        micBtn.addEventListener('mouseleave', stopRec);
-        micBtn.addEventListener('touchstart', startRec, { passive: false });
-        micBtn.addEventListener('touchend', stopRec);
+    // Force hide on Apple devices, regardless of API presence
+    const isApple = /iP(hone|ad|od)|Mac/i.test(navigator.userAgent);
+    if (isApple && micBtn) {
+        micBtn.style.display = 'none';
     } else {
+        if (SR) {
+            recognition = new SR();
+            recognition.lang = 'he-IL';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
 
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        if (isIOS) {
-            micBtn.style.display = 'none'; // הסתר את כפתור המיקרופון במכשירי אפל
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript || '';
+                inputEl.value = transcript;
+                updateSendEnabled();
+            };
+            recognition.onerror = () => {
+                isRecording = false;
+                micBtn.classList.remove('recording');
+                micBtn.textContent = '🎤';
+            };
+            recognition.onend = () => {
+                isRecording = false;
+                micBtn.classList.remove('recording');
+                micBtn.textContent = '🎤';
+            };
+
+            const startRec = (e) => {
+                e.preventDefault();
+                if (!isRecording) {
+                    try {
+                        recognition.start();
+                        isRecording = true;
+                        micBtn.classList.add('recording');
+                        micBtn.textContent = '🛑';
+                    } catch { }
+                }
+            };
+            const stopRec = (e) => {
+                e.preventDefault();
+                if (isRecording) recognition.stop();
+            };
+
+            micBtn.addEventListener('mousedown', startRec);
+            micBtn.addEventListener('mouseup', stopRec);
+            micBtn.addEventListener('mouseleave', stopRec);
+            micBtn.addEventListener('touchstart', startRec, { passive: false });
+            micBtn.addEventListener('touchend', stopRec);
         } else {
             micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
         }
     }
-
 }
 
 /**
