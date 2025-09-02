@@ -878,8 +878,404 @@ function validateAndStartHeats() {
 
 }
 
+// הוסף אחרי הפונקציה validateAndStartHeats הקיימת:
 
+/**
+ * הצגת חלון התחלתי להזנת פרטי מעריך וקבוצה
+ */
+function renderInitialSetupModal() {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
+    backdrop.id = 'initial-setup-modal';
+    
+    backdrop.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
+        <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">ברוכים הבאים לאפליקציית הגיבוש</h3>
+        <p class="text-gray-700 dark:text-gray-300 mb-6 text-center">אנא הזן את פרטי ההערכה להתחלה</p>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
+                <input type="text" id="initial-evaluator-name" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white" placeholder="הכנס שם מעריך">
+            </div>
+            <div>
+                <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
+                <input type="text" id="initial-group-number" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white" placeholder="הכנס מספר קבוצה">
+            </div>
+        </div>
+        
+        <div class="text-center mt-6">
+            <button id="save-initial-details" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                המשך
+            </button>
+        </div>
+        
+        <div id="initial-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
+    </div>`;
+    
+    document.body.appendChild(backdrop);
+    
+    const evaluatorInput = document.getElementById('initial-evaluator-name');
+    const groupInput = document.getElementById('initial-group-number');
+    const saveBtn = document.getElementById('save-initial-details');
+    const errorDiv = document.getElementById('initial-error');
+    
+    const validateInputs = () => {
+        const hasEvaluator = evaluatorInput.value.trim().length > 0;
+        const hasGroup = groupInput.value.trim().length > 0;
+        saveBtn.disabled = !hasEvaluator || !hasGroup;
+    };
+    
+    evaluatorInput.addEventListener('input', validateInputs);
+    groupInput.addEventListener('input', validateInputs);
+    evaluatorInput.focus();
+    
+    saveBtn.addEventListener('click', () => {
+        const evaluatorName = evaluatorInput.value.trim();
+        const groupNumber = groupInput.value.trim();
+        
+        if (!evaluatorName || !groupNumber) {
+            errorDiv.textContent = 'יש למלא את כל השדות';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+        
+        state.evaluatorName = evaluatorName;
+        state.groupNumber = groupNumber;
+        saveState();
+        document.body.removeChild(backdrop);
+        render();
+    });
+    
+    validateInputs();
+}
 
+/**
+ * הצגת חלון הוספת רצים
+ */
+// החלף את הפונקציה showAddRunnersModal הקיימת:
+function showAddRunnersModal() {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
+    backdrop.id = 'add-runners-modal';
+    
+    const hasExistingRunners = state.runners && state.runners.length > 0;
+    
+    backdrop.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
+        <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">הוספת רצים לקבוצה</h3>
+        
+        ${!hasExistingRunners ? `
+        <div class="space-y-4 mb-6">
+            <button id="random-runners-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg">
+                הוספה רנדומלית (${CONFIG.MAX_RUNNERS} רצים)
+            </button>
+            <button id="manual-runners-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg">
+                הוספה ידנית
+            </button>
+        </div>
+        ` : ''}
+        
+        <!-- אזור הוספה ידנית -->
+        <div id="manual-input-area" class="${hasExistingRunners ? '' : 'hidden'}">
+            <div class="${hasExistingRunners ? '' : 'border-t pt-4'} mb-4">
+                <div class="flex gap-2 mb-3">
+                    <input type="number" id="manual-shoulder-input" placeholder="מספר כתף" 
+                           class="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-700 dark:text-white" min="1" max="999">
+                    <button id="add-single-runner" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium">
+                        הוסף
+                    </button>
+                </div>
+                <div class="text-center mb-3">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">רצים בקבוצה: <span id="runner-count">${state.runners.length}</span>/${CONFIG.MAX_RUNNERS}</span>
+                </div>
+                
+                <!-- הצגת רצים שנוספו במודל -->
+                <div id="modal-runner-list" class="max-h-40 overflow-y-auto mb-3">
+                    ${state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber).map((runner, index) => `
+                        <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-600 rounded mb-1">
+                            <span class="text-sm">${index + 1}.</span>
+                            <span class="font-medium">${runner.shoulderNumber}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex justify-center gap-4">
+            <button id="finish-adding" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                סיום
+            </button>
+            <button id="cancel-adding" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
+                ביטול
+            </button>
+        </div>
+        
+        <div id="add-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
+    </div>`;
+    
+    document.body.appendChild(backdrop);
+    
+    const manualArea = document.getElementById('manual-input-area');
+    const shoulderInput = document.getElementById('manual-shoulder-input');
+    const runnerCountSpan = document.getElementById('runner-count');
+    const errorDiv = document.getElementById('add-error');
+    const modalRunnerList = document.getElementById('modal-runner-list');
+    
+    // Focus על השדה אם כבר פתוח
+    if (hasExistingRunners) {
+        shoulderInput.focus();
+    }
+    
+    // כפתורים
+    document.getElementById('random-runners-btn')?.addEventListener('click', () => {
+        generateRandomRunners();
+        closeModal();
+    });
+    
+    document.getElementById('manual-runners-btn')?.addEventListener('click', () => {
+        manualArea.classList.remove('hidden');
+        shoulderInput.focus();
+    });
+    
+    document.getElementById('add-single-runner').addEventListener('click', addSingleRunner);
+    document.getElementById('finish-adding').addEventListener('click', closeModal);
+    document.getElementById('cancel-adding').addEventListener('click', closeModal);
+    
+    shoulderInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addSingleRunner();
+        }
+    });
+    
+    function addSingleRunner() {
+        const shoulderNumber = parseInt(shoulderInput.value);
+        
+        if (!shoulderNumber || shoulderNumber <= 0) {
+            showAddError('יש להזין מספר כתף תקין');
+            return;
+        }
+        
+        if (state.runners.length >= CONFIG.MAX_RUNNERS) {
+            showAddError(`לא ניתן להוסיף יותר מ-${CONFIG.MAX_RUNNERS} רצים`);
+            return;
+        }
+        
+        if (state.runners.some(r => r.shoulderNumber === shoulderNumber)) {
+            showAddError('מספר כתף זה כבר קיים');
+            return;
+        }
+        
+        // הוספת הרץ למערך
+        state.runners.push({ shoulderNumber });
+        state.runners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+        saveState();
+        
+        // עדכון התצוגה במודל
+        shoulderInput.value = '';
+        runnerCountSpan.textContent = state.runners.length;
+        updateModalRunnerList();
+        errorDiv.classList.add('hidden');
+        shoulderInput.focus();
+    }
+    
+    function updateModalRunnerList() {
+        const sortedRunners = state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+        modalRunnerList.innerHTML = sortedRunners.map((runner, index) => `
+            <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-600 rounded mb-1">
+                <span class="text-sm">${index + 1}.</span>
+                <span class="font-medium">${runner.shoulderNumber}</span>
+            </div>
+        `).join('');
+    }
+    
+    function showAddError(message) {
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+    
+    function closeModal() {
+        document.body.removeChild(backdrop);
+        render(); // רינדור מחדש של כל העמוד
+    }
+}
+
+// החלף את הפונקציה updateMainPageRunnerList הקיימת:
+function updateMainPageRunnerList() {
+    // פונקציה זו כבר לא נדרשת כי אנחנו עושים render() מלא
+    // אבל נשאיר אותה למקרה שמשתמשים בה במקום אחר
+    if (document.getElementById('runner-list')) {
+        renderRunnerList();
+        
+        // עדכן גם את הכותרת עם מספר הרצים
+        const titleElement = document.querySelector('h2.text-blue-500');
+        if (titleElement && titleElement.textContent.includes('רצי הקבוצה')) {
+            titleElement.textContent = `רצי הקבוצה (${state.runners.length})`;
+        }
+    }
+}
+
+/**
+ * הצגת חלון עריכת פרטים
+ */
+function showEditDetailsModal() {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
+    backdrop.id = 'edit-details-modal';
+    
+    backdrop.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-lg mx-4 text-right max-h-[90vh] overflow-y-auto">
+        <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי קבוצה</h3>
+        
+        <!-- פרטי מעריך וקבוצה -->
+        <div class="space-y-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div>
+                <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
+                <input type="text" id="edit-evaluator-name" value="${state.evaluatorName}" 
+                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
+            </div>
+            <div>
+                <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
+                <input type="text" id="edit-group-number" value="${state.groupNumber}" 
+                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
+            </div>
+        </div>
+        
+        <!-- רשימת רצים לעריכה -->
+        <div class="mb-6">
+            <h4 class="text-lg font-semibold mb-3 text-center">רצי הקבוצה</h4>
+            <div id="edit-runner-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+        </div>
+        
+        <div class="flex justify-center gap-4">
+            <button id="save-edit-details" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                שמור שינויים
+            </button>
+            <button id="cancel-edit-details" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
+                ביטול
+            </button>
+        </div>
+        
+        <div id="edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
+    </div>`;
+    
+    document.body.appendChild(backdrop);
+    
+    renderEditRunnerList();
+    
+    document.getElementById('save-edit-details').addEventListener('click', saveEditDetails);
+    document.getElementById('cancel-edit-details').addEventListener('click', () => {
+        document.body.removeChild(backdrop);
+    });
+    
+    function renderEditRunnerList() {
+        const listDiv = document.getElementById('edit-runner-list');
+        listDiv.innerHTML = state.runners.map((runner, index) => `
+            <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-600 rounded border">
+                <span class="w-8 text-center font-medium">${index + 1}.</span>
+                <input type="number" class="edit-runner-input flex-1 p-1 border border-gray-300 dark:border-gray-500 rounded text-center bg-white dark:bg-gray-700 dark:text-white" 
+                       value="${runner.shoulderNumber}" data-index="${index}" min="1" max="999">
+                <button class="remove-edit-runner bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm" data-index="${index}">
+                    מחק
+                </button>
+            </div>
+        `).join('');
+        
+        // מאזינים למחיקה
+        listDiv.querySelectorAll('.remove-edit-runner').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                state.runners.splice(index, 1);
+                saveState();
+                renderEditRunnerList();
+            });
+        });
+    }
+    
+    function saveEditDetails() {
+        const evaluatorName = document.getElementById('edit-evaluator-name').value.trim();
+        const groupNumber = document.getElementById('edit-group-number').value.trim();
+        const errorDiv = document.getElementById('edit-error');
+        
+        if (!evaluatorName || !groupNumber) {
+            errorDiv.textContent = 'יש למלא את שם המעריך ומספר הקבוצה';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+        
+        // עדכון מספרי כתף
+        const runnerInputs = document.querySelectorAll('.edit-runner-input');
+        const newRunners = [];
+        const usedNumbers = new Set();
+        
+        for (const input of runnerInputs) {
+            const shoulderNumber = parseInt(input.value);
+            if (!shoulderNumber || shoulderNumber <= 0) {
+                errorDiv.textContent = 'כל מספרי הכתף חייבים להיות מספרים חיוביים';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            if (usedNumbers.has(shoulderNumber)) {
+                errorDiv.textContent = 'נמצאו מספרי כתף כפולים';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            usedNumbers.add(shoulderNumber);
+            newRunners.push({ shoulderNumber });
+        }
+        
+        // שמירת השינויים
+        state.evaluatorName = evaluatorName;
+        state.groupNumber = groupNumber;
+        state.runners = newRunners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+        saveState();
+        
+        document.body.removeChild(backdrop);
+        render();
+    }
+}
+
+/**
+ * רינדור רשימת הרצים בעמוד הראשי
+ */
+function renderRunnerList() {
+    const runnerListDiv = document.getElementById('runner-list');
+    if (!runnerListDiv) return;
+    
+    const sortedRunners = state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+    
+    runnerListDiv.innerHTML = sortedRunners.map((runner, index) => `
+        <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
+            <span class="text-gray-600 dark:text-gray-400 text-base">${index + 1}.</span>
+            <span class="font-bold text-lg text-blue-600 dark:text-blue-400">${runner.shoulderNumber}</span>
+        </div>
+    `).join('');
+}
+
+function updateMainPageRunnerList() {
+    // בדוק אם אנחנו בעמוד הראשי ויש רשימת רצים
+    if (document.getElementById('runner-list')) {
+        renderRunnerList();
+        
+        // עדכן גם את הכותרת עם מספר הרצים
+        const titleElement = document.querySelector('h2.text-blue-500');
+        if (titleElement && titleElement.textContent.includes('רצי הקבוצה')) {
+            titleElement.textContent = `רצי הקבוצה (${state.runners.length})`;
+        }
+    }
+}
+// עדכון פונקציית validateAndStartHeats
+function validateAndStartHeatsNew() {
+    if (state.runners.length === 0) {
+        showError("יש להוסיף לפחות רץ אחד כדי להתחיל.");
+        return;
+    }
+    
+    state.currentPage = PAGES.HEATS;
+    saveState();
+    render();
+}
 /**
 
  * Displays an error message on the runners page.
@@ -1904,162 +2300,101 @@ function render() {
  */
 
 function renderRunnersPage() {
-
-    headerTitle.textContent = 'ניהול קבוצה'; // Update header title
-
-
-
+    headerTitle.textContent = 'ניהול קבוצה';
+    
+    // אם אין פרטי הערכה - הצג חלון התחלתי
+    if (!state.evaluatorName || !state.groupNumber) {
+        renderInitialSetupModal();
+        return;
+    }
+    
     const todayDate = new Date().toLocaleDateString('he-IL');
-
     const currentTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-
-
-
+    
+    const hasRunners = state.runners && state.runners.length > 0;
+    
     contentDiv.innerHTML = `
-
-    <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">פרטי הערכה</h2>
-
-    <div class="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
-
-        <div class="flex flex-col md:flex-row items-center md:items-baseline space-y-2 md:space-y-0 md:space-x-4 md:space-x-reverse">
-
-            <div class="flex-grow w-full"><label for="evaluator-name" class="block text-right mb-1 required-field text-sm">שם המעריך:</label><input type="text" id="evaluator-name" value="${state.evaluatorName}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right" placeholder="הכנס שם מעריך"></div>
-
-            <div class="flex-grow w-full"><label for="group-number" class="block text-right mb-1 required-field text-sm">מספר קבוצה:</label><input type="text" id="group-number" value="${state.groupNumber}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right" placeholder="הכנס מספר קבוצה"></div>
-
-        </div>
-
-        <div class="flex justify-between items-center text-gray-600 font-medium text-sm"><span><strong>תאריך:</strong> ${todayDate}</span><span><strong>שעה:</strong> ${currentTime}</span></div>
-
-    </div>
-
-    <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">הזן מספרי כתף של רצים (עד ${CONFIG.MAX_RUNNERS})</h2>
-
-    <div class="mb-4 flex flex-col md:flex-row justify-center items-center space-y-2 md:space-y-0 md:space-x-2 md:space-x-reverse">
-
-        <button id="generate-random-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md w-full md:w-auto">צור מספרי כתף רנדומליים</button>
-
-        <button id="add-runner-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md w-full md:w-auto">הוסף רץ ידנית</button>
-
-    </div>
-
-    <div id="runner-list" class="space-y-2"></div>
-
-    <div class="flex justify-center mt-6"><button id="start-heats-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full">התחל מקצים</button></div>
-
-    <div id="runner-error" class="mt-4 text-red-500 text-center font-bold hidden"></div>
-
-    <div class="mt-8 border-t pt-4 border-gray-300">
-
-        <h3 class="text-lg font-semibold mb-3 text-center text-gray-700">ניהול נתונים</h3>
-
-        <div class="flex justify-center gap-4 flex-wrap">
-
-            <button id="admin-settings-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg text-sm">הגדרות מנהל</button>
-
-            <button id="export-backup-btn" class="bg-blue-800 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg text-sm">ייצא גיבוי (JSON)</button>
-
-            <input type="file" id="import-backup-input" class="hidden" accept=".json">
-
-            <button id="import-backup-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg text-sm">ייבא גיבוי (JSON)</button>
-
-            <button id="reset-app-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm">אפס אפליקציה</button>
-
-        </div>
-
-    </div>`;
-
-
-
-    const runnerList = document.getElementById('runner-list');
-
-    const template = document.getElementById('runner-row-template');
-
-
-
-    // Populate runner list from state.runners
-
-    state.runners.forEach((runner, index) => {
-
-        const clone = template.content.cloneNode(true);
-
-        clone.querySelector('.runner-index').textContent = `${index + 1}.`;
-
-        const input = clone.querySelector('.runner-input');
-
-        input.value = runner.shoulderNumber;
-
-        input.dataset.index = index; // Store index for updates
-
-        const removeBtn = clone.querySelector('.remove-runner-btn');
-
-        removeBtn.dataset.index = index; // Store index for removal
-
-
-
-        // Add event listeners for input and remove button
-
-        input.addEventListener('input', updateRunnerNumber);
-
-        removeBtn.addEventListener('click', removeRunner);
-
-        runnerList.appendChild(clone);
-
-    });
-
-
-
-    // Add event listeners for evaluator and group inputs
-
-    document.getElementById('evaluator-name').addEventListener('input', (e) => { state.evaluatorName = e.target.value; saveState(); });
-
-    document.getElementById('group-number').addEventListener('input', (e) => { state.groupNumber = e.target.value; saveState(); });
-
-
-
-    // Add event listeners for action buttons
-
-    document.getElementById('generate-random-btn').addEventListener('click', generateRandomRunners);
-
-    document.getElementById('add-runner-btn').addEventListener('click', addRunner);
-
-    document.getElementById('start-heats-btn').addEventListener('click', validateAndStartHeats);
-
-    document.getElementById('admin-settings-btn').addEventListener('click', handleAdminSettingsClick);
-
-
-
-    // Reset app button with confirmation modal
-
-    document.getElementById('reset-app-btn').addEventListener('click', () => showModal('איפוס אפליקציה', 'האם אתה בטוח? כל הנתונים יימחקו לצמיתות.', () => {
-
-        localStorage.removeItem(CONFIG.APP_STATE_KEY); // Clear localStorage
-
-        // Reset CONFIG to default values
-
+    <!-- פרטי הערכה (קבועים) - גדול יותר וברור יותר -->
+    <div class="evaluation-info bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg shadow-inner mb-6 border-2 border-blue-200 dark:border-blue-700">
+        <h2 class="text-2xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">פרטי הערכה</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
+            <div class="text-lg"><strong class="text-xl">שם המעריך:</strong> <span class="text-xl font-semibold text-blue-800 dark:text-blue-300">${state.evaluatorName}</span></div>
+            <div class="text-lg"><strong class="text-xl">מספר קבוצה:</strong> <span class="text-xl font-semibold text-blue-800 dark:text-blue-300">${state.groupNumber}</span></div>
+        </div>
+        <div class="flex justify-between items-center text-gray-600 dark:text-gray-400 font-medium text-base mt-4">
+            <span><strong>תאריך:</strong> ${todayDate}</span>
+            <span><strong>שעה:</strong> ${currentTime}</span>
+        </div>
+        <div class="text-center mt-4">
+            <button id="edit-details-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg text-base">
+                ערוך פרטים
+            </button>
+        </div>
+    </div>
+
+    <!-- כפתור הוספת רצים -->
+    <div class="mb-4 text-center">
+        <button id="add-runners-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md">
+            ${hasRunners ? 'הוסף רצים נוספים' : 'הוסף רצים לקבוצה'}
+        </button>
+    </div>
+
+    ${hasRunners ? `
+    <!-- רשימת רצים קיימים -->
+    <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">רצי הקבוצה (${state.runners.length})</h2>
+    <div class="mb-2 text-center">
+        <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">מספרי כתף</span>
+    </div>
+    <div id="runner-list" class="space-y-2 mb-6"></div>
+    
+    <!-- כפתור התחלת מקצים -->
+    <div class="flex justify-center mt-6">
+        <button id="start-heats-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full">
+            התחל מקצים
+        </button>
+    </div>
+    ` : `
+    <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+        <p class="text-lg mb-2">🏃‍♂️ אין עדיין רצים בקבוצה</p>
+        <p>לחץ על "הוסף רצים לקבוצה" כדי להתחיל</p>
+    </div>
+    `}
+
+    <div id="runner-error" class="mt-4 text-red-500 text-center font-bold hidden"></div>
+
+    <!-- ניהול נתונים -->
+    <div class="mt-8 border-t pt-4 border-gray-300 dark:border-gray-600">
+        <h3 class="text-lg font-semibold mb-3 text-center text-gray-700 dark:text-gray-300">ניהול נתונים</h3>
+        <div class="flex justify-center gap-4 flex-wrap">
+            <button id="admin-settings-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg text-sm">הגדרות מנהל</button>
+            <button id="export-backup-btn" class="bg-blue-800 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg text-sm">ייצא גיבוי (JSON)</button>
+            <input type="file" id="import-backup-input" class="hidden" accept=".json">
+            <button id="import-backup-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg text-sm">ייבא גיבוי (JSON)</button>
+            <button id="reset-app-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm">אפס אפליקציה</button>
+        </div>
+    </div>`;
+
+    // הצגת רשימת רצים אם קיימים
+    if (hasRunners) {
+        renderRunnerList();
+    }
+
+    // Event listeners - זה החלק שחסר!
+    document.getElementById('add-runners-btn')?.addEventListener('click', showAddRunnersModal);
+    document.getElementById('edit-details-btn')?.addEventListener('click', showEditDetailsModal);
+    document.getElementById('start-heats-btn')?.addEventListener('click', validateAndStartHeatsNew);
+    document.getElementById('admin-settings-btn')?.addEventListener('click', handleAdminSettingsClick);
+    document.getElementById('reset-app-btn')?.addEventListener('click', () => showModal('איפוס אפליקציה', 'האם אתה בטוח? כל הנתונים יימחקו לצמיתות.', () => {
+        localStorage.removeItem(CONFIG.APP_STATE_KEY);
         CONFIG = { NUM_HEATS: 14, MAX_CRAWLING_SPRINTS: 4, MAX_RUNNERS: 20, MAX_SACK_CARRIERS: 3, NUM_STRETCHER_HEATS: 8, MAX_STRETCHER_CARRIERS: 4, MAX_JERRICAN_CARRIERS: 3, STRETCHER_PAGE_LABEL: 'אלונקות', STRETCHER_CARRIER_NOUN_PLURAL: 'רצים שלקחו אלונקה', APP_STATE_KEY: 'sprintAppState_v1.11' };
-
-        state.currentPage = PAGES.RUNNERS; // Go back to runners page
-
-        initializeAllData(); // Re-initialize all state data
-
-        saveState(); // Save the new config and reset state
-
-        render(); // Re-render the UI
-
+        state.currentPage = PAGES.RUNNERS;
+        initializeAllData();
+        saveState();
+        render();
     }));
-
-
-
-    // Backup/Restore buttons
-
-    document.getElementById('export-backup-btn').addEventListener('click', exportBackup);
-
-    document.getElementById('import-backup-btn').addEventListener('click', () => document.getElementById('import-backup-input').click());
-
-    document.getElementById('import-backup-input').addEventListener('change', importBackup);
-
-
+    document.getElementById('export-backup-btn')?.addEventListener('click', exportBackup);
+    document.getElementById('import-backup-btn')?.addEventListener('click', () => document.getElementById('import-backup-input').click());
+    document.getElementById('import-backup-input')?.addEventListener('change', importBackup);
 }
 
 
