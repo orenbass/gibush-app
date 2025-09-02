@@ -5,7 +5,15 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <title>מערכת גיבוש חת"מ</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- iOS PWA metadata (no Android effect, but recommended) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Gibush">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script defer src="app.js"></script>
@@ -75,5 +83,6 @@
     <button id="install-btn" style="display:none; position:fixed; bottom:24px; right:24px; z-index:1000;">
     📲 התקן כאפליקציה
 </button>
+    <button id="install-btn" style="display:none">התקן לאנדרואיד</button>
 </body>
 </html>
