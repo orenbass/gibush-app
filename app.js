@@ -3033,126 +3033,145 @@ function renderQuickCommentBar(show) {
  */
 
 function renderStatusManagementPage() {
+    headerTitle.textContent = 'סטטוס מועמדים';
 
-    headerTitle.textContent = 'סטטוס חיילים'; // Update header title
+    const activeRunners = state.runners
+        .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+
+    const inactiveRunners = state.runners
+        .filter(runner => runner.shoulderNumber && state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
+        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+
+    // כרטיסי מועמדים פעילים – משטח בהיר, כפתורים עדינים בצבע
+    const activeCardsHtml = activeRunners.map(runner => {
+        return `
+            <div class="runner-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-between transition-all duration-300
+                        bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60">
+                <div class="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">${runner.shoulderNumber}</div>
+                <div class="w-full grid grid-cols-2 gap-2">
+                    <button 
+                        class="status-btn w-full py-2 px-2 text-sm font-semibold rounded-lg
+                               bg-amber-100/70 hover:bg-amber-200/70 border border-amber-300 text-amber-800
+                               dark:bg-amber-900/20 dark:hover:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800
+                               shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300/50 transition-all"
+                        data-shoulder-number="${runner.shoulderNumber}" 
+                        data-status="temp_removed"
+                        title="יצא לבדיקה">
+                        <span class="ml-1">⚠️</span>
+                        <span>בדיקה</span>
+                    </button>
+                    <button 
+                        class="status-btn w-full py-2 px-2 text-sm font-semibold rounded-lg
+                               bg-rose-100/70 hover:bg-rose-200/70 border border-rose-300 text-rose-800
+                               dark:bg-rose-900/20 dark:hover:bg-rose-900/30 dark:text-rose-200 dark:border-rose-800
+                               shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-300/50 transition-all"
+                        data-shoulder-number="${runner.shoulderNumber}" 
+                        data-status="retired"
+                        title="פרש">
+                        <span class="ml-1">⛔</span>
+                        <span>פרש</span>
+                    </button>
+                </div>
+            </div>`;
+    }).join('');
+
+    // כרטיסי מועמדים לא פעילים – גראדיאנט עדין לכל הכרטיס
+    const inactiveCardsHtml = inactiveRunners.map(runner => {
+        const status = state.crawlingDrills.runnerStatuses[runner.shoulderNumber];
+        const isRetired = status === 'retired';
+        
+        const cardClass = isRetired 
+            ? 'bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-900/10 border-rose-200 dark:border-rose-700' 
+            : 'bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 border-amber-200 dark:border-amber-700';
+        
+        const statusIcon = isRetired ? '⛔' : '⚠️';
+        const statusText = isRetired ? 'פרש' : 'בדיקה';
+
+        return `
+            <div class="runner-card border rounded-xl shadow-sm p-3 flex flex-col items-center justify-between transition-colors duration-300 ${cardClass}">
+                <div class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">${runner.shoulderNumber}</div>
+                <div class="w-full flex flex-col items-center gap-2">
+                    <div class="text-center py-1">
+                        <span class="text-lg">${statusIcon}</span>
+                        <div class="text-xs font-medium text-gray-700 dark:text-gray-300">${statusText}</div>
+                    </div>
+                    <button 
+                        class="status-btn w-3/4 py-2 px-2 text-sm font-semibold rounded-lg
+                               bg-emerald-100/70 hover:bg-emerald-200/70 border border-emerald-300 text-emerald-800
+                               dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800
+                               shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300/50 transition-all" 
+                        data-shoulder-number="${runner.shoulderNumber}" 
+                        data-status="active"
+                        title="השב לפעילות">
+                        <span class="ml-1">✅</span>
+                        <span>השב</span>
+                    </button>
+                </div>
+            </div>`;
+    }).join('');
 
     contentDiv.innerHTML = `
+        <div class="space-y-6">
+            ${activeRunners.length > 0 ? `
+            <div>
+                <h2 class="text-xl font-semibold mb-4 text-center text-emerald-600 dark:text-emerald-400">
+                    מועמדים פעילים (${activeRunners.length})
+                </h2>
+                <div class="auto-grid stretcher-grid">
+                    ${activeCardsHtml}
+                </div>
+            </div>
+            ` : ''}
+            
+            ${inactiveRunners.length > 0 ? `
+            <div>
+                <h2 class="text-xl font-semibold mb-4 text-center text-slate-600 dark:text-slate-300">
+                    מועמדים לא פעילים (${inactiveRunners.length})
+                </h2>
+                <div class="auto-grid stretcher-grid">
+                    ${inactiveCardsHtml}
+                </div>
+            </div>
+            ` : ''}
 
-    <h2 class="text-2xl font-semibold mb-4 text-center text-blue-500">ניהול סטטוס רצים</h2>
+            ${activeRunners.length === 0 && inactiveRunners.length === 0 ? `
+            <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+                <p class="text-lg mb-2">👥 אין מועמדים בקבוצה</p>
+                <p>נדרש להוסיף מועמדים תחילה</p>
+            </div>
+            ` : ''}
+        </div>
 
-    <div class="bg-gray-100 p-4 rounded-lg shadow-inner my-6">
+        <!-- כפתורי ניווט -->
+        <div class="flex justify-between items-center mt-6 p-2 bg-gray-50 dark:bg-gray-800/60 rounded-lg border border-gray-200/70 dark:border-gray-700/60">
+            <button id="back-btn" class="px-4 py-2 rounded-lg text-sm font-semibold
+                                         border border-gray-400/60 text-gray-700 hover:bg-gray-100
+                                         dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/60 transition">
+                <span class="text-xl">&larr;</span> חזור
+            </button>
+            <span class="font-semibold text-gray-800 dark:text-gray-200">ניהול סטטוס מועמדים</span>
+            <button id="group-manage-btn" class="px-4 py-2 rounded-lg text-sm font-semibold
+                                                border border-blue-400/60 text-blue-700 hover:bg-blue-50
+                                                dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900/20 transition">
+                ניהול קבוצה <span class="text-xl">&rarr;</span>
+            </button>
+        </div>`;
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    document.querySelectorAll('.status-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => handleGlobalStatusChange(e, null));
+    });
 
-            ${state.runners
-            .slice() // Create a copy for sorting
-            .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
-            .map(runner => {
+    document.getElementById('back-btn').addEventListener('click', () => {
+        state.currentPage = state.lastPage;
+        render();
+    });
 
-                // Determine current status and display properties
-
-                const currentStatus = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] || 'active';
-
-                let revertBtnText = currentStatus === 'temp_removed' ? 'השב לפעילות' : 'בטל פרישה';
-
-                let statusIcon = '';
-
-                let statusText = '';
-
-                let statusColorClass = '';
-
-
-
-                if (currentStatus === 'active') {
-
-                    statusIcon = '✅';
-
-                    statusText = 'פעיל';
-
-                    statusColorClass = 'text-green-500 dark:text-green-400';
-
-                } else if (currentStatus === 'temp_removed') {
-
-                    statusIcon = '⚠️';
-
-                    statusText = 'גריעה זמנית';
-
-                    statusColorClass = 'text-yellow-500 dark:text-yellow-400';
-
-                } else { // retired
-
-                    statusIcon = '⛔';
-
-                    statusText = 'פרש';
-
-                    statusColorClass = 'text-red-500 dark:text-red-400';
-
-                }
-
-
-
-                return `
-
-                <div class="flex flex-col md:flex-row items-center md:space-x-2 md:space-x-reverse p-2 bg-white rounded-lg shadow-sm">
-
-                    <span class="font-bold text-lg w-full md:w-1/4 text-center md:text-right">${runner.shoulderNumber}</span>
-
-                    <div class="flex flex-row gap-2 w-full">
-                        ${currentStatus === 'active' ? `
-                            <button class="status-btn flex-1 min-w-[110px] py-2 px-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold rounded-lg flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="temp_removed">
-                                <span>⚠️</span><span class="ml-1">יצא לבדיקה</span>
-                            </button>
-                            <button class="status-btn flex-1 min-w-[110px] py-2 px-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="retired">
-                                <span>⛔</span><span class="ml-1">פרש</span>
-                            </button>
-                        ` : `
-                            <span class="text-sm ${statusColorClass} flex-1 text-center flex items-center justify-center">${statusIcon}<span class="ml-1">${statusText}</span></span>
-                            <button class="status-btn flex-1 min-w-[110px] py-2 px-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg flex items-center justify-center" data-shoulder-number="${runner.shoulderNumber}" data-status="active">
-                                <span>✅</span><span class="ml-1">${revertBtnText}</span>
-                            </button>
-                        `}
-                    </div>
-
-                </div>`;
-
-            }).join('')}
-
-        </div>
-
-    </div>`;
-
-
-
-    // Attach event listeners to all status change buttons
-
-    document.querySelectorAll('.status-btn').forEach(btn => btn.addEventListener('click', (e) => handleGlobalStatusChange(e, null)));
-
-
-
-    // Add navigation buttons at the bottom
-
-    contentDiv.insertAdjacentHTML('beforeend', `
-
-    <div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
-
-        <button id="back-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> חזור</button>
-
-        <button id="group-manage-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">ניהול קבוצה <span class="text-xl">&rarr;</span></button>
-
-    </div>`);
-
-
-
-    // Event listeners for navigation
-
-    document.getElementById('back-btn').addEventListener('click', () => { state.currentPage = state.lastPage; render(); });
-
-    document.getElementById('group-manage-btn').addEventListener('click', () => { state.currentPage = PAGES.RUNNERS; render(); });
-
-
+    document.getElementById('group-manage-btn').addEventListener('click', () => {
+        state.currentPage = PAGES.RUNNERS;
+        render();
+    });
 }
-
-
 
 /**
 
