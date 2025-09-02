@@ -2229,7 +2229,6 @@ function renderAdminSettingsPage() {
 
 }
 
-
 function renderQuickCommentBar(show) {
     const quickBarDiv = document.getElementById('quick-comment-bar-container');
     if (!show) { quickBarDiv.innerHTML = ''; return; }
@@ -2369,6 +2368,7 @@ function renderQuickCommentBar(show) {
         <div class="qc-row">
           <span class="qc-label">מס' כתף:</span>
           <select id="quick-comment-runner" class="qc-runner-select" aria-label="בחר מספר כתף">${runnerOptions}</select>
+          <button id="quick-comment-send" class="qc-sendBtn" disabled>שלח</button>
         </div>
         <div class="qc-row">
           <span class="qc-label">הערה:</span>
@@ -2377,7 +2377,6 @@ function renderQuickCommentBar(show) {
             <button id="quick-comment-mic" class="qc-micBtn" aria-label="הכתבה קולית" title="הכתבה קולית">🎤</button>
           </div>
         </div>
-        <button id="quick-comment-send" class="qc-sendBtn" disabled>שלח</button>
       </div>`;
 
     const selectEl = document.getElementById('quick-comment-runner');
@@ -2464,12 +2463,16 @@ function renderQuickCommentBar(show) {
         micBtn.addEventListener('touchstart', startRec, { passive: false });
         micBtn.addEventListener('touchend', stopRec);
     } else {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        micBtn.title = isIOS
-          ? "באייפון: השתמש בכפתור 🎤 במקלדת להכתבה."
-          : "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
-    }
-}
+
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                micBtn.style.display = 'none'; // הסתר את כפתור המיקרופון במכשירי אפל
+            } else {
+                micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
+            }
+        }
+ 
+    }       
 
 /**
 
