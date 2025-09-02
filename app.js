@@ -2314,7 +2314,7 @@ function renderRunnersPage() {
     const hasRunners = state.runners && state.runners.length > 0;
     
     contentDiv.innerHTML = `
-    <!-- פרטי הערכה (קבועים) - עם כפתור עריכה בצד שמאל למעלה -->
+<!-- פרטי הערכה (קבועים) - עם כפתור עריכה בצד שמאל למעלה -->
     <div class="evaluation-info bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg shadow-inner mb-6 border-2 border-blue-200 dark:border-blue-700 relative">
         <!-- כפתור ערוך פרטים בצד שמאל למעלה -->
         <button id="edit-details-btn" class="absolute top-2 left-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-lg text-sm">
@@ -2331,6 +2331,15 @@ function renderRunnersPage() {
             <span><strong>שעה:</strong> ${currentTime}</span>
         </div>
     </div>
+
+    ${!hasRunners ? `
+    <!-- כפתור הוספת מועמדים - רק כשאין מועמדים -->
+    <div class="mb-4 text-center">
+        <button id="add-runners-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md">
+            הוסף מועמדים לקבוצה
+        </button>
+    </div>
+    ` : ''}
 
     ${hasRunners ? `
     <!-- רשימת מועמדים קיימים עם כפתור עריכה -->
