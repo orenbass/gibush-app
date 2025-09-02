@@ -2330,6 +2330,20 @@ function render() {
 
     renderQuickCommentBar(shouldShowQuickBar);
 
+    // סגנון לטאבים מבוטלים (מוזרק פעם אחת)
+    if (!document.getElementById('nav-disabled-style')) {
+        const s = document.createElement('style');
+        s.id = 'nav-disabled-style';
+        s.textContent = `
+          .nav-tab.is-disabled { 
+            opacity: .5; 
+            cursor: not-allowed; 
+            pointer-events: none; 
+          }
+        `;
+        document.head.appendChild(s);
+    }
+
     // Update active navigation tab highlighting (modern)
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const isCurrent = tab.dataset.page === state.currentPage;
@@ -2343,6 +2357,16 @@ function render() {
         // modern active state
         tab.classList.toggle('is-active', isCurrent);
         tab.setAttribute('aria-current', isCurrent ? 'page' : 'false');
+    });
+
+    // השבתת טאבים כשאין מתמודדים
+    const noRunners = !state.runners || state.runners.length === 0;
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        const page = tab.dataset.page;
+        const shouldDisable = noRunners && page !== PAGES.RUNNERS;
+        tab.classList.toggle('is-disabled', shouldDisable);
+        tab.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
+        tab.style.pointerEvents = shouldDisable ? 'none' : '';
     });
 
     // Refresh tab structure/styles after toggling
@@ -3274,66 +3298,79 @@ function renderHeatPage(heatIndex) {
         const style = document.createElement('style');
         style.id = 'sprint-heat-style';
         style.textContent = `
-/* כותרת מקצה ללא תיבה */
-.heat-header { 
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between; 
-  gap: 8px; 
-  margin: 6px 0 4px; 
-}
-.heat-title {
-  font-weight: 800;
-  letter-spacing: .2px;
-  /* גדול וברור */
-  font-size: clamp(22px, 6vw, 32px);
-  color: inherit;
-}
-
-/* שעון קטן יותר וקריא */
-.timer-display { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
-.timer-display.small { font-size: clamp(18px, 5vw, 26px); line-height: 1.1; }
-
-/* קבוצת כפתורים שווים ברוחב */
-.heat-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 12px; }
-.heat-btn { height: 44px; border-radius: 10px; font-weight: 700; border: none; }
-.heat-btn.start { grid-column: span 2; background: #10b981; color: #fff; }
-.heat-btn.start:hover { background:#059669; }
-.heat-btn.stop { background:#ef4444; color:#fff; }
-.heat-btn.stop:hover { background:#dc2626; }
-.heat-btn.undo { background:#f59e0b; color:#fff; }
-.heat-btn.undo:hover { background:#d97706; }
-
-/* כפתור ניווט "הבא" בשמאל הכותרת */
-.next-inline-btn {
-  display:inline-flex; align-items:center; gap:6px;
-  padding: 8px 12px; border-radius: 10px; font-weight:700;
-  background:#3b82f6; color:#fff; border:none;
-}
-.next-inline-btn:hover { background:#2563eb; }
-.next-inline-btn[disabled] { opacity:.6; cursor:not-allowed; }
-
-/* כותרת עמודות לרשימת המסיימים */
-.arrival-header { padding: 4px 6px; color: #6b7280; }
-
-/* שדה עריכת הערות כלליות */
-.gc-input {
-  width: 100%;
-  height: 34px;
-  line-height: 34px;
-  font-size: 13px;
-  padding: 0 8px;
-  text-align: right;
-  border: 1px solid rgba(0,0,0,.15);
-  border-radius: 8px;
-  background: #fff;
-  color: #111827;
-}
-.dark .gc-input {
-  background: rgba(255,255,255,.06);
-  color: inherit;
-  border-color: rgba(255,255,255,.18);
-}
+        /* כותרת מקצה בגריד: קודם | כותרת | הבא */
+        .heat-header { 
+          display: grid; 
+          grid-template-columns: auto 1fr auto; 
+          align-items: center; 
+          gap: 8px; 
+          margin: 6px 0 4px; 
+          direction: rtl; /* מבטיח שכפתור 'קודם' יופיע מימין */
+        }
+        .heat-title {
+          font-weight: 800;
+          letter-spacing: .2px;
+          font-size: clamp(22px, 6vw, 32px);
+          color: inherit;
+          text-align: center; /* ממרכז את מספר המקצה */
+        }
+        
+        /* שעון קטן יותר וקריא */
+        .timer-display { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+        .timer-display.small { font-size: clamp(18px, 5vw, 26px); line-height: 1.1; }
+        
+        /* קבוצת כפתורים שווים ברוחב */
+        .heat-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 12px; }
+        .heat-btn { height: 44px; border-radius: 10px; font-weight: 700; border: none; }
+        .heat-btn.start { grid-column: span 2; background: #10b981; color: #fff; }
+        .heat-btn.start:hover { background:#059669; }
+        .heat-btn.stop { background:#ef4444; color:#fff; }
+        .heat-btn.stop:hover { background:#dc2626; }
+        .heat-btn.undo { background:#f59e0b; color:#fff; }
+        .heat-btn.undo:hover { background:#d97706; }
+        
+        /* כפתורי ניווט inline */
+        .next-inline-btn,
+        .prev-inline-btn {
+          display:inline-flex; 
+          align-items:center; 
+          gap:6px;
+          padding: 8px 12px; 
+          border-radius: 10px; 
+          font-weight:700;
+          background:#3b82f6; 
+          color:#fff; 
+          border:none;
+        }
+        .next-inline-btn:hover,
+        .prev-inline-btn:hover { background:#2563eb; }
+        .next-inline-btn[disabled],
+        .prev-inline-btn[disabled] { 
+          opacity:.6; 
+          cursor:not-allowed; 
+        }
+        
+        /* כותרת עמודות לרשימת המסיימים */
+        .arrival-header { padding: 4px 6px; color: #6b7280; }
+        
+        /* שדה עריכת הערות כלליות */
+        .gc-input {
+          width: 100%;
+          height: 34px;
+          line-height: 34px;
+          font-size: 13px;
+          padding: 0 8px;
+          text-align: right;
+          border: 1px solid rgba(0,0,0,.15);
+          border-radius: 8px;
+          background: #fff;
+          color: #111827;
+        }
+        .dark .gc-input {
+          background: rgba(255,255,255,.06);
+          color: inherit;
+          border-color: rgba(255,255,255,.18);
+        }
         `;
         document.head.appendChild(style);
     }
@@ -3348,8 +3385,11 @@ function renderHeatPage(heatIndex) {
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
         contentDiv.innerHTML = `
-        <!-- כותרת מקצה גדולה וללא תיבה + כפתור "הבא" בשמאל -->
+        <!-- כותרת מקצה גדולה + פריסת Grid -->
         <div class="heat-header">
+            <button id="prev-heat-btn-inline" class="prev-inline-btn" ${heatIndex === 0 ? 'disabled' : ''}>
+                הקודם <span class="text-xl">→</span>
+            </button>
             <div class="heat-title">מקצה ספרינט ${heatIndex + 1}/${CONFIG.NUM_HEATS}</div>
             <button id="next-heat-btn-inline" class="next-inline-btn">
                 ${heatIndex < CONFIG.NUM_HEATS - 1 ? 'הבא' : 'למסך זחילות'} <span class="text-xl">←</span>
@@ -3428,6 +3468,13 @@ function renderHeatPage(heatIndex) {
             }
             saveState();
             render();
+        });
+        document.getElementById('prev-heat-btn-inline')?.addEventListener('click', () => {
+            if (state.currentHeatIndex > 0) {
+                state.currentHeatIndex--;
+                saveState();
+                render();
+            }
         });
     }
 
@@ -4306,12 +4353,61 @@ async function init() {
     }
 
     async function init() {
-        // ...existing code...
+
+        // Request a screen wake lock to prevent the screen from turning off
     
-        // Modern nav styling (one-time)
-        injectNavStylesOnce();
+        try {
     
-        // ...existing code...
+            if ('wakeLock' in navigator) {
+    
+                await navigator.wakeLock.request('screen');
+    
+            }
+    
+        } catch (err) {
+    
+            console.error(`Failed to acquire screen wake lock: ${err.name}, ${err.message}`);
+    
+        }
+    
+    
+        // Event listener for navigation tabs
+        document.querySelector('nav').addEventListener('click', (e) => {
+            const target = e.target.closest('.nav-tab');
+            if (!target) return;
+    
+            const nextPage = target.dataset.page;
+    
+            // חסימה: אין מעבר לטאבים אחרים כשאין מתמודדים
+            const noRunners = !state.runners || state.runners.length === 0;
+            if (noRunners && nextPage !== PAGES.RUNNERS) {
+                showModal('לא ניתן להמשיך', 'יש להוסיף לפחות מועמד אחד כדי לעבור למסכים אחרים.');
+                return;
+            }
+    
+            const go = () => { state.currentPage = nextPage; render(); };
+            const intercepted = confirmLeaveCrawlingComments(go);
+            if (!intercepted) go();
+        });
+    
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if (state.themeMode === 'auto') {
+                applyTheme();
+                render();
+            }
+        });
+    
+        // V1.1 - Event listener for theme toggle button
+    
+        document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+            if (state.themeMode === 'light') state.themeMode = 'dark';
+            else if (state.themeMode === 'dark') state.themeMode = 'auto';
+            else state.themeMode = 'light';
+            applyTheme();
+            saveState();
+            render();
+        });
+    
         loadState();
         applyTheme();
         render();
