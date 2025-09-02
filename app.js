@@ -997,7 +997,7 @@ function renderInitialSetupModal() {
     const backdrop = document.createElement('div');
     backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
     backdrop.id = 'initial-setup-modal';
-    
+
     backdrop.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
         <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">ברוכים הבאים לאפליקציית הגיבוש</h3>
@@ -1022,41 +1022,41 @@ function renderInitialSetupModal() {
         
         <div id="initial-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
     </div>`;
-    
+
     document.body.appendChild(backdrop);
-    
+
     const evaluatorInput = document.getElementById('initial-evaluator-name');
     const groupInput = document.getElementById('initial-group-number');
     const saveBtn = document.getElementById('save-initial-details');
     const errorDiv = document.getElementById('initial-error');
-    
+
     const validateInputs = () => {
         const hasEvaluator = evaluatorInput.value.trim().length > 0;
         const hasGroup = groupInput.value.trim().length > 0;
         saveBtn.disabled = !hasEvaluator || !hasGroup;
     };
-    
+
     evaluatorInput.addEventListener('input', validateInputs);
     groupInput.addEventListener('input', validateInputs);
     evaluatorInput.focus();
-    
+
     saveBtn.addEventListener('click', () => {
         const evaluatorName = evaluatorInput.value.trim();
         const groupNumber = groupInput.value.trim();
-        
+
         if (!evaluatorName || !groupNumber) {
             errorDiv.textContent = 'יש למלא את כל השדות';
             errorDiv.classList.remove('hidden');
             return;
         }
-        
+
         state.evaluatorName = evaluatorName;
         state.groupNumber = groupNumber;
         saveState();
         document.body.removeChild(backdrop);
         render();
     });
-    
+
     validateInputs();
 }
 
@@ -1068,9 +1068,9 @@ function showAddRunnersModal() {
     const backdrop = document.createElement('div');
     backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
     backdrop.id = 'add-runners-modal';
-    
+
     const hasExistingRunners = state.runners && state.runners.length > 0;
-    
+
     backdrop.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
         <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">הוספת מועמדים לקבוצה</h3>
@@ -1123,65 +1123,65 @@ function showAddRunnersModal() {
         
         <div id="add-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
     </div>`;
-    
+
     document.body.appendChild(backdrop);
-    
+
     const manualArea = document.getElementById('manual-input-area');
     const shoulderInput = document.getElementById('manual-shoulder-input');
     const runnerCountSpan = document.getElementById('runner-count');
     const errorDiv = document.getElementById('add-error');
     const modalRunnerList = document.getElementById('modal-runner-list');
-    
+
     // Focus על השדה אם כבר פתוח
     if (hasExistingRunners) {
         shoulderInput.focus();
     }
-    
+
     // כפתורים
     document.getElementById('random-runners-btn')?.addEventListener('click', () => {
         generateRandomRunners();
         closeModal();
     });
-    
+
     document.getElementById('manual-runners-btn')?.addEventListener('click', () => {
         manualArea.classList.remove('hidden');
         shoulderInput.focus();
     });
-    
+
     document.getElementById('add-single-runner').addEventListener('click', addSingleRunner);
     document.getElementById('finish-adding').addEventListener('click', closeModal);
     document.getElementById('cancel-adding').addEventListener('click', closeModal);
-    
+
     shoulderInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             addSingleRunner();
         }
     });
-    
+
     function addSingleRunner() {
         const shoulderNumber = parseInt(shoulderInput.value);
-        
+
         if (!shoulderNumber || shoulderNumber <= 0) {
             showAddError('יש להזין מספר כתף תקין');
             return;
         }
-        
+
         if (state.runners.length >= CONFIG.MAX_RUNNERS) {
             showAddError(`לא ניתן להוסיף יותר מ-${CONFIG.MAX_RUNNERS} מועמדים`);
             return;
         }
-        
+
         if (state.runners.some(r => r.shoulderNumber === shoulderNumber)) {
             showAddError('מספר כתף זה כבר קיים');
             return;
         }
-        
+
         // הוספת הרץ למערך
         state.runners.push({ shoulderNumber });
         state.runners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
         saveState();
-        
+
         // עדכון התצוגה במודל
         shoulderInput.value = '';
         runnerCountSpan.textContent = state.runners.length;
@@ -1189,7 +1189,7 @@ function showAddRunnersModal() {
         errorDiv.classList.add('hidden');
         shoulderInput.focus();
     }
-    
+
     function updateModalRunnerList() {
         const sortedRunners = state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber);
         modalRunnerList.innerHTML = sortedRunners.map((runner, index) => `
@@ -1199,12 +1199,12 @@ function showAddRunnersModal() {
             </div>
         `).join('');
     }
-    
+
     function showAddError(message) {
         errorDiv.textContent = message;
         errorDiv.classList.remove('hidden');
     }
-    
+
     function closeModal() {
         document.body.removeChild(backdrop);
         render(); // רינדור מחדש של כל העמוד
@@ -1217,7 +1217,7 @@ function updateMainPageRunnerList() {
     // אבל נשאיר אותה למקרה שמשתמשים בה במקום אחר
     if (document.getElementById('runner-list')) {
         renderRunnerList();
-        
+
         // עדכן גם את הכותרת עם מספר הרצים
         const titleElement = document.querySelector('h2.text-blue-500');
         if (titleElement && titleElement.textContent.includes('מועמדי הקבוצה')) {
@@ -1233,7 +1233,7 @@ function showEditDetailsModal() {
     const backdrop = document.createElement('div');
     backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
     backdrop.id = 'edit-details-modal';
-    
+
     backdrop.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-lg mx-4 text-right max-h-[90vh] overflow-y-auto">
         <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי קבוצה</h3>
@@ -1269,16 +1269,16 @@ function showEditDetailsModal() {
         
         <div id="edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
     </div>`;
-    
+
     document.body.appendChild(backdrop);
-    
+
     renderEditRunnerList();
-    
+
     document.getElementById('save-edit-details').addEventListener('click', saveEditDetails);
     document.getElementById('cancel-edit-details').addEventListener('click', () => {
         document.body.removeChild(backdrop);
     });
-    
+
     function renderEditRunnerList() {
         const listDiv = document.getElementById('edit-runner-list');
         listDiv.innerHTML = state.runners.map((runner, index) => `
@@ -1291,7 +1291,7 @@ function showEditDetailsModal() {
                 </button>
             </div>
         `).join('');
-        
+
         // מאזינים למחיקה
         listDiv.querySelectorAll('.remove-edit-runner').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1302,23 +1302,23 @@ function showEditDetailsModal() {
             });
         });
     }
-    
+
     function saveEditDetails() {
         const evaluatorName = document.getElementById('edit-evaluator-name').value.trim();
         const groupNumber = document.getElementById('edit-group-number').value.trim();
         const errorDiv = document.getElementById('edit-error');
-        
+
         if (!evaluatorName || !groupNumber) {
             errorDiv.textContent = 'יש למלא את שם המעריך ומספר הקבוצה';
             errorDiv.classList.remove('hidden');
             return;
         }
-        
+
         // עדכון מספרי כתף
         const runnerInputs = document.querySelectorAll('.edit-runner-input');
         const newRunners = [];
         const usedNumbers = new Set();
-        
+
         for (const input of runnerInputs) {
             const shoulderNumber = parseInt(input.value);
             if (!shoulderNumber || shoulderNumber <= 0) {
@@ -1334,13 +1334,13 @@ function showEditDetailsModal() {
             usedNumbers.add(shoulderNumber);
             newRunners.push({ shoulderNumber });
         }
-        
+
         // שמירת השינויים
         state.evaluatorName = evaluatorName;
         state.groupNumber = groupNumber;
         state.runners = newRunners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
         saveState();
-        
+
         document.body.removeChild(backdrop);
         render();
     }
@@ -1352,9 +1352,9 @@ function showEditDetailsModal() {
 function renderRunnerList() {
     const runnerListDiv = document.getElementById('runner-list');
     if (!runnerListDiv) return;
-    
+
     const sortedRunners = state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-    
+
     runnerListDiv.innerHTML = sortedRunners.map((runner, index) => `
         <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
             <span class="text-gray-600 dark:text-gray-400 text-base">${index + 1}.</span>
@@ -1367,7 +1367,7 @@ function updateMainPageRunnerList() {
     // בדוק אם אנחנו בעמוד הראשי ויש רשימת רצים
     if (document.getElementById('runner-list')) {
         renderRunnerList();
-        
+
         // עדכן גם את הכותרת עם מספר הרצים
         const titleElement = document.querySelector('h2.text-blue-500');
         if (titleElement && titleElement.textContent.includes('מועמדי הקבוצה')) {
@@ -1381,7 +1381,7 @@ function validateAndStartHeatsNew() {
         showError("יש להוסיף לפחות מועמד אחד כדי להתחיל.");
         return;
     }
-    
+
     state.currentPage = PAGES.HEATS;
     saveState();
     render();
@@ -1698,12 +1698,10 @@ function handleStart(targetHeat) {
 
 function handleStop(targetHeat) {
 
-    clearInterval(state.timer); // Stop the main timer interval
-
+    clearInterval(state.timer);
     state.isTimerRunning = false;
 
-    targetHeat.finished = true; // Mark as finished
-
+    targetHeat.finished = true;
     saveState();
 
     render();
@@ -1802,8 +1800,63 @@ function updateComment(event, targetHeat) {
 
 }
 
+function appendDNFsToHeat(targetHeat) {
+    const activeSNs = state.runners
+        .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
+        .map(r => r.shoulderNumber);
 
+    const arrivedSet = new Set((targetHeat.arrivals || []).map(a => a.shoulderNumber));
+    const missing = activeSNs.filter(sn => !arrivedSet.has(sn)).sort((a, b) => a - b);
 
+    targetHeat.arrivals = targetHeat.arrivals || [];
+    missing.forEach(sn => {
+        targetHeat.arrivals.push({
+            shoulderNumber: sn,
+            finishTime: null,
+            comment: 'לא סיים',
+            status: 'active'
+        });
+    });
+}
+
+function confirmStopAndAdvance(targetHeat, context) {
+    showModal(
+        'אישור סיום',
+        'לחיצה על "סיים" תפסיק את מדידת הזמן ותעבור למקצה הבא. משתתפים שלא סיימו יסומנו "לא סיים" ויקבלו ציון 1. להמשיך?',
+        () => {
+            // עצירת הטיימר וסימון סיום
+            clearInterval(state.timer);
+            state.isTimerRunning = false;
+            targetHeat.finished = true;
+
+            // הוספת DNF למי שלא הגיע
+            appendDNFsToHeat(targetHeat);
+
+            // שמירה
+            saveState();
+
+            // מעבר לפי הקשר
+            if (context === 'sprint') {
+                if (state.currentHeatIndex < CONFIG.NUM_HEATS - 1) {
+                    state.currentHeatIndex++;
+                } else {
+                    state.currentPage = PAGES.CRAWLING_COMMENTS;
+                }
+            } else if (context === 'crawling') {
+                // בסיום ספרינט זחילות: לעצור כל טיימרי שק
+                stopAllSackTimers();
+                if (state.crawlingDrills.currentSprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1) {
+                    state.crawlingDrills.currentSprintIndex++;
+                } else {
+                    state.currentPage = PAGES.STRETCHER_HEAT;
+                    state.sociometricStretcher.currentHeatIndex = 0;
+                }
+            }
+
+            render();
+        }
+    );
+}
 /**
 
  * Undoes the last runner arrival for the current heat/sprint.
@@ -2137,34 +2190,102 @@ function handleSociometricComment(event) {
  * @returns {Array<{shoulderNumber:number, finishTime:number, rank:number, score:number, comment?:string}>}
  */
 function getSprintHeatResults(heat) {
-    // Finished, active arrivals only
-    const finished = heat.arrivals
+    const finished = (heat.arrivals || [])
         .filter(a => a.status === 'active' && typeof a.finishTime === 'number' && a.finishTime > 0)
         .sort((a, b) => a.finishTime - b.finishTime);
 
-    if (finished.length === 0) return [];
+    const results = [];
+    if (finished.length > 0) {
+        const fastest = finished[0].finishTime;
+        finished.forEach((a, idx) => {
+            const ratio = fastest / a.finishTime; // <= 1
+            const score = Math.max(1, Math.round(7 * ratio));
+            results.push({
+                shoulderNumber: a.shoulderNumber,
+                finishTime: a.finishTime,
+                rank: idx + 1,
+                score,
+                comment: a.comment || ''
+            });
+        });
+    }
 
-    const fastest = finished[0].finishTime;
-
-    return finished.map((a, idx) => {
-        const ratio = fastest / a.finishTime; // <= 1
-        const score = Math.max(1, Math.round(7 * ratio));
-        return { shoulderNumber: a.shoulderNumber, finishTime: a.finishTime, rank: idx + 1, score, comment: a.comment || '' };
+    // DNF – פעילים ללא זמן -> ציון 1 בתחתית
+    const dnfs = (heat.arrivals || []).filter(a =>
+        a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)
+    );
+    dnfs.forEach(() => {
+        results.push({
+            // דירוג ממשיך אחרי המסיימים
+            rank: results.length + 1,
+            // ימולאו מתוך הרשומה המתאימה בלולאה הבאה
+        });
     });
+
+    // כדי לשמר מספרי כתף/הערות של DNF לפי הסדר שנוספו:
+    let dnfIndex = 0;
+    (heat.arrivals || []).forEach(a => {
+        if (a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)) {
+            const r = results.find((x, i) => i >= finished.length && x.shoulderNumber === undefined);
+            if (r) {
+                r.shoulderNumber = a.shoulderNumber;
+                r.finishTime = null;
+                r.score = 1;
+                r.comment = a.comment || 'לא סיים';
+            }
+            dnfIndex++;
+        }
+    });
+
+    return results;
 }
 
 /** תוצאות מקצה ספרינט-זחילות לפי זמן יחסי (כמו בספרינטים) */
 function getCrawlingSprintHeatResults(sprint) {
-    const finished = sprint.arrivals
+    const finished = (sprint.arrivals || [])
         .filter(a => a.status === 'active' && typeof a.finishTime === 'number' && a.finishTime > 0)
         .sort((a, b) => a.finishTime - b.finishTime);
-    if (finished.length === 0) return [];
-    const fastest = finished[0].finishTime;
-    return finished.map((a, idx) => {
-        const ratio = fastest / a.finishTime;
-        const score = Math.max(1, Math.round(7 * ratio)); // 1..7
-        return { shoulderNumber: a.shoulderNumber, finishTime: a.finishTime, rank: idx + 1, score, comment: a.comment || '' };
+
+    const results = [];
+    if (finished.length > 0) {
+        const fastest = finished[0].finishTime;
+        finished.forEach((a, idx) => {
+            const ratio = fastest / a.finishTime;
+            const score = Math.max(1, Math.round(7 * ratio));
+            results.push({
+                shoulderNumber: a.shoulderNumber,
+                finishTime: a.finishTime,
+                rank: idx + 1,
+                score,
+                comment: a.comment || ''
+            });
+        });
+    }
+
+    const dnfs = (sprint.arrivals || []).filter(a =>
+        a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)
+    );
+    dnfs.forEach(() => {
+        results.push({
+            rank: results.length + 1,
+        });
     });
+
+    let dnfIndex = 0;
+    (sprint.arrivals || []).forEach(a => {
+        if (a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)) {
+            const r = results.find((x, i) => i >= finished.length && x.shoulderNumber === undefined);
+            if (r) {
+                r.shoulderNumber = a.shoulderNumber;
+                r.finishTime = null;
+                r.score = 1;
+                r.comment = a.comment || 'לא סיים';
+            }
+            dnfIndex++;
+        }
+    });
+
+    return results;
 }
 
 /**
@@ -2406,18 +2527,18 @@ function render() {
 
 function renderRunnersPage() {
     headerTitle.textContent = 'ניהול קבוצה';
-    
+
     // אם אין פרטי הערכה - הצג חלון התחלתי
     if (!state.evaluatorName || !state.groupNumber) {
         renderInitialSetupModal();
         return;
     }
-    
+
     const todayDate = new Date().toLocaleDateString('he-IL');
     const currentTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-    
+
     const hasRunners = state.runners && state.runners.length > 0;
-    
+
     contentDiv.innerHTML = `
 <!-- פרטי הערכה (קבועים) - עם כפתור עריכה בצד שמאל למעלה -->
     <div class="evaluation-info bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg shadow-inner mb-6 border-2 border-blue-200 dark:border-blue-700 relative">
@@ -2540,7 +2661,7 @@ function showEditBasicDetailsModal() {
     const backdrop = document.createElement('div');
     backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
     backdrop.id = 'edit-basic-details-modal';
-    
+
     backdrop.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
         <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי הערכה</h3>
@@ -2569,28 +2690,28 @@ function showEditBasicDetailsModal() {
         
         <div id="basic-edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
     </div>`;
-    
+
     document.body.appendChild(backdrop);
-    
+
     document.getElementById('save-basic-details').addEventListener('click', () => {
         const evaluatorName = document.getElementById('edit-basic-evaluator-name').value.trim();
         const groupNumber = document.getElementById('edit-basic-group-number').value.trim();
         const errorDiv = document.getElementById('basic-edit-error');
-        
+
         if (!evaluatorName || !groupNumber) {
             errorDiv.textContent = 'יש למלא את שם המעריך ומספר הקבוצה';
             errorDiv.classList.remove('hidden');
             return;
         }
-        
+
         state.evaluatorName = evaluatorName;
         state.groupNumber = groupNumber;
         saveState();
-        
+
         document.body.removeChild(backdrop);
         render();
     });
-    
+
     document.getElementById('cancel-basic-details').addEventListener('click', () => {
         document.body.removeChild(backdrop);
     });
@@ -2603,16 +2724,16 @@ function showRunnerEditMode() {
     const runnerListDiv = document.getElementById('runner-list');
     const editAreaDiv = document.getElementById('runner-edit-area');
     const editListDiv = document.getElementById('editable-runner-list');
-    
+
     // הסתר רשימה רגילה והצג אזור עריכה
     runnerListDiv.style.display = 'none';
     editAreaDiv.classList.remove('hidden');
-    
+
     // יצירת גיבוי למקרה של ביטול
     window.tempRunners = JSON.parse(JSON.stringify(state.runners));
-    
+
     renderEditableRunnerList();
-    
+
     // Event listeners
     document.getElementById('add-runner-row').addEventListener('click', addRunnerRow);
     document.getElementById('save-runners-btn').addEventListener('click', saveRunnersEdit);
@@ -2778,7 +2899,7 @@ function renderAdminSettingsPage() {
 
 function renderEditableRunnerList() {
     const editListDiv = document.getElementById('editable-runner-list');
-    
+
     editListDiv.innerHTML = state.runners.map((runner, index) => `
         <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-600 rounded border runner-edit-row" data-index="${index}">
             <span class="w-8 text-center font-medium">${index + 1}.</span>
@@ -2789,7 +2910,7 @@ function renderEditableRunnerList() {
             </button>
         </div>
     `).join('');
-    
+
     // מאזינים למחיקה
     editListDiv.querySelectorAll('.remove-runner-edit').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -2798,7 +2919,7 @@ function renderEditableRunnerList() {
             renderEditableRunnerList();
         });
     });
-    
+
     // מאזינים לשינוי ערכים
     editListDiv.querySelectorAll('.runner-edit-input').forEach(input => {
         input.addEventListener('input', (e) => {
@@ -2819,10 +2940,10 @@ function addRunnerRow() {
         errorDiv.classList.remove('hidden');
         return;
     }
-    
+
     state.runners.push({ shoulderNumber: '' });
     renderEditableRunnerList();
-    
+
     // Focus על השדה החדש
     setTimeout(() => {
         const newInput = document.querySelector('.runner-edit-row:last-child .runner-edit-input');
@@ -2833,30 +2954,30 @@ function addRunnerRow() {
 function saveRunnersEdit() {
     const errorDiv = document.getElementById('runner-edit-error');
     errorDiv.classList.add('hidden');
-    
+
     // בדיקת תקינות
     const newRunners = [];
     const usedNumbers = new Set();
-    
+
     for (const runner of state.runners) {
         const shoulderNumber = parseInt(runner.shoulderNumber);
-        
+
         if (!shoulderNumber || shoulderNumber <= 0) {
             errorDiv.textContent = 'כל מספרי הכתף חייבים להיות מספרים חיוביים';
             errorDiv.classList.remove('hidden');
             return;
         }
-        
+
         if (usedNumbers.has(shoulderNumber)) {
             errorDiv.textContent = 'נמצאו מספרי כתף כפולים';
             errorDiv.classList.remove('hidden');
             return;
         }
-        
+
         usedNumbers.add(shoulderNumber);
         newRunners.push({ shoulderNumber });
     }
-    
+
     // שמירה וסיום עריכה
     state.runners = newRunners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
     saveState();
@@ -2875,11 +2996,11 @@ function cancelRunnersEdit() {
 function exitRunnerEditMode() {
     const runnerListDiv = document.getElementById('runner-list');
     const editAreaDiv = document.getElementById('runner-edit-area');
-    
+
     // הצג רשימה רגילה והסתר אזור עריכה
     runnerListDiv.style.display = '';
     editAreaDiv.classList.add('hidden');
-    
+
     // עדכן רשימה
     renderRunnerList();
 }
@@ -3035,9 +3156,9 @@ function renderQuickCommentBar(show) {
       </div>`;
 
     const selectEl = document.getElementById('quick-comment-runner');
-    const inputEl  = document.getElementById('quick-comment-input');
-    const micBtn   = document.getElementById('quick-comment-mic');
-    const sendBtn  = document.getElementById('quick-comment-send');
+    const inputEl = document.getElementById('quick-comment-input');
+    const micBtn = document.getElementById('quick-comment-mic');
+    const sendBtn = document.getElementById('quick-comment-send');
 
     const updateSendEnabled = () => {
         const hasText = inputEl.value.trim().length > 0;
@@ -3105,7 +3226,7 @@ function renderQuickCommentBar(show) {
                     isRecording = true;
                     micBtn.classList.add('recording');
                     micBtn.textContent = '🛑';
-                } catch {}
+                } catch { }
             }
         };
         const stopRec = (e) => {
@@ -3120,15 +3241,15 @@ function renderQuickCommentBar(show) {
         micBtn.addEventListener('touchend', stopRec);
     } else {
 
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            if (isIOS) {
-                micBtn.style.display = 'none'; // הסתר את כפתור המיקרופון במכשירי אפל
-            } else {
-                micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
-            }
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+            micBtn.style.display = 'none'; // הסתר את כפתור המיקרופון במכשירי אפל
+        } else {
+            micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
         }
- 
-    }       
+    }
+
+}
 
 /**
 
@@ -3186,11 +3307,11 @@ function renderStatusManagementPage() {
     const inactiveCardsHtml = inactiveRunners.map(runner => {
         const status = state.crawlingDrills.runnerStatuses[runner.shoulderNumber];
         const isRetired = status === 'retired';
-        
-        const cardClass = isRetired 
-            ? 'bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-900/10 border-rose-200 dark:border-rose-700' 
+
+        const cardClass = isRetired
+            ? 'bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-900/10 border-rose-200 dark:border-rose-700'
             : 'bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 border-amber-200 dark:border-amber-700';
-        
+
         const statusIcon = isRetired ? '⛔' : '⚠️';
         const statusText = isRetired ? 'פרש' : 'בדיקה';
 
@@ -3384,7 +3505,7 @@ function renderHeatPage(heatIndex) {
         )
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
-        contentDiv.innerHTML = `
+    contentDiv.innerHTML = `
         <!-- כותרת מקצה גדולה + פריסת Grid -->
         <div class="heat-header">
             <button id="prev-heat-btn-inline" class="prev-inline-btn" ${heatIndex === 0 ? 'disabled' : ''}>
@@ -3426,10 +3547,10 @@ function renderHeatPage(heatIndex) {
     
             <div id="arrival-list" class="space-y-2">
                 ${heat.arrivals.map((arrival, index) => {
-                    const sn = arrival.shoulderNumber;
-                    const gc = (state.generalComments && state.generalComments[sn]) ? state.generalComments[sn] : '';
-                    const timeText = arrival.finishTime ? formatTime(arrival.finishTime) : (arrival.comment || '');
-                    return `
+        const sn = arrival.shoulderNumber;
+        const gc = (state.generalComments && state.generalComments[sn]) ? state.generalComments[sn] : '';
+        const timeText = arrival.finishTime ? formatTime(arrival.finishTime) : (arrival.comment || '');
+        return `
                     <div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
                         <span class="font-bold text-gray-700 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${index + 1}. ${sn}</span>
                         <span class="flex-1">
@@ -3437,46 +3558,46 @@ function renderHeatPage(heatIndex) {
                         </span>
                         <span class="font-mono text-gray-600 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:left;">${timeText}</span>
                     </div>`;
-                }).join('')}
+    }).join('')}
             </div>
         `;
-    
-        // שעון
-        if (heat.started && !heat.finished) startTimer();
-        else updateTimerDisplay(heat.arrivals.length > 0 ? heat.arrivals[heat.arrivals.length - 1].finishTime : 0);
-    
-        // מאזינים
-        document.getElementById('start-btn')?.addEventListener('click', () => handleStart(heat));
-        document.getElementById('stop-btn')?.addEventListener('click', () => handleStop(heat));
-        document.getElementById('undo-btn')?.addEventListener('click', () => handleUndoArrival(heat));
-        document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, heat, state.currentHeatIndex));
-    
-        contentDiv.querySelectorAll('.gc-input').forEach(inp => {
-            inp.addEventListener('input', (e) => {
-                const sn = e.currentTarget.dataset.shoulderNumber;
-                state.generalComments[sn] = e.currentTarget.value;
-                saveState();
-            });
+
+    // שעון
+    if (heat.started && !heat.finished) startTimer();
+    else updateTimerDisplay(heat.arrivals.length > 0 ? heat.arrivals[heat.arrivals.length - 1].finishTime : 0);
+
+    // מאזינים
+    document.getElementById('start-btn')?.addEventListener('click', () => handleStart(heat));
+    document.getElementById('stop-btn')?.addEventListener('click', () => confirmStopAndAdvance(heat, 'sprint'));
+    document.getElementById('undo-btn')?.addEventListener('click', () => handleUndoArrival(heat));
+    document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, heat, state.currentHeatIndex));
+
+    contentDiv.querySelectorAll('.gc-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+            const sn = e.currentTarget.dataset.shoulderNumber;
+            state.generalComments[sn] = e.currentTarget.value;
+            saveState();
         });
-    
-        // ניווט קדימה
-        document.getElementById('next-heat-btn-inline')?.addEventListener('click', () => {
-            if (state.currentHeatIndex < CONFIG.NUM_HEATS - 1) {
-                state.currentHeatIndex++;
-            } else {
-                state.currentPage = PAGES.CRAWLING_COMMENTS;
-            }
+    });
+
+    // ניווט קדימה
+    document.getElementById('next-heat-btn-inline')?.addEventListener('click', () => {
+        if (state.currentHeatIndex < CONFIG.NUM_HEATS - 1) {
+            state.currentHeatIndex++;
+        } else {
+            state.currentPage = PAGES.CRAWLING_COMMENTS;
+        }
+        saveState();
+        render();
+    });
+    document.getElementById('prev-heat-btn-inline')?.addEventListener('click', () => {
+        if (state.currentHeatIndex > 0) {
+            state.currentHeatIndex--;
             saveState();
             render();
-        });
-        document.getElementById('prev-heat-btn-inline')?.addEventListener('click', () => {
-            if (state.currentHeatIndex > 0) {
-                state.currentHeatIndex--;
-                saveState();
-                render();
-            }
-        });
-    }
+        }
+    });
+}
 
 /**
 
@@ -3595,7 +3716,7 @@ function renderCrawlingSprintPage(sprintIndex) {
         .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber] && !sprint.arrivals.some(a => a.shoulderNumber === r.shoulderNumber))
         .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
-        contentDiv.innerHTML = `
+    contentDiv.innerHTML = `
         <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00</div>
         <div class="flex justify-between items-center my-4 p-2 rounded-lg shadow-inner sticky-bottom">
             ${sprintIndex > 0 ? `<button id="prev-crawling-sprint-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
@@ -3624,7 +3745,7 @@ function renderCrawlingSprintPage(sprintIndex) {
 
     document.getElementById('start-btn')?.addEventListener('click', () => handleStart(sprint));
 
-    document.getElementById('stop-btn')?.addEventListener('click', () => { handleStop(sprint); });
+    document.getElementById('stop-btn')?.addEventListener('click', () => { confirmStopAndAdvance(sprint, 'crawling'); });
 
     document.getElementById('undo-btn')?.addEventListener('click', () => handleUndoArrival(sprint));
 
@@ -4059,7 +4180,8 @@ async function exportToExcel() {
             const results = getSprintHeatResults(heat);
 
             results.forEach((r, idx) => {
-                const row = sprintsSheet.addRow([r.rank, r.shoulderNumber, formatTime(r.finishTime), r.score, r.comment || '']);
+                const timeTxt = (typeof r.finishTime === 'number' && r.finishTime > 0) ? formatTime(r.finishTime) : 'לא סיים';
+                const row = sprintsSheet.addRow([r.rank, r.shoulderNumber, timeTxt, r.score, r.comment || '']);
                 row.eachCell((cell) => {
                     cell.border = border;
                     if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
@@ -4122,7 +4244,8 @@ async function exportToExcel() {
             styleHeader(heatHeader);
             const results = getCrawlingSprintHeatResults(sprint);
             results.forEach((r, idx) => {
-                const row = crawlingSheet.addRow([r.rank, r.shoulderNumber, formatTime(r.finishTime), r.score, r.comment || '']);
+                const timeTxt = (typeof r.finishTime === 'number' && r.finishTime > 0) ? formatTime(r.finishTime) : 'לא סיים';
+                const row = crawlingSheet.addRow([r.rank, r.shoulderNumber, timeTxt, r.score, r.comment || '']);
                 row.eachCell((cell) => {
                     cell.border = border;
                     if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
@@ -4355,50 +4478,50 @@ async function init() {
     async function init() {
 
         // Request a screen wake lock to prevent the screen from turning off
-    
+
         try {
-    
+
             if ('wakeLock' in navigator) {
-    
+
                 await navigator.wakeLock.request('screen');
-    
+
             }
-    
+
         } catch (err) {
-    
+
             console.error(`Failed to acquire screen wake lock: ${err.name}, ${err.message}`);
-    
+
         }
-    
-    
+
+
         // Event listener for navigation tabs
         document.querySelector('nav').addEventListener('click', (e) => {
             const target = e.target.closest('.nav-tab');
             if (!target) return;
-    
+
             const nextPage = target.dataset.page;
-    
+
             // חסימה: אין מעבר לטאבים אחרים כשאין מתמודדים
             const noRunners = !state.runners || state.runners.length === 0;
             if (noRunners && nextPage !== PAGES.RUNNERS) {
                 showModal('לא ניתן להמשיך', 'יש להוסיף לפחות מועמד אחד כדי לעבור למסכים אחרים.');
                 return;
             }
-    
+
             const go = () => { state.currentPage = nextPage; render(); };
             const intercepted = confirmLeaveCrawlingComments(go);
             if (!intercepted) go();
         });
-    
+
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
             if (state.themeMode === 'auto') {
                 applyTheme();
                 render();
             }
         });
-    
+
         // V1.1 - Event listener for theme toggle button
-    
+
         document.getElementById('theme-toggle-btn').addEventListener('click', () => {
             if (state.themeMode === 'light') state.themeMode = 'dark';
             else if (state.themeMode === 'dark') state.themeMode = 'auto';
@@ -4407,11 +4530,11 @@ async function init() {
             saveState();
             render();
         });
-    
+
         loadState();
         applyTheme();
         render();
-    
+
         setInterval(saveState, 60000);
     }
 
@@ -4516,9 +4639,9 @@ function renderSociometricStretcherHeatPage(heatIndex) {
 
     const selections = heat.selections;
     const stretcherCount = Object.values(selections).filter(v => v === 'stretcher').length;
-    const jerricanCount  = Object.values(selections).filter(v => v === 'jerrican').length;
+    const jerricanCount = Object.values(selections).filter(v => v === 'jerrican').length;
     const stretcherLimitReached = stretcherCount >= CONFIG.MAX_STRETCHER_CARRIERS;
-    const jerricanLimitReached  = jerricanCount  >= CONFIG.MAX_JERRICAN_CARRIERS;
+    const jerricanLimitReached = jerricanCount >= CONFIG.MAX_JERRICAN_CARRIERS;
 
     const activeRunners = state.runners
         .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
@@ -4529,11 +4652,11 @@ function renderSociometricStretcherHeatPage(heatIndex) {
         const selection = heat.selections[shoulderNumber];
 
         const isStretcherSelected = selection === 'stretcher';
-        const isJerricanSelected  = selection === 'jerrican';
+        const isJerricanSelected = selection === 'jerrican';
 
         // נטרול רק לפי מכסה נוכחית והאם כבר מסומן תפקיד אחר
         const stretcherDisabled = isJerricanSelected || (!isStretcherSelected && stretcherLimitReached);
-        const jerricanDisabled  = isStretcherSelected || (!isJerricanSelected && jerricanLimitReached);
+        const jerricanDisabled = isStretcherSelected || (!isJerricanSelected && jerricanLimitReached);
 
         return `
             <div class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${isStretcherSelected ? 'bg-green-100 dark:bg-green-900' : ''} ${isJerricanSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}">
@@ -4560,14 +4683,14 @@ function renderSociometricStretcherHeatPage(heatIndex) {
     }).join('');
 
 
-        const navigationButtons = `
+    const navigationButtons = `
         <div class="flex justify-between items-center mt-6 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-inner">
             <button id="prev-stretcher-heat-btn-inline" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg" ${heatIndex === 0 ? 'disabled' : ''}>הקודם</button>
             <span class="font-semibold text-gray-800 dark:text-gray-200">${CONFIG.STRETCHER_PAGE_LABEL} ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}</span>
             <button id="next-stretcher-heat-btn-inline" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg">${heatIndex === CONFIG.NUM_STRETCHER_HEATS - 1 ? 'לדוחות' : 'הבא'}</button>
         </div>`;
-    
-        contentDiv.innerHTML = `
+
+    contentDiv.innerHTML = `
             <div id="stretcher-grid" class="auto-grid stretcher-grid">
                 ${runnerCardsHtml}
             </div>
@@ -4583,7 +4706,7 @@ function renderSociometricStretcherHeatPage(heatIndex) {
         handleSociometricSelection(shoulderNumber, type, heatIndex);
     });
 
-    document.getElementById('prev-stretcher-heat-btn-inline')?.addEventListener('click', () => { 
+    document.getElementById('prev-stretcher-heat-btn-inline')?.addEventListener('click', () => {
         if (heatIndex > 0) {
             state.sociometricStretcher.currentHeatIndex--;
             saveState();
@@ -4650,7 +4773,7 @@ function renderQuickCommentFAB(show) {
         fab.id = 'qc-fab';
         fab.className = 'qc-fab';
         fab.title = 'הוסף תגובה מהירה';
-        fab.setAttribute('aria-label','הוסף תגובה מהירה');
+        fab.setAttribute('aria-label', 'הוסף תגובה מהירה');
         fab.textContent = '💬';
         document.body.appendChild(fab);
 
@@ -4717,9 +4840,9 @@ function renderQuickCommentFAB(show) {
         `;
 
         const selectEl = document.getElementById('fab-runner');
-        const inputEl  = document.getElementById('fab-input');
-        const micBtn   = document.getElementById('fab-mic');
-        const sendBtn  = document.getElementById('fab-send');
+        const inputEl = document.getElementById('fab-input');
+        const micBtn = document.getElementById('fab-mic');
+        const sendBtn = document.getElementById('fab-send');
 
         const updateSendEnabled = () => { sendBtn.disabled = inputEl.value.trim().length === 0; };
         inputEl.addEventListener('input', updateSendEnabled);
@@ -4770,7 +4893,7 @@ function renderQuickCommentFAB(show) {
             const startRec = (e) => {
                 e.preventDefault();
                 if (!isRecording) {
-                    try { recognition.start(); isRecording = true; micBtn.classList.add('recording'); micBtn.textContent = '🛑'; } catch {}
+                    try { recognition.start(); isRecording = true; micBtn.classList.add('recording'); micBtn.textContent = '🛑'; } catch { }
                 }
             };
             const stopRec = (e) => { e.preventDefault(); if (isRecording) recognition.stop(); };
