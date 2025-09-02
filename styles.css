@@ -621,3 +621,55 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
 .stretcher-grid .runner-card{
   box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04);
 }
+
+/* פריסת הקלט עם אייקון פנימי */
+.quickbar{ align-items: center; }
+.quickbar .qc-group{ display:flex; align-items:center; gap:8px; min-width:0; }
+.quickbar .qc-input-wrap{
+  position: relative;
+  display: flex; align-items: center;
+  flex: 1 1 auto; min-width: 0;
+}
+.quickbar .qc-input{
+  width: 100%;
+  height: 44px;
+  font-size: 16px;           /* ללא זום באייפון */
+  padding: 8px 12px;
+  padding-inline-start: 44px; /* מקום לכפתור בפנים (RTL/LTR תלוי כיוון) */
+  border-radius: calc(var(--radius) - 8px);
+  background: rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  color: var(--text);
+  -webkit-appearance: none; appearance: none;
+  box-sizing: border-box;
+}
+
+/* כפתור המיקרופון ממורכז בתוך השדה */
+.quickbar .qc-micBtn.mic-inside{
+  position: absolute;
+  inset-inline-start: 6px;          /* בקצה ההתחלתי (ימין ב-RTL) */
+  top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius: 10px;
+  background:#374151; color:#fff;
+  border:1px solid rgba(255,255,255,.10);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.quickbar .qc-micBtn.mic-inside:hover{ background:#4b5563; }
+.quickbar .qc-micBtn.mic-inside.recording{ background:#ef4444; border-color:#dc2626; }
+
+/* הדגשת פוקוס לשילוב נעים */
+.quickbar .qc-input-wrap:focus-within .qc-micBtn.mic-inside{
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* select קטן ומרוכז */
+.quickbar .qc-runner-select{
+  width: 92px; min-width: 84px; text-align:center; text-align-last:center; font-weight:600;
+}
+
+/* ניגודיות ברשימת options */
+.quickbar .qc-select option{ background:#F9FAFB; color:#111827; }
+.dark .quickbar .qc-select option{ background:#111827; color:#F9FAFB; }
