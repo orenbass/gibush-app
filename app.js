@@ -3368,21 +3368,6 @@ function renderStatusManagementPage() {
                 <p>נדרש להוסיף מועמדים תחילה</p>
             </div>
             ` : ''}
-        </div>
-
-        <!-- כפתורי ניווט -->
-        <div class="flex justify-between items-center mt-6 p-2 bg-gray-50 dark:bg-gray-800/60 rounded-lg border border-gray-200/70 dark:border-gray-700/60">
-            <button id="back-btn" class="px-4 py-2 rounded-lg text-sm font-semibold
-                                         border border-gray-400/60 text-gray-700 hover:bg-gray-100
-                                         dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/60 transition">
-                <span class="text-xl">&larr;</span> חזור
-            </button>
-            <span class="font-semibold text-gray-800 dark:text-gray-200">ניהול סטטוס מועמדים</span>
-            <button id="group-manage-btn" class="px-4 py-2 rounded-lg text-sm font-semibold
-                                                border border-blue-400/60 text-blue-700 hover:bg-blue-50
-                                                dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900/20 transition">
-                ניהול קבוצה <span class="text-xl">&rarr;</span>
-            </button>
         </div>`;
 
     document.querySelectorAll('.status-btn').forEach(btn => {
