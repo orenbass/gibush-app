@@ -13,10 +13,33 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Gibush">
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="icon" href="./icons/icon-192.png">
+    <!-- ודא שהתיקייה /icons מכילה icon-192.png -->
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-    <script defer src="app.js"></script>
+    <!-- Utils and config first -->
+    <script src="./config.js" defer></script>
+    <script src="./js/config/crawling-config.js" defer></script>
+    <script src="./js/utils/time.js" defer></script>
+    <script src="./js/utils/modal.js" defer></script>
+    <script src="./js/utils/scoring.js" defer></script>
+    <script src="./js/utils/pwa.js" defer></script>
+
+    <!-- Page modules (after utils/config) -->
+    <script src="./js/pages/runners.js" defer></script>
+    <script src="./js/pages/admin-settings.js" defer></script>
+    <script src="./js/pages/status-management.js" defer></script>
+    <script src="./js/pages/heat.js" defer></script>
+    <script src="./js/pages/crawling-comments.js" defer></script>
+    <script src="./js/pages/crawling-sprint.js" defer></script>
+    <script src="./js/pages/report.js" defer></script>
+    <script src="./js/pages/stretcher-heat.js" defer></script>
+
+    <!-- Main app (kept last) -->
+    <script src="quick-comments.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
     <div id="app" class="min-h-screen flex flex-col items-center p-4 bg-gray-100 text-gray-800">
@@ -81,8 +104,7 @@
         </div>
     </template>
     <button id="install-btn" style="display:none; position:fixed; bottom:24px; right:24px; z-index:1000;">
-    📲 התקן כאפליקציה
-</button>
-    <button id="install-btn" style="display:none">התקן לאנדרואיד</button>
+        📲 התקן כאפליקציה
+    </button>
 </body>
 </html>

@@ -2,63 +2,6 @@ if ("serviceWorker" in navigator) {
     // Use root path so scope covers the whole app
     navigator.serviceWorker.register("/service-worker.js").catch(console.error);
 }
-// --- Application Constants & Config ---
-
-// הגדרות גלובליות לאפליקציה.
-
-// ערכים אלו ניתנים לשינוי בדף הגדרות המנהל.
-
-let CONFIG = {
-
-    NUM_HEATS: 14,     // מספר מקצי ספרינט
-
-    MAX_CRAWLING_SPRINTS: 4,   // מספר מקסימלי של מקצי ספרינט זחילות
-
-    MAX_RUNNERS: 20,         // מספר מקסימלי של רצים מותר
-
-    MAX_SACK_CARRIERS: 3,    // מספר מקסימלי של נושאי שק בתרגילי זחילה
-
-    NUM_STRETCHER_HEATS: 8,      // מספר מקצי אלונקה סוציומטרית
-
-    MAX_STRETCHER_CARRIERS: 4, // מספר נושאי אלונקה מקסימלי למקצה
-
-    MAX_JERRICAN_CARRIERS: 3,  // שינוי לברירת מחדל 3
-
-    STRETCHER_PAGE_LABEL: 'אלונקות', // התווית ללשונית ולכותרת הדף
-
-    STRETCHER_CARRIER_NOUN_PLURAL: 'רצים שלקחו אלונקה', // שם העצם ברבים שמוצג בהנחיית הבחירה
-
-    APP_STATE_KEY: 'sprintAppState_v1.11' // מפתח לאחסון מצב האפליקציה ב-localStorage
-
-};
-
-// סיסמת מנהל לדף ההגדרות
-
-const ADMIN_PASSWORD = 'malkin';
-
-
-
-// אובייקט דמוי-enum לשמות דפים כדי למנוע שימוש במחרוזות קסם
-
-const PAGES = {
-
-    RUNNERS: 'runners',
-
-    STATUS_MANAGEMENT: 'status-management',
-
-    HEATS: 'heats',
-
-    CRAWLING_COMMENTS: 'crawling-drills-comments',
-
-    CRAWLING_SPRINT: 'crawling-sprint',
-
-    STRETCHER_HEAT: 'sociometric-stretcher-heat',
-
-    REPORT: 'report',
-
-    ADMIN_SETTINGS: 'admin-settings'
-
-};
 
 
 
@@ -104,52 +47,32 @@ const state = {
 
 };
 
-
+window.state = state;
 
 // --- DOM Elements ---
 
 // הפניות לאלמנטים מרכזיים ב-DOM לצורך מניפולציה יעילה
-
-const contentDiv = document.getElementById('content');
-
-const headerTitle = document.getElementById('header-title');
-
-const autosaveStatus = document.getElementById('autosave-status');
-
-const loadingOverlay = document.getElementById('loading-overlay'); // V1.11 - Added loading overlay
+let contentDiv = document.getElementById('content');
+let headerTitle = document.getElementById('header-title');
+let autosaveStatus = document.getElementById('autosave-status');
+let loadingOverlay = document.getElementById('loading-overlay'); // V1.11 - Added loading overlay
 let tempStateBackup = null; // גיבוי זמני למצב עריכה בדוח
 
+// Ensure a global page registry exists for external page modules
+window.Pages = window.Pages || {};
 
-
-// --- Utility Functions ---
-
-
-
-/**
-
- * Formats a given time in milliseconds into MM:SS:mmm string format.
-
- * @param {number} ms - Time in milliseconds.
-
- * @returns {string} Formatted time string.
-
- */
-
-function formatTime(ms) {
-
-    if (ms < 0) ms = 0; // Ensure time is not negative
-
-    const minutes = Math.floor(ms / 60000);
-
-    const seconds = Math.floor((ms % 60000) / 1000);
-
-    const milliseconds = Math.floor((ms % 1000));
-
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(3, '0')}`;
-
+// עזר: לוודא שהפניות ל-DOM קיימות (במיוחד אם הסקריפט רץ לפני טעינת ה-DOM)
+function ensureDomRefs() {
+    if (!contentDiv) contentDiv = document.getElementById('content');
+    if (!headerTitle) headerTitle = document.getElementById('header-title');
+    if (!autosaveStatus) autosaveStatus = document.getElementById('autosave-status');
+    if (!loadingOverlay) loadingOverlay = document.getElementById('loading-overlay');
 }
 
-let deferredInstallPrompt = null;
+// --- Utility functions moved to utils ---
+// Moved to js/utils/time.js: formatTime, formatTime_no_ms, updateTimerDisplay
+// Moved to js/utils/modal.js: showModal, confirmLeaveCrawlingComments
+// Moved to js/utils/scoring.js: normalizeScore, computeHeatResults, get*Results, calculate*Score
 
 function setupPWAInstallUI() {
     const installBtn = document.getElementById('install-btn');
@@ -183,237 +106,6 @@ window.addEventListener('appinstalled', () => {
     if (installBtn) installBtn.style.display = 'none';
     deferredInstallPrompt = null;
 });
-
-// Call once in init()
-async function init() {
-    // ...existing code...
-    setupPWAInstallUI();
-    // ...existing code...
-}
-
-/**
-
- * Formats a given time in milliseconds into MM:SS string format.
-
- * @param {number} ms - Time in milliseconds.
-
- * @returns {string} Formatted time string.
-
- */
-
-
-function formatTime_no_ms(ms) {
-
-    if (ms < 0) ms = 0;
-
-    const minutes = Math.floor(ms / 60000);
-
-    const seconds = Math.floor((ms % 60000) / 1000);
-
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-}
-
-/**
- * Normalizes a numeric value to a score in range[1..7].
- * - If min < max: value = min -> 1, value = max -> 7.
-    * - If min > max: mapping is inverted(value = min -> 7, value = max -> 1).
- * Values מחוץ לטווח נחתכים.התוצאה מעוגלת למספר שלם.
- */
-function normalizeScore(value, min, max) {
-    if (min === max) {
-        return value > min ? 7 : 1;
-    }
-    const inverted = max < min;
-    const lo = inverted ? max : min;
-    const hi = inverted ? min : max;
-
-    const v = Math.min(Math.max(value, lo), hi);
-    let t = (v - lo) / (hi - lo); // 0..1
-    if (inverted) t = 1 - t;
-
-    return Math.min(7, Math.max(1, Math.round(1 + t * 6)));
-}
-
-/**
-
- * Updates the main timer display on the UI.
-
- * @param {number} elapsedTime - The elapsed time in milliseconds to display.
-
- * @param {boolean} showMilliseconds - Whether to show milliseconds in the display.
-
- */
-
-function updateTimerDisplay(elapsedTime, showMilliseconds = true) {
-
-    const timerDisplay = document.getElementById('timer-display');
-
-    if (timerDisplay) {
-
-        if (showMilliseconds) {
-
-            timerDisplay.textContent = `⏰ ${formatTime(elapsedTime)}`;
-
-        } else {
-
-            timerDisplay.textContent = `⏰ ${formatTime_no_ms(elapsedTime)}`;
-
-        }
-
-    }
-}
-
-/**
-
- * Shows leave-confirmation if leaving Crawling Comments while there are active sack carriers.
-
- * Returns true אם נפתח דיאלוג (הפעולה יורטה), false אחרת.
-
- */
-
-function confirmLeaveCrawlingComments(onConfirm) {
-
-    const onCrawlingComments = state.currentPage === PAGES.CRAWLING_COMMENTS;
-
-    const hasActive = Array.isArray(state.crawlingDrills?.activeSackCarriers) && state.crawlingDrills.activeSackCarriers.length > 0;
-
-    if (onCrawlingComments && hasActive) {
-
-        showModal(
-
-            'אישור יציאה',
-
-            'יציאה תפסיק את כל נושאי השק ותנקה את הבחירות. להמשיך?',
-
-            () => {
-
-                // הפסקת כל הטיימרים וניקוי בחירות
-
-                stopAllSackTimers();
-
-                state.crawlingDrills.activeSackCarriers = [];
-
-                saveState();
-
-                if (onConfirm) onConfirm();
-
-            }
-
-        );
-
-        return true; // interception
-
-    }
-
-    return false; // no interception
-
-}
-
-/**
-
- * Displays a custom confirmation modal (replaces native alert/confirm).
-
- * @param {string} title - The title of the modal.
-
- * @param {string} message - The message to display in the modal.
-
- * @param {Function} onConfirm - Callback function to execute if 'Confirm' is clicked.
-
- * @param {boolean} isInputModal - Whether the modal should include an input field.
-
- * @param {Function} onInputConfirm - Callback for input modal.
-
- */
-
-function showModal(title, message, onConfirm, isInputModal = false, onInputConfirm) {
-
-    // Remove any existing modal to prevent duplicates
-
-    const existingModal = document.getElementById('confirmation-modal');
-
-    if (existingModal) existingModal.remove();
-
-
-
-    // Create modal backdrop and content
-
-    const modalBackdrop = document.createElement('div');
-
-    modalBackdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
-
-    modalBackdrop.id = 'confirmation-modal';
-
-
-
-    let inputHtml = '';
-
-    if (isInputModal) {
-
-        inputHtml = `<input type="password" id="modal-input" class="w-full p-2 mt-4 border border-gray-300 rounded-lg text-lg text-right" placeholder="הכנס קוד גישה">`;
-
-    }
-
-
-
-    modalBackdrop.innerHTML = `
-
-    <div class="bg-white rounded-lg shadow-2xl p-6 w-full max-w-sm mx-4 text-right">
-
-        <h3 class="text-xl font-bold mb-4">${title}</h3>
-
-        <p class="text-gray-700 mb-6">${message}</p>
-
-        ${inputHtml}
-
-        <div class="flex justify-end space-x-4 space-x-reverse mt-6">
-
-            <button id="confirm-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">אישור</button>
-
-            <button id="cancel-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">ביטול</button>
-
-        </div>
-
-    </div>`;
-
-    document.body.appendChild(modalBackdrop);
-
-
-
-    const confirmBtn = document.getElementById('confirm-btn');
-
-    const cancelBtn = document.getElementById('cancel-btn');
-
-
-
-    if (isInputModal) {
-
-        confirmBtn.onclick = () => {
-
-            const input = document.getElementById('modal-input').value;
-
-            if (onInputConfirm) onInputConfirm(input);
-
-            document.body.removeChild(modalBackdrop);
-
-        };
-
-    } else {
-
-        confirmBtn.onclick = () => {
-
-            if (onConfirm) onConfirm(); // Execute callback if provided
-
-            document.body.removeChild(modalBackdrop); // Close modal
-
-        };
-
-    }
-
-    cancelBtn.onclick = () => document.body.removeChild(modalBackdrop); // Close modal
-
-}
-
 
 
 // --- Data Persistence & Initialization ---
@@ -466,11 +158,11 @@ function saveState() {
 
 
 
-        // V1 - Show autosave status briefly
-
-        autosaveStatus.style.opacity = '1';
-
-        setTimeout(() => { autosaveStatus.style.opacity = '0'; }, 1000);
+        // V1 - Show autosave status briefly (guard if element missing)
+        if (autosaveStatus) {
+            autosaveStatus.style.opacity = '1';
+            setTimeout(() => { autosaveStatus.style.opacity = '0'; }, 1000);
+        }
 
     } catch (e) {
 
@@ -650,101 +342,6 @@ function initializeCrawlingDrills() {
 
 }
 
-// Inject modern nav styles once and helpers to refresh tab styles
-function injectNavStylesOnce() {
-    if (document.getElementById('modern-nav-style')) return;
-    const style = document.createElement('style');
-    style.id = 'modern-nav-style';
-    style.textContent = `
-/* Modern nav container */
-nav.modern-nav {
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.04);       /* slate-900/10 ~ light */
-  backdrop-filter: saturate(120%) blur(6px);
-  border: 1px solid rgba(148, 163, 184, .35); /* slate-400/35 */
-}
-.dark nav.modern-nav {
-  background: rgba(255, 255, 255, 0.06);      /* white/06 in dark */
-  border-color: rgba(71, 85, 105, .5);        /* slate-600/50 */
-}
-
-/* Base tab */
-.nav-tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-weight: 600;
-  color: #475569;                /* slate-600 */
-  transition: all .25s ease;
-  border: 1px solid transparent;
-}
-.dark .nav-tab { color: #cbd5e1; } /* slate-300 */
-
-.nav-tab:hover {
-  background: rgba(15, 23, 42, .06);
-}
-.dark .nav-tab:hover {
-  background: rgba(255, 255, 255, .08);
-}
-
-/* Active tab pill + subtle ring */
-.nav-tab.is-active {
-  color: #065f46; /* emerald-800-ish (on light) */
-  background: linear-gradient(180deg, rgba(16,185,129,.12), rgba(16,185,129,.08));
-  border-color: rgba(16,185,129,.35);
-  box-shadow:
-    0 1px 1px rgba(0,0,0,.03),
-    inset 0 1px 0 rgba(255,255,255,.35);
-}
-.dark .nav-tab.is-active {
-  color: #a7f3d0; /* emerald-200 */
-  background: linear-gradient(180deg, rgba(5,150,105,.22), rgba(5,150,105,.14));
-  border-color: rgba(5,150,105,.45);
-}
-
-/* Underline indicator */
-.nav-tab::after {
-  content: '';
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  bottom: 3px;
-  height: 2px;
-  background: transparent;
-  border-radius: 2px;
-  transform: scaleX(0);
-  transform-origin: center;
-  transition: transform .25s ease, background-color .25s ease;
-}
-.nav-tab.is-active::after {
-  background: currentColor;
-  opacity: .75;
-  transform: scaleX(1);
-}
-
-/* Optional icon sizing if first span is icon */
-.nav-tab > span:first-child svg,
-.nav-tab > span:first-child {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-`;
-    document.head.appendChild(style);
-
-    // Make sure the nav container gets the modern class
-    const nav = document.querySelector('nav');
-    if (nav) nav.classList.add('modern-nav');
-}
-
 // Ensure correct classes/structure (defensive) without changing labels
 function refreshNavigationTabs() {
     const tabs = document.querySelectorAll('.nav-tab');
@@ -775,258 +372,6 @@ function initializeSociometricStretcherHeats() {
 }
 
 // --- Runner Management & Backup/Restore ---
-
-
-
-/**
-
- * Generates a specified number of random unique shoulder numbers for runners.
-
- * Updates the state and re-renders the runners page.
-
- */
-
-function generateRandomRunners() {
-
-    state.runners = [];
-
-    const shoulderNumbers = new Set();
-
-    while (shoulderNumbers.size < CONFIG.MAX_RUNNERS) {
-
-        shoulderNumbers.add(Math.floor(Math.random() * 999) + 1); // Random number between 1 and 999
-
-    }
-
-    state.runners = Array.from(shoulderNumbers).map(num => ({ shoulderNumber: num }));
-
-    saveState();
-
-    render();
-
-}
-
-
-
-/**
-
- * Adds an empty runner entry to the state, allowing manual input.
-
- * Limits the total number of runners based on CONFIG.MAX_RUNNERS.
-
- */
-
-function addRunner() {
-
-    if (state.runners.length < CONFIG.MAX_RUNNERS) {
-
-        state.runners.push({ shoulderNumber: '' }); // Add empty runner for input
-
-        saveState();
-
-        render();
-
-    } else {
-
-        showError(`לא ניתן להוסיף יותר מ-${CONFIG.MAX_RUNNERS} רצים.`);
-
-    }
-
-}
-
-
-
-/**
-
- * Removes a runner from the state based on their index in the list.
-
- * @param {Event} event - The click event from the remove button.
-
- */
-
-function removeRunner(event) {
-
-    // Get the index from the button's data attribute
-
-    state.runners.splice(parseInt(event.target.dataset.index), 1);
-
-    saveState();
-
-    render();
-
-}
-
-
-
-/**
-
- * V1 - Real-time validation for runner numbers on the runners page.
-
- * Checks for empty inputs, invalid numbers (non-positive), and duplicate shoulder numbers.
-
- * Displays error messages and highlights problematic inputs.
-
- * @returns {boolean} True if all runner numbers are valid, false otherwise.
-
- */
-
-function validateRunnerNumbers() {
-
-    const errorDiv = document.getElementById('runner-error');
-
-    const runnerInputs = document.querySelectorAll('.runner-input');
-
-    const shoulderNumbers = []; // To track duplicates
-
-    let hasError = false;
-
-
-
-    runnerInputs.forEach(input => {
-
-        const num = parseInt(input.value);
-
-        input.classList.remove('border-red-500', 'border-2'); // Clear previous error highlighting
-
-
-
-        if (input.value.trim() === '') {
-
-            showError("יש למלא את כל מספרי הכתף.");
-
-            input.classList.add('border-red-500', 'border-2');
-
-            hasError = true;
-
-        } else if (isNaN(num) || num <= 0) {
-
-            showError("מספר כתף לא תקין. יש להזין מספר חיובי.");
-
-            input.classList.add('border-red-500', 'border-2');
-
-            hasError = true;
-
-        } else if (shoulderNumbers.includes(num)) {
-
-            showError("מספרי כתף כפולים זוהו. יש לתקן לפני ההמשך.");
-
-            input.classList.add('border-red-500', 'border-2');
-
-            hasError = true;
-
-        } else {
-
-            shoulderNumbers.push(num); // Add to tracking list if valid so far
-
-        }
-
-    });
-
-
-
-    // If no errors found, hide the error message
-
-    if (!hasError) {
-
-        errorDiv.textContent = '';
-
-        errorDiv.classList.add('hidden');
-
-    }
-
-
-
-    return !hasError; // Return true if no errors
-
-}
-
-
-
-/**
-
- * Updates a runner's shoulder number in the state when an input field changes.
-
- * Triggers validation after each update.
-
- * @param {Event} event - The input event from the runner number field.
-
- */
-
-function updateRunnerNumber(event) {
-
-    const index = parseInt(event.target.dataset.index);
-
-    state.runners[index].shoulderNumber = event.target.value === '' ? '' : parseInt(event.target.value);
-
-    saveState();
-
-    validateRunnerNumbers(); // Validate in real-time
-
-}
-
-
-
-/**
-
- * Validates evaluator and group details, then runner numbers, before starting heats.
-
- * If all validations pass, transitions to the heats page.
-
- */
-
-function validateAndStartHeats() {
-
-    const errorDiv = document.getElementById('runner-error');
-
-    errorDiv.textContent = ''; // Clear previous errors
-
-    errorDiv.classList.add('hidden');
-
-
-
-    const evaluatorName = document.getElementById('evaluator-name').value.trim();
-
-    const groupNumber = document.getElementById('group-number').value.trim();
-
-
-
-    if (evaluatorName === '' || groupNumber === '') {
-
-        return showError("יש למלא את כל פרטי ההערכה כדי להמשיך.");
-
-    }
-
-    if (state.runners.length === 0) {
-
-        return showError("יש להזין לפחות רץ אחד כדי להתחיל.");
-
-    }
-
-
-
-    // V1 - Use the real-time validator before starting
-
-    if (!validateRunnerNumbers()) {
-
-        return; // Stop if validation fails
-
-    }
-
-
-
-    state.evaluatorName = evaluatorName;
-
-    state.groupNumber = groupNumber;
-
-    state.currentPage = PAGES.HEATS; // Navigate to heats page
-
-    saveState();
-
-    render();
-
-}
-
-// הוסף אחרי הפונקציה validateAndStartHeats הקיימת:
 
 /**
  * הצגת חלון התחלתי להזנת פרטי מעריך וקבוצה
@@ -1414,7 +759,7 @@ function updateMainPageRunnerList() {
     }
 }
 // עדכון פונקציית validateAndStartHeats
-function validateAndStartHeatsNew() {
+function validateAndStartHeats() {
     if (state.runners.length === 0) {
         showError("יש להוסיף לפחות מועמד אחד כדי להתחיל.");
         return;
@@ -2093,274 +1438,29 @@ function startSackTimer(shoulderNumber) {
 
 /**
 
- * Handles selection/deselection of runners as stretcher carriers in sociometric heats.
-
- * @param {Event} event - The click event from the stretcher carrier button.
-
- */
-
-function handleSociometricStretcherSelection(event) {
-
-    const heat = state.sociometricStretcher.heats[state.sociometricStretcher.currentHeatIndex];
-
-    const shoulderNumber = parseInt(event.currentTarget.dataset.shoulderNumber);
-
-    const carriers = heat.stretcherCarriers;
-
-    const jerricanCarriers = heat.jerricanCarriers;
-
-    const existingIndex = carriers.findIndex(r => r.shoulderNumber === shoulderNumber);
-
-
-
-    // Prevent selecting if already a jerrican carrier
-
-    if (jerricanCarriers.some(r => r.shoulderNumber === shoulderNumber) && existingIndex === -1) {
-
-        return;
-
-    }
-
-
-
-    if (existingIndex > -1) {
-
-        // If already selected, remove them
-
-        carriers.splice(existingIndex, 1);
-
-    } else if (carriers.length < CONFIG.MAX_STRETCHER_CARRIERS) {
-
-        // If not selected and limit not reached, add them
-
-        carriers.push({ shoulderNumber });
-
-    }
-
-    saveState();
-
-    render(); // Re-render to update button states
-
-}
-
-
-
-/**
-
- * Handles selection/deselection of runners as jerrican carriers in sociometric heats.
-
- * @param {Event} event - The click event from the jerrican carrier button.
-
- */
-
-function handleSociometricJerricanSelection(event) {
-
-    const heat = state.sociometricStretcher.heats[state.sociometricStretcher.currentHeatIndex];
-
-    const shoulderNumber = parseInt(event.currentTarget.dataset.shoulderNumber);
-
-    const carriers = heat.jerricanCarriers;
-
-    const stretcherCarriers = heat.stretcherCarriers;
-
-    const existingIndex = carriers.findIndex(r => r.shoulderNumber === shoulderNumber);
-
-
-
-    // Prevent selecting if already a stretcher carrier
-
-    if (stretcherCarriers.some(r => r.shoulderNumber === shoulderNumber) && existingIndex === -1) {
-
-        return;
-
-    }
-
-
-
-    if (existingIndex > -1) {
-
-        // If already selected, remove them
-
-        carriers.splice(existingIndex, 1);
-
-    } else if (carriers.length < CONFIG.MAX_JERRICAN_CARRIERS) {
-
-        // If not selected and limit not reached, add them
-
-        carriers.push({ shoulderNumber });
-
-    }
-
-    saveState();
-
-    render(); // Re-render to update button states
-
-}
-
-
-
-/**
-
- * Updates a general comment for a runner in the current sociometric heat.
-
- * @param {Event} event - The input event from the comment textarea.
-
- */
-
-function handleSociometricComment(event) {
-
-    const heat = state.sociometricStretcher.heats[state.sociometricStretcher.currentHeatIndex];
-
-    heat.allRunnersComments[parseInt(event.currentTarget.dataset.shoulderNumber)] = event.currentTarget.value;
-
-    saveState();
-
-}
-
-
-
-// --- Score Calculation ---
-
-/**
- * Computes per-heat sprint results: rank and relative score (1-7) per runner.
- * Winner gets 7. Others get 7 * (fastestTime / runnerTime), clamped to [1..7].
- * @param {object} heat
- * @returns {Array<{shoulderNumber:number, finishTime:number, rank:number, score:number, comment?:string}>}
- */
-function getSprintHeatResults(heat) {
-    const finished = (heat.arrivals || [])
-        .filter(a => a.status === 'active' && typeof a.finishTime === 'number' && a.finishTime > 0)
-        .sort((a, b) => a.finishTime - b.finishTime);
-
-    const results = [];
-    if (finished.length > 0) {
-        const fastest = finished[0].finishTime;
-        finished.forEach((a, idx) => {
-            const ratio = fastest / a.finishTime; // <= 1
-            const score = Math.max(1, Math.round(7 * ratio));
-            results.push({
-                shoulderNumber: a.shoulderNumber,
-                finishTime: a.finishTime,
-                rank: idx + 1,
-                score,
-                comment: a.comment || ''
-            });
-        });
-    }
-
-    // DNF – פעילים ללא זמן -> ציון 1 בתחתית
-    const dnfs = (heat.arrivals || []).filter(a =>
-        a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)
-    );
-    dnfs.forEach(() => {
-        results.push({
-            // דירוג ממשיך אחרי המסיימים
-            rank: results.length + 1,
-            // ימולאו מתוך הרשומה המתאימה בלולאה הבאה
-        });
-    });
-
-    // כדי לשמר מספרי כתף/הערות של DNF לפי הסדר שנוספו:
-    let dnfIndex = 0;
-    (heat.arrivals || []).forEach(a => {
-        if (a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)) {
-            const r = results.find((x, i) => i >= finished.length && x.shoulderNumber === undefined);
-            if (r) {
-                r.shoulderNumber = a.shoulderNumber;
-                r.finishTime = null;
-                r.score = 1;
-                r.comment = a.comment || 'לא סיים';
-            }
-            dnfIndex++;
-        }
-    });
-
-    return results;
-}
-
-/** תוצאות מקצה ספרינט-זחילות לפי זמן יחסי (כמו בספרינטים) */
-function getCrawlingSprintHeatResults(sprint) {
-    const finished = (sprint.arrivals || [])
-        .filter(a => a.status === 'active' && typeof a.finishTime === 'number' && a.finishTime > 0)
-        .sort((a, b) => a.finishTime - b.finishTime);
-
-    const results = [];
-    if (finished.length > 0) {
-        const fastest = finished[0].finishTime;
-        finished.forEach((a, idx) => {
-            const ratio = fastest / a.finishTime;
-            const score = Math.max(1, Math.round(7 * ratio));
-            results.push({
-                shoulderNumber: a.shoulderNumber,
-                finishTime: a.finishTime,
-                rank: idx + 1,
-                score,
-                comment: a.comment || ''
-            });
-        });
-    }
-
-    const dnfs = (sprint.arrivals || []).filter(a =>
-        a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)
-    );
-    dnfs.forEach(() => {
-        results.push({
-            rank: results.length + 1,
-        });
-    });
-
-    let dnfIndex = 0;
-    (sprint.arrivals || []).forEach(a => {
-        if (a.status === 'active' && !(typeof a.finishTime === 'number' && a.finishTime > 0)) {
-            const r = results.find((x, i) => i >= finished.length && x.shoulderNumber === undefined);
-            if (r) {
-                r.shoulderNumber = a.shoulderNumber;
-                r.finishTime = null;
-                r.score = 1;
-                r.comment = a.comment || 'לא סיים';
-            }
-            dnfIndex++;
-        }
-    });
-
-    return results;
-}
-
-/**
  * Calculates the final sprint score for a runner as the average of per-heat relative scores.
- * Winner in a heat gets 7; others are proportional to (fastest / time). Min score per heat is 1.
- * @param {object} runner
- * @returns {number} Average rounded to nearest integer in [1..7]
- */
-function calculateSprintFinalScore(runner) {
-    const perHeatScores = state.heats.flatMap(heat => {
-        const results = getSprintHeatResults(heat);
-        const entry = results.find(r => r.shoulderNumber === runner.shoulderNumber);
-        return entry ? [entry.score] : [];
-    });
 
-    if (perHeatScores.length === 0) return 1;
-    const avg = perHeatScores.reduce((s, v) => s + v, 0) / perHeatScores.length;
-    return Math.min(7, Math.max(1, Math.round(avg)));
-}
+ * Winner in a heat gets 7; others are proportional to (fastest / time). Min score per heat is 1.
+
+ * @param {object} runner
+
+ * @returns {number} Average rounded to nearest integer in [1..7]
+
+ */
+
 
 /**
+
  * Calculates the crawling sprint score for a given runner.
+
  * Similar to sprint score, but for crawling sprints.
+
  * @param {object} runner - The runner object.
+
  * @returns {number} The normalized crawling sprint score (1-7).
+
  */
 
-function getCrawlingSprintScore(runner) {
-    const perHeatScores = state.crawlingDrills.sprints.flatMap(sprint => {
-        const results = getCrawlingSprintHeatResults(sprint);
-        const entry = results.find(r => r.shoulderNumber === runner.shoulderNumber);
-        return entry ? [entry.score] : [];
-    });
-    if (perHeatScores.length === 0) return 1;
-    const avg = perHeatScores.reduce((s, v) => s + v, 0) / perHeatScores.length;
-    return Math.min(7, Math.max(1, Math.round(avg)));
-}
 
 /**
 
@@ -2373,24 +1473,6 @@ function getCrawlingSprintScore(runner) {
  * @returns {number} The normalized sack carrying score (1-7).
 
  */
-
-function getSackCarryScore(runner) {
-
-    const sackTime = state.crawlingDrills.sackCarriers[runner.shoulderNumber]?.totalTime || 0;
-
-    const allSackTimes = Object.values(state.crawlingDrills.sackCarriers).map(c => c.totalTime);
-
-    const maxSackTime = Math.max(...allSackTimes, 0);
-
-
-
-    // Normalize sack time: longer time maps to higher score.
-
-    return normalizeScore(sackTime, 0, maxSackTime);
-
-}
-
-
 
 /**
 
@@ -2406,55 +1488,17 @@ function getSackCarryScore(runner) {
 
  */
 
-function calculateCrawlingFinalScore(runner) {
-
-    if (state.crawlingDrills.runnerStatuses[runner.shoulderNumber]) {
-
-        return 1;
-
-    }
-
-    const sprintScore = getCrawlingSprintScore(runner);
-
-    const sackScore = getSackCarryScore(runner);
-
-
-
-    return Math.round((sprintScore + sackScore) / 2);
-
-}
-
 /**
+
  * Calculates the sociometric final score based on the number of selections.
+
  * Stretcher carries are weighted higher than jerrican carries.
+
  * @param {object} runner - The runner object.
+
  * @returns {number} The normalized score (1-7).
+
  */
-function calculateStretcherFinalScore(runner) {
-    if (state.crawlingDrills.runnerStatuses[runner.shoulderNumber]) {
-        return 1;
-    }
-
-    // Count selections across all heats from the new 'selections' object
-    const stretcherCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'stretcher').length;
-    const jerricanCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'jerrican').length;
-
-    // Apply weighting
-    const totalWeightedCarries = (stretcherCount * 1.14) + (jerricanCount * 0.57);
-
-    // Collect total carries for all runners to determine min/max for normalization
-    const allWeightedCarries = state.runners.map(r => {
-        if (state.crawlingDrills.runnerStatuses[r.shoulderNumber]) return 0;
-        const sCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[r.shoulderNumber] === 'stretcher').length;
-        const jCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[r.shoulderNumber] === 'jerrican').length;
-        return (sCount * 1.14) + (jCount * 0.57);
-    });
-
-    const maxCarries = Math.max(...allWeightedCarries, 0);
-    const minCarries = 0; // The minimum possible score is always 0 carries
-
-    return normalizeScore(totalWeightedCarries, minCarries, maxCarries);
-}
 
 // --- Page Rendering ---
 
@@ -2472,8 +1516,15 @@ function calculateStretcherFinalScore(runner) {
 
 function render() {
 
-    contentDiv.innerHTML = '';
-    document.getElementById('footer-navigation').innerHTML = '';
+    ensureDomRefs();
+    if (!contentDiv) { setTimeout(render, 50); return; }
+
+    const content = document.getElementById('content');
+    if (!content) { setTimeout(render, 50); return; }
+
+    content.innerHTML = '';
+    const footer = document.getElementById('footer-navigation');
+    if (footer) footer.innerHTML = '';
 
     if (state.timer) clearInterval(state.timer);
     state.isTimerRunning = false;
@@ -2481,13 +1532,12 @@ function render() {
     if (state.currentPage !== PAGES.CRAWLING_COMMENTS) stopAllSackTimers();
 
     const shouldShowQuickBar =
-        state.runners && state.runners.length > 0 &&
-        state.currentPage !== PAGES.RUNNERS;
+    state.runners && state.runners.length > 0 &&
+    state.currentPage !== PAGES.RUNNERS;
 
-    const quickBarDiv = document.getElementById('quick-comment-bar-container');
-    if (quickBarDiv) { quickBarDiv.style.display = ''; }
-
-    renderQuickCommentBar(shouldShowQuickBar);
+  const quickBarDiv = document.getElementById('quick-comment-bar-container');
+  if (quickBarDiv) quickBarDiv.style.display = '';
+  window.QuickComments?.renderBar(shouldShowQuickBar);
 
     // סגנון לטאבים מבוטלים (מוזרק פעם אחת)
     if (!document.getElementById('nav-disabled-style')) {
@@ -2542,14 +1592,14 @@ function render() {
     }
 
     switch (state.currentPage) {
-        case PAGES.RUNNERS: renderRunnersPage(); break;
-        case PAGES.ADMIN_SETTINGS: renderAdminSettingsPage(); break;
-        case PAGES.STATUS_MANAGEMENT: renderStatusManagementPage(); break;
-        case PAGES.HEATS: renderHeatPage(state.currentHeatIndex); break;
-        case PAGES.CRAWLING_COMMENTS: renderCrawlingDrillsCommentsPage(); break;
-        case PAGES.CRAWLING_SPRINT: renderCrawlingSprintPage(state.crawlingDrills.currentSprintIndex); break;
-        case PAGES.STRETCHER_HEAT: renderSociometricStretcherHeatPage(state.sociometricStretcher.currentHeatIndex); break;
-        case PAGES.REPORT: renderReportPage(); break;
+        case PAGES.RUNNERS: window.Pages.renderRunnersPage?.(); break;
+        case PAGES.ADMIN_SETTINGS: window.Pages.renderAdminSettingsPage?.(); break;
+        case PAGES.STATUS_MANAGEMENT: window.Pages.renderStatusManagementPage?.(); break;
+        case PAGES.HEATS: window.Pages.renderHeatPage?.(state.currentHeatIndex); break;
+        case PAGES.CRAWLING_COMMENTS: window.Pages.renderCrawlingDrillsCommentsPage?.(); break;
+        case PAGES.CRAWLING_SPRINT: window.Pages.renderCrawlingSprintPage?.(state.crawlingDrills.currentSprintIndex); break;
+        case PAGES.STRETCHER_HEAT: window.Pages.renderSociometricStretcherHeatPage?.(state.sociometricStretcher.currentHeatIndex); break;
+        case PAGES.REPORT: window.Pages.renderReportPage?.(); break;
     }
 }
 
@@ -2563,135 +1613,13 @@ function render() {
 
  */
 
-function renderRunnersPage() {
-    headerTitle.textContent = 'ניהול קבוצה';
-
-    // אם אין פרטי הערכה - הצג חלון התחלתי
-    if (!state.evaluatorName || !state.groupNumber) {
-        renderInitialSetupModal();
-        return;
-    }
-
-    const todayDate = new Date().toLocaleDateString('he-IL');
-    const currentTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-
-    const hasRunners = state.runners && state.runners.length > 0;
-
-    contentDiv.innerHTML = `
-<!-- פרטי הערכה (קבועים) - עם כפתור עריכה בצד שמאל למעלה -->
-    <div class="evaluation-info bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg shadow-inner mb-6 border-2 border-blue-200 dark:border-blue-700 relative">
-        <!-- כפתור ערוך פרטים בצד שמאל למעלה -->
-        <button id="edit-details-btn" class="absolute top-2 left-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-lg text-sm">
-            ערוך פרטים
-        </button>
-        
-        <h2 class="text-2xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">פרטי הערכה</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
-            <div class="text-lg"><strong class="text-xl">שם המעריך:</strong> <span class="text-xl font-semibold text-blue-800 dark:text-blue-300">${state.evaluatorName}</span></div>
-            <div class="text-lg"><strong class="text-xl">מספר קבוצה:</strong> <span class="text-xl font-semibold text-blue-800 dark:text-blue-300">${state.groupNumber}</span></div>
-        </div>
-        <div class="flex justify-between items-center text-gray-600 dark:text-gray-400 font-medium text-base mt-4">
-            <span><strong>תאריך:</strong> ${todayDate}</span>
-            <span><strong>שעה:</strong> ${currentTime}</span>
-        </div>
-    </div>
-
-    ${!hasRunners ? `
-    <!-- כפתור הוספת מועמדים - רק כשאין מועמדים -->
-    <div class="mb-4 text-center">
-        <button id="add-runners-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md">
-            הוסף מועמדים לקבוצה
-        </button>
-    </div>
-    ` : ''}
-
-    ${hasRunners ? `
-    <!-- רשימת מועמדים קיימים עם כפתור עריכה -->
-    <div class="relative mb-6">
-        <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">מועמדי הקבוצה (${state.runners.length})</h2>
-        <div class="mb-2 text-center relative">
-            <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">מספרי כתף</span>
-            <!-- כפתור עריכת מועמדים בצד שמאל למעלה -->
-            <button id="edit-runners-btn" class="absolute top-0 left-0 bg-orange-500 hover:bg-orange-600 text-white font-bold py-1 px-3 rounded-lg text-sm">
-                ערוך מועמדים
-            </button>
-        </div>
-        <div id="runner-list" class="space-y-2"></div>
-        <div id="runner-edit-area" class="hidden mt-4">
-            <div id="editable-runner-list" class="space-y-2"></div>
-            <div class="flex justify-center gap-4 mt-4">
-                <button id="add-runner-row" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">
-                    + הוסף מועמד
-                </button>
-                <button id="save-runners-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-                    שמור שינויים
-                </button>
-                <button id="cancel-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
-                    ביטול
-                </button>
-            </div>
-            <div id="runner-edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
-        </div>
-    </div>
-    
-    <!-- כפתור התחלת מקצים -->
-    <div class="flex justify-center mt-6">
-        <button id="start-heats-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full">
-            התחל מקצים
-        </button>
-    </div>
-    ` : `
-    <div class="text-center text-gray-500 dark:text-gray-400 py-8">
-        <p class="text-lg mb-2">🏃‍♂️ אין עדיין מועמדים בקבוצה</p>
-        <p>לחץ על "הוסף מועמדים לקבוצה" כדי להתחיל</p>
-    </div>
-    `}
-
-    <div id="runner-error" class="mt-4 text-red-500 text-center font-bold hidden"></div>
-
-    <!-- ניהול נתונים -->
-    <div class="mt-8 border-t pt-4 border-gray-300 dark:border-gray-600">
-        <h3 class="text-lg font-semibold mb-3 text-center text-gray-700 dark:text-gray-300">ניהול נתונים</h3>
-        <div class="flex justify-center gap-4 flex-wrap">
-            <button id="admin-settings-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg text-sm">הגדרות מנהל</button>
-            <button id="export-backup-btn" class="bg-blue-800 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg text-sm">ייצא גיבוי (JSON)</button>
-            <input type="file" id="import-backup-input" class="hidden" accept=".json">
-            <button id="import-backup-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg text-sm">ייבא גיבוי (JSON)</button>
-            <button id="reset-app-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm">אפס אפליקציה</button>
-        </div>
-    </div>`;
-
-    // הצגת רשימת מועמדים אם קיימים
-    if (hasRunners) {
-        renderRunnerList();
-    }
-
-    // Event listeners
-    document.getElementById('add-runners-btn')?.addEventListener('click', showAddRunnersModal);
-    document.getElementById('edit-details-btn')?.addEventListener('click', showEditBasicDetailsModal);
-    document.getElementById('edit-runners-btn')?.addEventListener('click', showRunnerEditMode);
-    document.getElementById('start-heats-btn')?.addEventListener('click', validateAndStartHeatsNew);
-    document.getElementById('admin-settings-btn')?.addEventListener('click', handleAdminSettingsClick);
-    document.getElementById('reset-app-btn')?.addEventListener('click', () => showModal('איפוס אפליקציה', 'האם אתה בטוח? כל הנתונים יימחקו לצמיתות.', () => {
-        localStorage.removeItem(CONFIG.APP_STATE_KEY);
-        CONFIG = { NUM_HEATS: 14, MAX_CRAWLING_SPRINTS: 4, MAX_RUNNERS: 20, MAX_SACK_CARRIERS: 3, NUM_STRETCHER_HEATS: 8, MAX_STRETCHER_CARRIERS: 4, MAX_JERRICAN_CARRIERS: 3, STRETCHER_PAGE_LABEL: 'אלונקות', STRETCHER_CARRIER_NOUN_PLURAL: 'רצים שלקחו אלונקה', APP_STATE_KEY: 'sprintAppState_v1.11' };
-        state.currentPage = PAGES.RUNNERS;
-        initializeAllData();
-        saveState();
-        render();
-    }));
-    document.getElementById('export-backup-btn')?.addEventListener('click', exportBackup);
-    document.getElementById('import-backup-btn')?.addEventListener('click', () => document.getElementById('import-backup-input').click());
-    document.getElementById('import-backup-input')?.addEventListener('change', importBackup);
-}
-
-
-
 /**
 
  * Renders the "Admin Settings" page, allowing modification of core application configurations.
 
  * Warns the user that changes will reset all data.
+
+ * @param {Event} event - The change event from the file input.
 
  */
 
@@ -2776,163 +1704,6 @@ function showRunnerEditMode() {
     document.getElementById('add-runner-row').addEventListener('click', addRunnerRow);
     document.getElementById('save-runners-btn').addEventListener('click', saveRunnersEdit);
     document.getElementById('cancel-runners-btn').addEventListener('click', cancelRunnersEdit);
-}
-
-function renderAdminSettingsPage() {
-
-    headerTitle.textContent = 'הגדרות מנהל'; // Update header title
-
-
-
-    contentDiv.innerHTML = `
-
-    <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">הגדרות גיבוש</h2>
-
-    <div class="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg shadow-inner max-w-lg mx-auto">
-
-        <div class="text-center p-2 bg-yellow-100 border-r-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-600">
-
-            <p><strong>אזהרה:</strong> שינוי הגדרות אלה יאפס את כל נתוני המקצים וההתקדמות. יש לבצע זאת רק לפני תחילת הגיבוש.</p>
-
-        </div>
-
-        <div>
-
-            <label for="setting-max-runners" class="block text-right mb-1 text-sm font-medium">כמות רצים מקסימלית</label>
-
-            <input type="number" id="setting-max-runners" value="${CONFIG.MAX_RUNNERS}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right">
-
-        </div>
-
-        <div>
-
-            <label for="setting-num-heats" class="block text-right mb-1 text-sm font-medium">מספר מקצי ספרינטים</label>
-
-            <input type="number" id="setting-num-heats" value="${CONFIG.NUM_HEATS}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right">
-
-        </div>
-
-        <div>
-
-            <label for="setting-crawling-sprints" class="block text-right mb-1 text-sm font-medium">מספר מקצי ספרינט זחילות</label>
-
-            <input type="number" id="setting-crawling-sprints" value="${CONFIG.MAX_CRAWLING_SPRINTS}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right">
-
-        </div>
-
-        <div>
-
-            <label for="setting-stretcher-heats" class="block text-right mb-1 text-sm font-medium">מספר מקצי אלונקה/סחיבת איכר</label>
-
-            <input type="number" id="setting-stretcher-heats" value="${CONFIG.NUM_STRETCHER_HEATS}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right">
-
-        </div>
-
-        <div>
-
-            <label for="setting-max-stretcher-carriers" class="block text-right mb-1 text-sm font-medium">כמות נושאים מקסימלית (אלונקה/סחיבת איכר)</label>
-
-            <input type="number" id="setting-max-stretcher-carriers" value="${CONFIG.MAX_STRETCHER_CARRIERS}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right">
-
-        </div>
-
-        <div>
-
-            <label for="setting-max-jerrican-carriers" class="block text-right mb-1 text-sm font-medium">כמות נושאי ג'ריקן מקסימלית</label>
-
-            <input type="number" id="setting-max-jerrican-carriers" value="${CONFIG.MAX_JERRICAN_CARRIERS}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right">
-
-        </div>
-
-        <div>
-
-            <label for="setting-stretcher-page-label" class="block text-right mb-1 text-sm font-medium">שם התרגיל (יופיע בלשונית)</label>
-
-            <input type="text" id="setting-stretcher-page-label" value="${CONFIG.STRETCHER_PAGE_LABEL}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right" placeholder="לדוגמה: סחיבת איכר">
-
-        </div>
-
-        <div>
-
-            <label for="setting-stretcher-carrier-noun-plural" class="block text-right mb-1 text-sm font-medium">מלל לבחירה (לדוג': 'איכרים')</label>
-
-            <input type="text" id="setting-stretcher-carrier-noun-plural" value="${CONFIG.STRETCHER_CARRIER_NOUN_PLURAL}" class="w-full p-2 border border-gray-300 rounded-lg text-lg text-right" placeholder="יופיע במלל: בחר עד X ...">
-
-        </div>
-
-    </div>
-
-    <div class="flex justify-center gap-4 mt-6">
-
-        <button id="save-settings-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg">שמור הגדרות ואפס</button>
-
-        <button id="cancel-settings-btn" class="bg-gray-500 hover:bg-gray-600 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg">ביטול</button>
-
-    </div>`;
-
-    const themeModeSelect = document.getElementById('theme-mode-select');
-    if (themeModeSelect) {
-        themeModeSelect.value = state.themeMode || 'auto';
-        themeModeSelect.addEventListener('change', (e) => {
-            state.themeMode = e.target.value;
-            applyTheme();
-            saveState();
-            render();
-        });
-    }
-
-    // Event listener for saving settings with confirmation
-
-    document.getElementById('save-settings-btn').addEventListener('click', () => {
-
-        showModal('אישור שינוי הגדרות', 'פעולה זו תאפס את כל נתוני הגיבוש (רצים, מקצים, הערות וכו\'). האם אתה בטוח שברצונך להמשיך?', () => {
-
-            // Update CONFIG values from input fields
-
-            CONFIG.MAX_RUNNERS = parseInt(document.getElementById('setting-max-runners').value) || CONFIG.MAX_RUNNERS;
-
-            CONFIG.NUM_HEATS = parseInt(document.getElementById('setting-num-heats').value) || CONFIG.NUM_HEATS;
-
-            CONFIG.MAX_CRAWLING_SPRINTS = parseInt(document.getElementById('setting-crawling-sprints').value) || CONFIG.MAX_CRAWLING_SPRINTS;
-
-            CONFIG.NUM_STRETCHER_HEATS = parseInt(document.getElementById('setting-stretcher-heats').value) || CONFIG.NUM_STRETCHER_HEATS;
-
-            CONFIG.MAX_STRETCHER_CARRIERS = parseInt(document.getElementById('setting-max-stretcher-carriers').value) || CONFIG.MAX_STRETCHER_CARRIERS;
-
-            CONFIG.MAX_JERRICAN_CARRIERS = parseInt(document.getElementById('setting-max-jerrican-carriers').value) || CONFIG.MAX_JERRICAN_CARRIERS;
-
-            CONFIG.STRETCHER_PAGE_LABEL = document.getElementById('setting-stretcher-page-label').value.trim() || CONFIG.STRETCHER_PAGE_LABEL;
-
-            CONFIG.STRETCHER_CARRIER_NOUN_PLURAL = document.getElementById('setting-stretcher-carrier-noun-plural').value.trim() || CONFIG.STRETCHER_CARRIER_NOUN_PLURAL;
-
-
-
-            state.currentPage = PAGES.RUNNERS; // Navigate back to runners page
-
-            initializeAllData(); // Reset all application data due to config change
-
-            saveState(); // Save the new config and reset state
-
-            render(); // Re-render the UI
-
-            showModal('הגדרות נשמרו', 'ההגדרות נשמרו ונתוני הגיבוש אופסו.');
-
-        });
-
-    });
-
-
-
-    // Event listener for canceling settings change
-
-    document.getElementById('cancel-settings-btn').addEventListener('click', () => {
-
-        state.currentPage = state.lastPage; // Go back to the last non-admin/status page
-
-        render();
-
-    });
-
 }
 
 function renderEditableRunnerList() {
@@ -3043,251 +1814,6 @@ function exitRunnerEditMode() {
     renderRunnerList();
 }
 
-function renderQuickCommentBar(show) {
-    const quickBarDiv = document.getElementById('quick-comment-bar-container');
-    if (!show) { quickBarDiv.innerHTML = ''; return; }
-
-    // CSS מותאם לטלפון עם פריסה רספונסיבית
-    if (!document.getElementById('qc-style')) {
-        const style = document.createElement('style');
-        style.id = 'qc-style';
-        style.textContent = `
-.quickbar { 
-  display: grid; 
-  grid-template-columns: 1fr; 
-  gap: 10px; 
-  padding: 12px;
-  background: rgba(0,0,0,.08);
-  border-radius: 12px;
-  margin: 8px 0;
-}
-
-/* במסכים גדולים - פריסה אופקית */
-@media (min-width: 640px) {
-  .quickbar { 
-    grid-template-columns: auto 1fr auto; 
-    align-items: center; 
-    gap: 12px; 
-  }
-}
-
-.qc-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-
-.qc-label { 
-  font-size: 14px; 
-  font-weight: 600; 
-  color: inherit; 
-  white-space: nowrap;
-  min-width: fit-content;
-}
-
-.qc-runner-select { 
-  width: 80px; 
-  height: 40px;
-  text-align: center; 
-  text-align-last: center; 
-  font-weight: 600; 
-  border-radius: 8px;
-  border: 1px solid rgba(0,0,0,.15);
-  background: #ffffff;
-  color: #111827;
-}
-
-.dark .qc-runner-select {
-  background: #374151;
-  color: #f9fafb;
-  border-color: rgba(255,255,255,.2);
-}
-
-/* תיקון הרשימה הנפתחת להיות ברורה */
-.qc-runner-select option {
-  background: #ffffff;
-  color: #111827;
-}
-
-.dark .qc-runner-select option {
-  background: #374151;
-  color: #f9fafb;
-}
-
-.qc-input-row {
-  display: flex; 
-  align-items: center; 
-  gap: 8px; 
-  flex: 1; 
-  min-width: 0;
-}
-
-.qc-input { 
-  flex: 1; 
-  height: 40px; 
-  padding: 8px 12px; 
-  border-radius: 8px; 
-  border: 1px solid rgba(0,0,0,.15);
-  background: rgba(255,255,255,.9);
-  color: #111827;
-  font-size: 16px;
-  text-align: right;
-  min-width: 0;
-}
-
-.dark .qc-input {
-  background: rgba(255,255,255,.06);
-  color: inherit;
-  border-color: rgba(255,255,255,.14);
-}
-
-.qc-micBtn { 
-  width: 40px; 
-  height: 40px; 
-  border-radius: 8px; 
-  border: 1px solid rgba(0,0,0,.15);
-  background: #374151; 
-  color: #fff; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.qc-micBtn:hover { background: #4b5563; }
-.qc-micBtn.recording { background: #ef4444; border-color: #dc2626; }
-
-.qc-sendBtn { 
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 8px;
-  border: none;
-  background: #10b981;
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.qc-sendBtn:disabled { opacity: .5; cursor: not-allowed; }
-.qc-sendBtn:not(:disabled):hover { background: #059669; }
-        `;
-        document.head.appendChild(style);
-    }
-
-    const runnerOptions = state.runners
-        .slice()
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
-        .map(r => `<option value="${r.shoulderNumber}">${r.shoulderNumber}</option>`).join('');
-
-    quickBarDiv.innerHTML = `
-      <div class="quickbar" role="region" aria-label="הערה מהירה">
-        <div class="qc-row">
-          <span class="qc-label">מס' כתף:</span>
-          <select id="quick-comment-runner" class="qc-runner-select" aria-label="בחר מספר כתף">${runnerOptions}</select>
-          <button id="quick-comment-send" class="qc-sendBtn" disabled>שלח</button>
-        </div>
-        <div class="qc-row">
-          <span class="qc-label">הערה:</span>
-          <div class="qc-input-row">
-            <input id="quick-comment-input" type="text" class="qc-input" placeholder="הוסף הערה מהירה...">
-            <button id="quick-comment-mic" class="qc-micBtn" aria-label="הכתבה קולית" title="הכתבה קולית">🎤</button>
-          </div>
-        </div>
-      </div>`;
-
-      const selectEl = document.getElementById('quick-comment-runner');
-      const inputEl  = document.getElementById('quick-comment-input');
-      const micBtn   = document.getElementById('quick-comment-mic');
-      const sendBtn  = document.getElementById('quick-comment-send');
-  
-    const updateSendEnabled = () => {
-        const hasText = inputEl.value.trim().length > 0;
-        sendBtn.disabled = !hasText;
-    };
-    inputEl.addEventListener('input', updateSendEnabled);
-    inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            if (!sendBtn.disabled) send();
-        }
-    });
-
-    function send() {
-        const selected = selectEl.value;
-        const text = inputEl.value.trim();
-        if (!selected || !text) return;
-        if (state.generalComments[selected]) {
-            state.generalComments[selected] += ' | ' + text;
-        } else {
-            state.generalComments[selected] = text;
-        }
-        saveState();
-        render(); // עדכון מיידי של המסך הנוכחי וכל הרכיבים התלויים
-        if (navigator.vibrate) navigator.vibrate(10);
-        inputEl.value = '';
-        inputEl.placeholder = 'נשמר!';
-        updateSendEnabled();
-        setTimeout(() => { inputEl.placeholder = 'הוסף הערה מהירה...'; }, 900);
-    }
-    sendBtn.addEventListener('click', send);
-
-    // הכתבה קולית
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition = null, isRecording = false;
-
-    // Force hide on Apple devices, regardless of API presence
-    const isApple = /iP(hone|ad|od)|Mac/i.test(navigator.userAgent);
-    if (isApple && micBtn) {
-        micBtn.style.display = 'none';
-    } else {
-        if (SR) {
-            recognition = new SR();
-            recognition.lang = 'he-IL';
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript || '';
-                inputEl.value = transcript;
-                updateSendEnabled();
-            };
-            recognition.onerror = () => {
-                isRecording = false;
-                micBtn.classList.remove('recording');
-                micBtn.textContent = '🎤';
-            };
-            recognition.onend = () => {
-                isRecording = false;
-                micBtn.classList.remove('recording');
-                micBtn.textContent = '🎤';
-            };
-
-            const startRec = (e) => {
-                e.preventDefault();
-                if (!isRecording) {
-                    try {
-                        recognition.start();
-                        isRecording = true;
-                        micBtn.classList.add('recording');
-                        micBtn.textContent = '🛑';
-                    } catch { }
-                }
-            };
-            const stopRec = (e) => {
-                e.preventDefault();
-                if (isRecording) recognition.stop();
-            };
-
-            micBtn.addEventListener('mousedown', startRec);
-            micBtn.addEventListener('mouseup', stopRec);
-            micBtn.addEventListener('mouseleave', stopRec);
-            micBtn.addEventListener('touchstart', startRec, { passive: false });
-            micBtn.addEventListener('touchend', stopRec);
-        } else {
-            micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
-        }
-    }
-}
-
 /**
 
  * Renders the "Status Management" page, allowing global status changes for runners
@@ -3295,132 +1821,6 @@ function renderQuickCommentBar(show) {
  * Runners can be marked as 'temp_removed' (temporarily removed) or 'retired' (permanently retired).
 
  */
-
-function renderStatusManagementPage() {
-    headerTitle.textContent = 'סטטוס מועמדים';
-
-    const activeRunners = state.runners
-        .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-    const inactiveRunners = state.runners
-        .filter(runner => runner.shoulderNumber && state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-    // כרטיסי מועמדים פעילים – משטח בהיר, כפתורים עדינים בצבע
-    const activeCardsHtml = activeRunners.map(runner => {
-        return `
-            <div class="runner-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-between transition-all duration-300
-                        bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60">
-                <div class="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">${runner.shoulderNumber}</div>
-                <div class="w-full grid grid-cols-2 gap-2">
-                    <button 
-                        class="status-btn w-full py-2 px-2 text-sm font-semibold rounded-lg
-                               bg-amber-100/70 hover:bg-amber-200/70 border border-amber-300 text-amber-800
-                               dark:bg-amber-900/20 dark:hover:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800
-                               shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300/50 transition-all"
-                        data-shoulder-number="${runner.shoulderNumber}" 
-                        data-status="temp_removed"
-                        title="יצא לבדיקה">
-                        <span class="ml-1">⚠️</span>
-                        <span>בדיקה</span>
-                    </button>
-                    <button 
-                        class="status-btn w-full py-2 px-2 text-sm font-semibold rounded-lg
-                               bg-rose-100/70 hover:bg-rose-200/70 border border-rose-300 text-rose-800
-                               dark:bg-rose-900/20 dark:hover:bg-rose-900/30 dark:text-rose-200 dark:border-rose-800
-                               shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-300/50 transition-all"
-                        data-shoulder-number="${runner.shoulderNumber}" 
-                        data-status="retired"
-                        title="פרש">
-                        <span class="ml-1">⛔</span>
-                        <span>פרש</span>
-                    </button>
-                </div>
-            </div>`;
-    }).join('');
-
-    // כרטיסי מועמדים לא פעילים – גראדיאנט עדין לכל הכרטיס
-    const inactiveCardsHtml = inactiveRunners.map(runner => {
-        const status = state.crawlingDrills.runnerStatuses[runner.shoulderNumber];
-        const isRetired = status === 'retired';
-
-        const cardClass = isRetired
-            ? 'bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-900/10 border-rose-200 dark:border-rose-700'
-            : 'bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 border-amber-200 dark:border-amber-700';
-
-        const statusIcon = isRetired ? '⛔' : '⚠️';
-        const statusText = isRetired ? 'פרש' : 'בדיקה';
-
-        return `
-            <div class="runner-card border rounded-xl shadow-sm p-3 flex flex-col items-center justify-between transition-colors duration-300 ${cardClass}">
-                <div class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">${runner.shoulderNumber}</div>
-                <div class="w-full flex flex-col items-center gap-2">
-                    <div class="text-center py-1">
-                        <span class="text-lg">${statusIcon}</span>
-                        <div class="text-xs font-medium text-gray-700 dark:text-gray-300">${statusText}</div>
-                    </div>
-                    <button 
-                        class="status-btn w-3/4 py-2 px-2 text-sm font-semibold rounded-lg
-                               bg-emerald-100/70 hover:bg-emerald-200/70 border border-emerald-300 text-emerald-800
-                               dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800
-                               shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300/50 transition-all" 
-                        data-shoulder-number="${runner.shoulderNumber}" 
-                        data-status="active"
-                        title="השב לפעילות">
-                        <span class="ml-1">✅</span>
-                        <span>השב</span>
-                    </button>
-                </div>
-            </div>`;
-    }).join('');
-
-    contentDiv.innerHTML = `
-        <div class="space-y-6">
-            ${activeRunners.length > 0 ? `
-            <div>
-                <h2 class="text-xl font-semibold mb-4 text-center text-emerald-600 dark:text-emerald-400">
-                    מועמדים פעילים (${activeRunners.length})
-                </h2>
-                <div class="auto-grid stretcher-grid">
-                    ${activeCardsHtml}
-                </div>
-            </div>
-            ` : ''}
-            
-            ${inactiveRunners.length > 0 ? `
-            <div>
-                <h2 class="text-xl font-semibold mb-4 text-center text-slate-600 dark:text-slate-300">
-                    מועמדים לא פעילים (${inactiveRunners.length})
-                </h2>
-                <div class="auto-grid stretcher-grid">
-                    ${inactiveCardsHtml}
-                </div>
-            </div>
-            ` : ''}
-
-            ${activeRunners.length === 0 && inactiveRunners.length === 0 ? `
-            <div class="text-center text-gray-500 dark:text-gray-400 py-8">
-                <p class="text-lg mb-2">👥 אין מועמדים בקבוצה</p>
-                <p>נדרש להוסיף מועמדים תחילה</p>
-            </div>
-            ` : ''}
-        </div>`;
-
-    document.querySelectorAll('.status-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => handleGlobalStatusChange(e, null));
-    });
-
-    document.getElementById('back-btn').addEventListener('click', () => {
-        state.currentPage = state.lastPage;
-        render();
-    });
-
-    document.getElementById('group-manage-btn').addEventListener('click', () => {
-        state.currentPage = PAGES.RUNNERS;
-        render();
-    });
-}
 
 /**
 
@@ -3431,196 +1831,6 @@ function renderStatusManagementPage() {
  * @param {number} heatIndex - The index of the heat to render.
 
  */
-
-function renderHeatPage(heatIndex) {
-    const heat = state.heats[heatIndex];
-    headerTitle.textContent = `מקצה ספרינט ${heat.heatNumber}`;
-
-    // סגנונות חד-פעמיים למסך הספרינטים (עודכן: כותרת מקצה גדולה, כפתור "הבא" בשמאל, שעון קטן יותר)
-    if (!document.getElementById('sprint-heat-style')) {
-        const style = document.createElement('style');
-        style.id = 'sprint-heat-style';
-        style.textContent = `
-        /* כותרת מקצה בגריד: קודם | כותרת | הבא */
-        .heat-header { 
-          display: grid; 
-          grid-template-columns: auto 1fr auto; 
-          align-items: center; 
-          gap: 8px; 
-          margin: 6px 0 4px; 
-          direction: rtl; /* מבטיח שכפתור 'קודם' יופיע מימין */
-        }
-        .heat-title {
-          font-weight: 800;
-          letter-spacing: .2px;
-          font-size: clamp(22px, 6vw, 32px);
-          color: inherit;
-          text-align: center; /* ממרכז את מספר המקצה */
-        }
-        
-        /* שעון קטן יותר וקריא */
-        .timer-display { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
-        .timer-display.small { font-size: clamp(18px, 5vw, 26px); line-height: 1.1; }
-        
-        /* קבוצת כפתורים שווים ברוחב */
-        .heat-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 12px; }
-        .heat-btn { height: 44px; border-radius: 10px; font-weight: 700; border: none; }
-        .heat-btn.start { grid-column: span 2; background: #10b981; color: #fff; }
-        .heat-btn.start:hover { background:#059669; }
-        .heat-btn.stop { background:#ef4444; color:#fff; }
-        .heat-btn.stop:hover { background:#dc2626; }
-        .heat-btn.undo { background:#f59e0b; color:#fff; }
-        .heat-btn.undo:hover { background:#d97706; }
-        
-        /* כפתורי ניווט inline */
-        .next-inline-btn,
-        .prev-inline-btn {
-          display:inline-flex; 
-          align-items:center; 
-          gap:6px;
-          padding: 8px 12px; 
-          border-radius: 10px; 
-          font-weight:700;
-          background:#3b82f6; 
-          color:#fff; 
-          border:none;
-        }
-        .next-inline-btn:hover,
-        .prev-inline-btn:hover { background:#2563eb; }
-        .next-inline-btn[disabled],
-        .prev-inline-btn[disabled] { 
-          opacity:.6; 
-          cursor:not-allowed; 
-        }
-        
-        /* כותרת עמודות לרשימת המסיימים */
-        .arrival-header { padding: 4px 6px; color: #6b7280; }
-        
-        /* שדה עריכת הערות כלליות */
-        .gc-input {
-          width: 100%;
-          height: 34px;
-          line-height: 34px;
-          font-size: 13px;
-          padding: 0 8px;
-          text-align: right;
-          border: 1px solid rgba(0,0,0,.15);
-          border-radius: 8px;
-          background: #fff;
-          color: #111827;
-        }
-        .dark .gc-input {
-          background: rgba(255,255,255,.06);
-          color: inherit;
-          border-color: rgba(255,255,255,.18);
-        }
-        `;
-        document.head.appendChild(style);
-    }
-
-    // סינון/מיון רצים פעילים
-    const activeRunners = state.runners
-        .filter(runner =>
-            runner.shoulderNumber &&
-            !heat.arrivals.some(a => a.shoulderNumber === runner.shoulderNumber) &&
-            !state.crawlingDrills.runnerStatuses[runner.shoulderNumber]
-        )
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-    contentDiv.innerHTML = `
-        <!-- כותרת מקצה גדולה + פריסת Grid -->
-        <div class="heat-header">
-            <button id="prev-heat-btn-inline" class="prev-inline-btn" ${heatIndex === 0 ? 'disabled' : ''}>
-                הקודם <span class="text-xl">→</span>
-            </button>
-            <div class="heat-title">מקצה ספרינט ${heatIndex + 1}/${CONFIG.NUM_HEATS}</div>
-            <button id="next-heat-btn-inline" class="next-inline-btn">
-                ${heatIndex < CONFIG.NUM_HEATS - 1 ? 'הבא' : 'למסך זחילות'} <span class="text-xl">←</span>
-            </button>
-        </div>
-
-        <div id="timer-display" class="timer-display small text-center my-2" aria-live="polite">00:00:000</div>
-
-        <div class="heat-actions">
-            <button id="start-btn" class="heat-btn start ${heat.started ? 'hidden' : ''}">התחל</button>
-            <button id="stop-btn" class="heat-btn stop ${!heat.started || heat.finished ? 'hidden' : ''}">סיים</button>
-            <button id="undo-btn" class="heat-btn undo ${!heat.started || heat.finished || heat.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
-        </div>
-
-        <div id="runner-buttons-container" class="my-4 ${!heat.started || heat.finished ? 'hidden' : ''}">
-            <h3 class="text-base md:text-lg font-semibold mb-2 text-center text-gray-500">לחץ על מספר הכתף של הרץ שהגיע</h3>
-            <div class="auto-grid">
-                ${activeRunners.map(runner => `
-                    <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md text-xl md:text-2xl"
-                            data-shoulder-number="${runner.shoulderNumber}">
-                        ${runner.shoulderNumber}
-                    </button>`).join('')}
-            </div>
-        </div>
-
-        ${heat.arrivals.length > 0 ? `
-            <div class="arrival-header">
-                <div class="flex items-center gap-2">
-                    <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:right;">מספר כתף</span>
-                    <span class="flex-1 text-center font-semibold text-xs md:text-sm">הערות כלליות</span>
-                    <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:left;">זמן ריצה</span>
-                </div>
-            </div>` : ''}
-    
-            <div id="arrival-list" class="space-y-2">
-                ${heat.arrivals.map((arrival, index) => {
-        const sn = arrival.shoulderNumber;
-        const gc = (state.generalComments && state.generalComments[sn]) ? state.generalComments[sn] : '';
-        const timeText = arrival.finishTime ? formatTime(arrival.finishTime) : (arrival.comment || '');
-        return `
-                    <div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
-                        <span class="font-bold text-gray-700 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${index + 1}. ${sn}</span>
-                        <span class="flex-1">
-                            <input class="gc-input" type="text" data-shoulder-number="${sn}" value="${(gc || '').replace(/"/g, '&quot;')}" placeholder="הערה כללית...">
-                        </span>
-                        <span class="font-mono text-gray-600 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:left;">${timeText}</span>
-                    </div>`;
-    }).join('')}
-            </div>
-        `;
-
-    // שעון
-    if (heat.started && !heat.finished) startTimer();
-    else updateTimerDisplay(heat.arrivals.length > 0 ? heat.arrivals[heat.arrivals.length - 1].finishTime : 0);
-
-    // מאזינים
-    document.getElementById('start-btn')?.addEventListener('click', () => handleStart(heat));
-    document.getElementById('stop-btn')?.addEventListener('click', () => confirmStopAndAdvance(heat, 'sprint'));
-    document.getElementById('undo-btn')?.addEventListener('click', () => handleUndoArrival(heat));
-    document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, heat, state.currentHeatIndex));
-
-    contentDiv.querySelectorAll('.gc-input').forEach(inp => {
-        inp.addEventListener('input', (e) => {
-            const sn = e.currentTarget.dataset.shoulderNumber;
-            state.generalComments[sn] = e.currentTarget.value;
-            saveState();
-        });
-    });
-
-    // ניווט קדימה
-    document.getElementById('next-heat-btn-inline')?.addEventListener('click', () => {
-        if (state.currentHeatIndex < CONFIG.NUM_HEATS - 1) {
-            state.currentHeatIndex++;
-        } else {
-            state.currentPage = PAGES.CRAWLING_COMMENTS;
-        }
-        saveState();
-        render();
-    });
-    document.getElementById('prev-heat-btn-inline')?.addEventListener('click', () => {
-        if (state.currentHeatIndex > 0) {
-            state.currentHeatIndex--;
-            saveState();
-            render();
-        }
-    });
-}
-
 /**
 
  * Renders the "Crawling Drills Comments" page, allowing general comments for runners
@@ -3628,98 +1838,6 @@ function renderHeatPage(heatIndex) {
  * and managing sack carriers with their individual timers.
 
  */
-
-function renderCrawlingDrillsCommentsPage() {
-    headerTitle.textContent = 'תרגילי זחילה - הערות כלליות';
-
-    const activeRunners = state.runners
-        .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-    activeRunners.forEach(runner => {
-        if (state.crawlingDrills.activeSackCarriers.includes(runner.shoulderNumber)) {
-            startSackTimer(runner.shoulderNumber);
-        }
-    });
-
-    const commentsHtml = activeRunners.map(runner => {
-        const sackData = state.crawlingDrills.sackCarriers[runner.shoulderNumber];
-        const sackTime = sackData ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now() - sackData.startTime : 0)) : '00:00';
-        const generalComment = state.generalComments[runner.shoulderNumber] || '';
-        return `
-        <div class="p-3 bg-white rounded-lg shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="text-lg font-bold"> ${runner.shoulderNumber}</div>
-            <div class="flex-grow flex items-center space-x-2 space-x-reverse w-full">
-                <span class="text-sm font-semibold whitespace-nowrap">שק:</span>
-                <span id="sack-timer-${runner.shoulderNumber}" class="text-lg font-mono text-gray-700">${sackTime}</span>
-            </div>
-            <div class="flex-grow w-full">
-                <textarea class="comment-area w-full p-2 border border-gray-200 rounded-md text-sm text-right" data-shoulder-number="${runner.shoulderNumber}" placeholder="הערה כללית...">${generalComment}</textarea>
-            </div>
-        </div>`;
-    }).join('');
-
-    // Generate HTML for sack carrier selection buttons
-    const sackCarrierHtml = `
-<div id="sack-carrier-container" class="my-6 p-4 rounded-lg">
-    <h3 class="text-xl font-semibold mb-4 text-center">בחר את נושאי השק (עד ${CONFIG.MAX_SACK_CARRIERS})</h3>
-    <div class="auto-grid">
-        ${activeRunners.map(runner => {
-        const isSelected = state.crawlingDrills.activeSackCarriers.includes(runner.shoulderNumber);
-        const canSelect = isSelected || state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
-        return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} bg-gray-300 hover:bg-gray-400 font-bold text-xl" data-shoulder-number="${runner.shoulderNumber}" ${!canSelect ? 'disabled' : ''}>
-                        ${runner.shoulderNumber} <span>🎒</span>
-                    </button>`;
-    }).join('')}
-    </div>
-</div>`;
-
-
-    contentDiv.innerHTML = `
-<h2 class="text-2xl font-semibold mb-4 text-center mt-6 text-blue-500">ניהול נשיאת שק</h2>
-${sackCarrierHtml}
-<div class="space-y-4 mb-6">${commentsHtml}</div>
-<div class="flex justify-between items-center my-4 p-2 bg-gray-200 rounded-lg shadow-inner">
-    <div></div><span>זחילות מתמשך 1/1</span>
-    <button id="next-crawl-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">התחל ספרינט זחילות <span class="text-xl">&rarr;</span></button>
-</div>`;
-
-
-
-    // Attach event listeners for comment textareas
-
-    document.querySelectorAll('.comment-area').forEach(textarea => {
-        textarea.addEventListener('input', (e) => {
-            state.generalComments[e.target.dataset.shoulderNumber] = e.target.value;
-            saveState();
-        });
-    });
-
-
-
-    // Attach event listeners for sack carrier toggle buttons
-
-    document.querySelectorAll('.runner-sack-btn').forEach(btn => btn.addEventListener('click', handleSackCarrierToggle));
-
-
-
-    // Navigation to crawling sprint page
-
-    document.getElementById('next-crawl-btn-inline').addEventListener('click', () => {
-        const go = () => {
-            state.currentPage = PAGES.CRAWLING_SPRINT;
-            state.crawlingDrills.currentSprintIndex = 0;
-            saveState();
-            render();
-        };
-        const intercepted = confirmLeaveCrawlingComments(go);
-        if (!intercepted) go();
-    });
-
-}
-
-
-
 /**
 
  * Renders a specific crawling sprint page, similar to sprint heats but for crawling.
@@ -3730,62 +1848,6 @@ ${sackCarrierHtml}
 
  */
 
-function renderCrawlingSprintPage(sprintIndex) {
-    const sprint = state.crawlingDrills.sprints[sprintIndex];
-    headerTitle.textContent = `מקצה זחילה ${sprint.heatNumber}`;
-
-    const activeRunners = state.runners
-        .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber] && !sprint.arrivals.some(a => a.shoulderNumber === r.shoulderNumber))
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-    contentDiv.innerHTML = `
-        <div id="timer-display" class="text-4xl md:text-6xl font-mono my-6 text-center timer-display" aria-live="polite">00:00</div>
-        <div class="flex justify-between items-center my-4 p-2 rounded-lg shadow-inner sticky-bottom">
-            ${sprintIndex > 0 ? `<button id="prev-crawling-sprint-btn-inline" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"><span class="text-xl">&larr;</span> קודם</button>` : '<div></div>'}
-            <span>מקצה זחילה ${sprintIndex + 1}/${CONFIG.MAX_CRAWLING_SPRINTS}</span>
-            ${sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1 ? `<button id="next-crawling-sprint-btn-inline" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">הבא <span class="text-xl">&rarr;</span></button>` : `<button id="next-crawling-sprint-btn-inline" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">${CONFIG.STRETCHER_PAGE_LABEL} <span class="text-xl">&rarr;</span></button>`}
-        </div>
-        <div class="flex justify-center space-x-2 space-x-reverse my-4 flex-wrap">
-            <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${sprint.started ? 'hidden' : ''}">התחל</button>
-            <button id="stop-btn" class="bg-red-500 hover:bg-red-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished ? 'hidden' : ''}">סיים</button>
-            <button id="undo-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished || sprint.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
-        </div>
-        <div id="runner-buttons-container" class="my-6 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
-            <h3 class="text-base md:text-xl font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
-            <div class="auto-grid">${activeRunners.map(r => `<button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg text-xl" data-shoulder-number="${r.shoulderNumber}">${r.shoulderNumber}</button>`).join('')}</div>
-        </div>`;
-
-
-    // Start timer if sprint is started and not finished, otherwise update display
-
-    if (sprint.started && !sprint.finished) startTimer();
-
-    else updateTimerDisplay(sprint.arrivals.length > 0 ? sprint.arrivals[sprint.arrivals.length - 1].finishTime : 0, false);
-
-
-    // Attach event listeners
-
-    document.getElementById('start-btn')?.addEventListener('click', () => handleStart(sprint));
-
-    document.getElementById('stop-btn')?.addEventListener('click', () => { confirmStopAndAdvance(sprint, 'crawling'); });
-
-    document.getElementById('undo-btn')?.addEventListener('click', () => handleUndoArrival(sprint));
-
-    document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, sprint, -1));
-
-    document.getElementById('next-crawling-sprint-btn-inline').addEventListener('click', () => {
-        if (sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1) {
-            state.crawlingDrills.currentSprintIndex++;
-        } else {
-            // If last crawling sprint, navigate to sociometric stretcher page
-            state.currentPage = PAGES.STRETCHER_HEAT;
-            state.sociometricStretcher.currentHeatIndex = 0; // Start from the first stretcher heat
-        }
-        saveState();
-        render();
-    });
-}
-
 /**
 
  * Renders the "Report" page, displaying summary tables for active and inactive runners,
@@ -3793,190 +1855,6 @@ function renderCrawlingSprintPage(sprintIndex) {
  * including their calculated scores and status. Provides an option to export data to Excel.
 
  */
-
-function renderReportPage() {
-    headerTitle.textContent = 'דוח מסכם'; // עדכון כותרת
-    state.manualScores = state.manualScores || {};
-    state.isEditingScores = typeof state.isEditingScores === 'boolean' ? state.isEditingScores : false;
-    const allRunners = state.runners.map(runner => {
-        const status = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] || 'פעיל';
-        let sprintScore = '-', crawlingScore = '-', stretcherScore = '-';
-        let totalScore = -1;
-        if (status === 'פעיל') {
-            sprintScore = calculateSprintFinalScore(runner);
-            crawlingScore = calculateCrawlingFinalScore(runner);
-            stretcherScore = calculateStretcherFinalScore(runner);
-            totalScore = sprintScore + crawlingScore + stretcherScore;
-        }
-        return { shoulderNumber: runner.shoulderNumber, sprintScore, crawlingScore, stretcherScore, status, totalScore };
-    });
-
-    const activeRunners = allRunners.filter(r => r.status === 'פעיל').sort((a, b) => b.totalScore - a.totalScore);
-    const inactiveRunners = allRunners.filter(r => r.status !== 'פעיל');
-
-    const getRowClass = (index) => {
-        if (index === 0) return 'highlight-gold';
-        if (index === 1) return 'highlight-silver';
-        if (index === 2) return 'highlight-bronze';
-        return index % 2 === 0 ? 'bg-gray-50' : ' ';
-    };
-
-    let isApproved = state.scoresApproved || false;
-
-    contentDiv.innerHTML = `
-<div class="my-6 flex flex-wrap justify-center gap-4"></div>
-<h2 class="text-xl font-semibold my-4 text-center">טבלת סיכום רצים פעילים (ערוך ציונים ידנית)</h2>
-<div class="overflow-x-auto">
-<table class="min-w-full bg-white border border-gray-300 text-sm">
-    <thead class="bg-gray-200">
-        <tr>
-            <th class="py-2 px-2 border-b">דירוג</th>
-            <th class="py-2 px-2 border-b">מס' כתף</th>
-            <th class="py-2 px-2 border-b">סופי ספרינטים<br>(1-7)</th>
-            <th class="py-2 px-2 border-b">סופי זחילות<br>(1-7)</th>
-            <th class="py-2 px-2 border-b">סופי ${CONFIG.STRETCHER_PAGE_LABEL}<br>(1-7)</th>
-            <th class="py-2 px-2 border-b">הערות כלליות</th>
-        </tr>
-    </thead>
-    <tbody>
-        ${activeRunners.map((runner, index) => {
-        const scores = state.manualScores[runner.shoulderNumber] || {
-            sprint: runner.sprintScore,
-            crawl: runner.crawlingScore,
-            stretcher: runner.stretcherScore
-        };
-        const generalComment = state.generalComments[runner.shoulderNumber] || '';
-        return `
-            <tr class="text-center ${getRowClass(index)}">
-                <td>${index + 1}</td>
-                <td>${runner.shoulderNumber}</td>
-                <td>
-                  <input type="number" min="1" max="7" value="${scores.sprint}" data-shoulder="${runner.shoulderNumber}" data-type="sprint" ${!state.isEditingScores ? 'disabled' : ''} style="width:55px; text-align:center;">
-                  </td>
-                <td>
-                  <input type="number" min="1" max="7" value="${scores.crawl}" data-shoulder="${runner.shoulderNumber}" data-type="crawl" ${!state.isEditingScores ? 'disabled' : ''} style="width:55px; text-align:center;">
-                </td>
-                <td>
-                  <input type="number" min="1" max="7" value="${scores.stretcher}" data-shoulder="${runner.shoulderNumber}" data-type="stretcher" ${!state.isEditingScores ? 'disabled' : ''} style="width:55px; text-align:center;">
-                </td>
-                <td>
-                  <textarea data-shoulder="${runner.shoulderNumber}" data-type="generalComment" ${!state.isEditingScores ? 'disabled' : ''} style="width:150px; text-align:right; font-size: 0.8rem; padding: 2px;" rows="2">${generalComment}</textarea>
-                </td>
-            </tr>`;
-    }).join('')}
-    </tbody>
-</table>
-</div>
-${inactiveRunners.length > 0 ? `
-<h2 class="text-xl font-semibold my-4 text-center">מספרי כתף שאינם פעילים</h2>
-<div class="overflow-x-auto">
-<table class="min-w-full bg-white border border-gray-300 text-sm">
-    <thead class="bg-gray-200">
-        <tr>
-            <th class="py-2 px-2 border-b">מס' כתף</th>
-            <th class="py-2 px-2 border-b">סטטוס</th>
-        </tr>
-    </thead>
-    <tbody>
-        ${inactiveRunners.map((runner, index) => `
-        <tr class="text-center ${index % 2 === 0 ? 'bg-gray-50' : ''}">
-            <td class="py-2 px-2 border-b">${runner.shoulderNumber}</td>
-            <td class="py-2 px-2 border-b">${runner.status === 'temp_removed' ? 'גריעה זמנית' : 'פרש'}</td>
-        </tr>`).join('')}
-    </tbody>
-</table>
-</div>` : ''}
-<div class="mt-6 flex flex-row gap-4 justify-center">
-  <button id="${state.isEditingScores ? 'save-scores-btn' : 'edit-scores-btn'}"
-          class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg">
-      ${state.isEditingScores ? 'שמירה' : 'עריכה'}
-  </button>
-  ${state.isEditingScores ? `
-  <button id="cancel-scores-btn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg">
-      ביטול
-  </button>
-  ` : ''}
-  <button id="export-excel-btn"
-        class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg"
-        ${state.isEditingScores ? 'disabled style="opacity:0.5;pointer-events:none;"' : ''}>
-    ייצא לאקסל
-</button>
-</div>
-`;
-    const exportBtn = document.getElementById('export-excel-btn');
-    if (exportBtn) {
-        exportBtn.disabled = state.isEditingScores;
-        if (state.isEditingScores) {
-            exportBtn.style.opacity = '0.5';
-            exportBtn.style.pointerEvents = 'none';
-        } else {
-            exportBtn.style.opacity = '';
-            exportBtn.style.pointerEvents = '';
-        }
-    }
-    // מאזינים לעריכת ציונים
-    contentDiv.querySelectorAll('input[type="number"], textarea').forEach(input => {
-        input.addEventListener('input', (e) => {
-            if (!state.isEditingScores) return;
-            const shoulder = e.target.dataset.shoulder;
-            const type = e.target.dataset.type;
-
-            // Find the original calculated data for this runner
-            const runnerData = allRunners.find(r => r.shoulderNumber == shoulder);
-            if (!runnerData) return;
-
-            // Ensure the manualScores object for the runner exists, initializing it with calculated scores if needed.
-            if (!state.manualScores[shoulder]) {
-                state.manualScores[shoulder] = {
-                    sprint: runnerData.sprintScore,
-                    crawl: runnerData.crawlingScore,
-                    stretcher: runnerData.stretcherScore
-                };
-            }
-
-            if (type === 'generalComment') {
-                // If editing a comment, just update the comment state.
-                state.generalComments[shoulder] = e.target.value;
-            } else {
-                // If editing a score, update the specific score in manualScores.
-                state.manualScores[shoulder][type] = parseInt(e.target.value) || 1;
-            }
-            saveState();
-        });
-    });
-
-    // כפתורי עריכה, שמירה וביטול
-    document.getElementById('edit-scores-btn')?.addEventListener('click', () => {
-        // יצירת גיבוי עמוק של הנתונים לפני עריכה
-        tempStateBackup = {
-            manualScores: JSON.parse(JSON.stringify(state.manualScores || {})),
-            generalComments: JSON.parse(JSON.stringify(state.generalComments || {}))
-        };
-        state.isEditingScores = true;
-        render();
-    });
-
-    document.getElementById('save-scores-btn')?.addEventListener('click', () => {
-        state.isEditingScores = false;
-        tempStateBackup = null; // ניקוי הגיבוי
-        saveState();
-        render();
-    });
-
-    document.getElementById('cancel-scores-btn')?.addEventListener('click', () => {
-        // שחזור הנתונים מהגיבוי
-        if (tempStateBackup) {
-            state.manualScores = tempStateBackup.manualScores;
-            state.generalComments = tempStateBackup.generalComments;
-        }
-        state.isEditingScores = false;
-        tempStateBackup = null; // ניקוי הגיבוי
-        render(); // רינדור מחדש ללא שמירת השינויים
-    });
-
-    // כפתור ייצוא לאקסל
-    document.getElementById('export-excel-btn')?.addEventListener('click', exportToExcel);
-}
 
 // --- Excel Export (Version 1.11 - תיקון באג) ---
 
@@ -4480,169 +2358,69 @@ function applyTheme() {
  */
 
 async function init() {
+    try { if ('wakeLock' in navigator) { /* no-op */ } } catch {}
 
-    // Request a screen wake lock to prevent the screen from turning off
+    // מאזין ניווט ראשי עם מניעת ברירת מחדל ועצירת טאבים מושבתים
+    const navEl = document.querySelector('nav');
+    if (navEl) {
+        navEl.addEventListener('click', (e) => {
+            const tab = e.target.closest('.nav-tab');
+            if (!tab) return;
+            e.preventDefault(); // מונע קפיצה/רענון של <a>
 
-    try {
+            // אל תלחץ אם מושבת
+            if (tab.classList.contains('is-disabled') || tab.getAttribute('aria-disabled') === 'true') return;
 
-        if ('wakeLock' in navigator) {
-
-            await navigator.wakeLock.request('screen');
-
-        }
-
-    } catch (err) {
-
-        console.error(`Failed to acquire screen wake lock: ${err.name}, ${err.message}`);
-
-    }
-
-    async function init() {
-
-        // Request a screen wake lock to prevent the screen from turning off
-
-        try {
-
-            if ('wakeLock' in navigator) {
-
-                await navigator.wakeLock.request('screen');
-
-            }
-
-        } catch (err) {
-
-            console.error(`Failed to acquire screen wake lock: ${err.name}, ${err.message}`);
-
-        }
-
-
-        // Event listener for navigation tabs
-        document.querySelector('nav').addEventListener('click', (e) => {
-            const target = e.target.closest('.nav-tab');
-            if (!target) return;
-
-            const nextPage = target.dataset.page;
-
-            // חסימה: אין מעבר לטאבים אחרים כשאין מתמודדים
+            const nextPage = tab.dataset.page;
             const noRunners = !state.runners || state.runners.length === 0;
-            if (noRunners && nextPage !== PAGES.RUNNERS) {
-                showModal('לא ניתן להמשיך', 'יש להוסיף לפחות מועמד אחד כדי לעבור למסכים אחרים.');
-                return;
-            }
+            // הגנה כפולה: לא לעבור למסכים הדורשים רצים
+            const needsRunners = new Set([PAGES.HEATS, PAGES.CRAWLING_COMMENTS, PAGES.CRAWLING_SPRINT, PAGES.STRETCHER_HEAT, PAGES.REPORT]);
+            if (noRunners && needsRunners.has(nextPage)) return;
 
-            const go = () => { state.currentPage = nextPage; render(); };
-            const intercepted = confirmLeaveCrawlingComments(go);
+            const go = () => { state.currentPage = nextPage; saveState(); render(); };
+            const intercepted = window.confirmLeaveCrawlingComments?.(go);
             if (!intercepted) go();
         });
-
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-            if (state.themeMode === 'auto') {
-                applyTheme();
-                render();
-            }
-        });
-
-        // V1.1 - Event listener for theme toggle button
-
-        document.getElementById('theme-toggle-btn').addEventListener('click', () => {
-            if (state.themeMode === 'light') state.themeMode = 'dark';
-            else if (state.themeMode === 'dark') state.themeMode = 'auto';
-            else state.themeMode = 'light';
-            applyTheme();
-            saveState();
-            render();
-        });
-
-        loadState();
-        applyTheme();
-        render();
-
-        setInterval(saveState, 60000);
     }
 
-
-    // Event listener for navigation tabs
-
-    document.querySelector('nav').addEventListener('click', (e) => {
-        const target = e.target.closest('.nav-tab');
-        if (target) {
-            const nextPage = target.dataset.page;
-            const intercepted = confirmLeaveCrawlingComments(() => { state.currentPage = nextPage; render(); });
-            if (!intercepted) {
-                state.currentPage = nextPage;
-                render();
-            }
-        }
-    });
-
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (state.themeMode === 'auto') {
-            applyTheme();
-            render();
-        }
-    });
-
-    // V1.1 - Event listener for theme toggle button
-
-    document.getElementById('theme-toggle-btn').addEventListener('click', () => {
-        if (state.themeMode === 'light') state.themeMode = 'dark';
-        else if (state.themeMode === 'dark') state.themeMode = 'auto';
-        else state.themeMode = 'light';
+    // כפתור Theme
+    document.getElementById('theme-toggle-btn')?.addEventListener('click', () => {
+        const modes = ['auto', 'light', 'dark'];
+        const i = Math.max(0, modes.indexOf(state.themeMode));
+        state.themeMode = modes[(i + 1) % modes.length];
         applyTheme();
         saveState();
         render();
     });
 
+    window.PWA?.setup();
 
-
-    loadState(); // Load saved state from localStorage
-
-    applyTheme(); // V1.1 - Apply loaded theme
-
-    render(); // Initial render of the application
-
-
-
-    // V1 - Start autosave timer to save state every 60 seconds
-
+    loadState();
+    applyTheme();
+    render();
     setInterval(saveState, 60000);
-
 }
 
-
+window.Pages.renderRunnersPage ??= renderRunnersPage;
+window.Pages.renderAdminSettingsPage ??= renderAdminSettingsPage;
+window.Pages.renderStatusManagementPage ??= renderStatusManagementPage;
+window.Pages.renderHeatPage ??= renderHeatPage;
+window.Pages.renderCrawlingDrillsCommentsPage ??= renderCrawlingDrillsCommentsPage;
+window.Pages.renderCrawlingSprintPage ??= renderCrawlingSprintPage;
+window.Pages.renderReportPage ??= renderReportPage;
+// Only bind stretcher page if it’s defined in this file
+if (typeof renderSociometricStretcherHeatPage === 'function') {
+    window.Pages.renderSociometricStretcherHeatPage ??= renderSociometricStretcherHeatPage;
+}
 
 // Initialize the application when the script loads
-
-init();
-
-const element = document.getElementById('some-id');
-if (element) {
-    element.addEventListener('click', () => { /* פעולה */ });
+// init(); // הוסר – נקרא לאחר ש-DOM נטען
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => { ensureDomRefs(); init(); });
+} else {
+    ensureDomRefs();
+    init();
 }
-
-let deferredPrompt = null;
-
-window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault(); // מונע מהדפפן להציג את הברירת מחדל שלו
-    deferredPrompt = event;
-    const installBtn = document.getElementById('install-btn');
-    if (installBtn) {
-        installBtn.style.display = 'block';
-        installBtn.onclick = async () => {
-            installBtn.style.display = 'none';
-            deferredPrompt.prompt();
-            const choiceResult = await deferredPrompt.userChoice;
-            // אפשר להוסיף הודעה שההתקנה הצליחה או בוטלה כאן
-            deferredPrompt = null;
-        };
-    }
-});
-
-// אופציונלי: להסתיר את הכפתור אם כבר מותקן
-window.addEventListener('appinstalled', () => {
-    const installBtn = document.getElementById('install-btn');
-    if (installBtn) installBtn.style.display = 'none';
-});
 
 // --- Sociometric Stretcher Logic (New Counting System) ---
 
@@ -4651,285 +2429,11 @@ window.addEventListener('appinstalled', () => {
  * Each card allows a one-time selection for stretcher or jerrican per heat.
  * @param {number} heatIndex - The index of the heat to render.
  */
-function renderSociometricStretcherHeatPage(heatIndex) {
-    headerTitle.textContent = `${CONFIG.STRETCHER_PAGE_LABEL} - מקצה ${heatIndex + 1}`;
-
-    const heat = state.sociometricStretcher.heats[heatIndex];
-    if (!heat) { contentDiv.innerHTML = `<p>מקצה לא נמצא.</p>`; return; }
-
-    heat.selections = heat.selections || {};
-
-    const selections = heat.selections;
-    const stretcherCount = Object.values(selections).filter(v => v === 'stretcher').length;
-    const jerricanCount = Object.values(selections).filter(v => v === 'jerrican').length;
-    const stretcherLimitReached = stretcherCount >= CONFIG.MAX_STRETCHER_CARRIERS;
-    const jerricanLimitReached = jerricanCount >= CONFIG.MAX_JERRICAN_CARRIERS;
-
-    const activeRunners = state.runners
-        .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
-        .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-    const runnerCardsHtml = activeRunners.map(runner => {
-        const shoulderNumber = runner.shoulderNumber;
-        const selection = heat.selections[shoulderNumber];
-
-        const isStretcherSelected = selection === 'stretcher';
-        const isJerricanSelected = selection === 'jerrican';
-
-        // נטרול רק לפי מכסה נוכחית והאם כבר מסומן תפקיד אחר
-        const stretcherDisabled = isJerricanSelected || (!isStretcherSelected && stretcherLimitReached);
-        const jerricanDisabled = isStretcherSelected || (!isJerricanSelected && jerricanLimitReached);
-
-        return `
-            <div class="runner-card border rounded-lg shadow-md p-3 flex flex-col items-center justify-between transition-colors duration-300 ${isStretcherSelected ? 'bg-green-100 dark:bg-green-900' : ''} ${isJerricanSelected ? 'bg-blue-100 dark:bg-blue-900' : ''}">
-            <div class="text-3xl font-bold text-gray-800 dark:text-gray-200">${shoulderNumber}</div>
-            <div class="task-row w-full mt-2">
-                <button 
-                    data-shoulder-number="${shoulderNumber}" 
-                    data-type="stretcher"
-                    class="task-btn p-2 rounded-lg text-2xl transition-all 
-                           ${isStretcherSelected ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
-                           ${stretcherDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-green-200 dark:hover:bg-green-700'}"
-                    ${stretcherDisabled && !isStretcherSelected ? 'disabled' : ''}
-                    title="נשיאת אלונקה">🚁</button>
-                <button 
-                    data-shoulder-number="${shoulderNumber}" 
-                    data-type="jerrican"
-                    class="task-btn p-2 rounded-lg text-2xl transition-all
-                           ${isJerricanSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}
-                           ${jerricanDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:bg-blue-200 dark:hover:bg-blue-700'}"
-                    ${jerricanDisabled && !isJerricanSelected ? 'disabled' : ''}
-                    title="נשיאת ג'ריקן">💧</button>
-            </div>
-        </div>`;
-    }).join('');
-
-
-    const navigationButtons = `
-        <div class="flex justify-between items-center mt-6 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-inner">
-            <button id="prev-stretcher-heat-btn-inline" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg" ${heatIndex === 0 ? 'disabled' : ''}>הקודם</button>
-            <span class="font-semibold text-gray-800 dark:text-gray-200">${CONFIG.STRETCHER_PAGE_LABEL} ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}</span>
-            <button id="next-stretcher-heat-btn-inline" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg">${heatIndex === CONFIG.NUM_STRETCHER_HEATS - 1 ? 'לדוחות' : 'הבא'}</button>
-        </div>`;
-
-    contentDiv.innerHTML = `
-            <div id="stretcher-grid" class="auto-grid stretcher-grid">
-                ${runnerCardsHtml}
-            </div>
-            ${navigationButtons}
-        `;
-
-    // Delegated click for task buttons
-    document.getElementById('stretcher-grid')?.addEventListener('click', (e) => {
-        const btn = e.target.closest('.task-btn');
-        if (!btn || btn.disabled) return;
-        const shoulderNumber = parseInt(btn.dataset.shoulderNumber, 10);
-        const type = btn.dataset.type;
-        handleSociometricSelection(shoulderNumber, type, heatIndex);
-    });
-
-    document.getElementById('prev-stretcher-heat-btn-inline')?.addEventListener('click', () => {
-        if (heatIndex > 0) {
-            state.sociometricStretcher.currentHeatIndex--;
-            saveState();
-            render();
-        }
-    });
-    document.getElementById('next-stretcher-heat-btn-inline')?.addEventListener('click', () => {
-        if (heatIndex < CONFIG.NUM_STRETCHER_HEATS - 1) {
-            state.sociometricStretcher.currentHeatIndex++;
-        } else {
-            state.currentPage = PAGES.REPORT;
-        }
-        saveState();
-        render();
-    });
-}
 
 /**
  * כפתור צף (FAB) ו"חלון" תגובה מהירה עם צבעים ברורים
  */
-function renderQuickCommentFAB(show) {
-    // CSS חד-פעמי
-    if (!document.getElementById('qc-fab-style')) {
-        const s = document.createElement('style');
-        s.id = 'qc-fab-style';
-        s.textContent = `
-.qc-fab{position:fixed; inset-inline-end:16px; bottom:16px; width:56px; height:56px; border-radius:50%;
-  background:#2563eb; color:#fff; display:flex; align-items:center; justify-content:center;
-  box-shadow:0 10px 28px rgba(0,0,0,.3); z-index:1000; cursor:pointer; border:none; font-size:24px;}
-.qc-fab:hover{background:#1d4ed8}
-.qc-sheet-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:999; display:none;}
-.qc-sheet{position:fixed; bottom:84px; inset-inline-end:16px; width:min(440px,94vw);
-  background:#ffffff; color:#111827; border-radius:14px; padding:12px 12px 10px; 
-  box-shadow:0 14px 36px rgba(0,0,0,.35); border:1px solid #d1d5db; z-index:1001; display:none;}
-.dark .qc-sheet{background:#111827; color:#f3f4f6; border-color:#374151;}
-.qc-sheet .row{display:flex; align-items:center; gap:8px; margin:8px 0}
-.qc-sheet select, .qc-sheet input{flex:1 1 auto; height:44px; border-radius:10px; border:1px solid rgba(0,0,0,.15);
-  padding:8px 12px; font-size:16px; box-sizing:border-box; background:#ffffff; color:#111827;}
-.dark .qc-sheet select, .dark .qc-sheet input{background:#1f2937; color:#f3f4f6; border-color:#374151;}
-.qc-sheet .mic{width:42px; height:42px; border-radius:10px; border:1px solid rgba(0,0,0,.15);
-  background:#374151; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
-.qc-sheet .mic.recording{background:#ef4444; border-color:#dc2626}
-.qc-sheet .actions{display:flex; justify-content:flex-start; gap:8px; margin-top:6px}
-.qc-sheet .send{background:#10b981; color:#fff; border:none; padding:10px 16px; border-radius:10px; cursor:pointer; font-weight:600}
-.qc-sheet .send:disabled{opacity:.5; cursor:not-allowed}
-.qc-sheet .close{margin-inline-start:auto; background:#e5e7eb; border:none; border-radius:10px; padding:8px 10px; cursor:pointer}
-.dark .qc-sheet .close{background:#374151; color:#e5e7eb}
-.qc-sheet select{ text-align:center; text-align-last:center; }
-        `;
-        document.head.appendChild(s);
-    }
 
-    // ניקוי כשלא מציגים
-    if (!show) {
-        document.getElementById('qc-fab')?.remove();
-        document.getElementById('qc-sheet')?.remove();
-        document.getElementById('qc-sheet-backdrop')?.remove();
-        return;
-    }
-
-    // יצירה חד-פעמית
-    if (!document.getElementById('qc-fab')) {
-        const fab = document.createElement('button');
-        fab.id = 'qc-fab';
-        fab.className = 'qc-fab';
-        fab.title = 'הוסף תגובה מהירה';
-        fab.setAttribute('aria-label', 'הוסף תגובה מהירה');
-        fab.textContent = '💬';
-        document.body.appendChild(fab);
-
-        const backdrop = document.createElement('div');
-        backdrop.id = 'qc-sheet-backdrop';
-        backdrop.className = 'qc-sheet-backdrop';
-        document.body.appendChild(backdrop);
-
-        const sheet = document.createElement('div');
-        sheet.id = 'qc-sheet';
-        sheet.className = 'qc-sheet';
-        document.body.appendChild(sheet);
-
-        const open = () => {
-            backdrop.style.display = 'block';
-            sheet.style.display = 'block';
-            setTimeout(() => document.getElementById('fab-input')?.focus(), 0);
-        };
-        const close = () => {
-            sheet.style.display = 'none';
-            backdrop.style.display = 'none';
-        };
-
-        fab.addEventListener('click', open);
-        backdrop.addEventListener('click', close);
-
-        // ציור התוכן + מאזינים
-        buildFabSheetContent();
-
-        // כפתור סגירה
-        document.addEventListener('click', (e) => {
-            const btn = e.target.closest('#fab-close');
-            if (btn) close();
-        });
-    } else {
-        // עדכון הרשימה בכל רינדור
-        buildFabSheetContent();
-    }
-
-    function buildFabSheetContent() {
-        const runnerOptions = state.runners
-            .slice()
-            .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
-            .map(r => `<option value="${r.shoulderNumber}">${r.shoulderNumber}</option>`).join('');
-
-        const sheet = document.getElementById('qc-sheet');
-        sheet.innerHTML = `
-          <div class="row" style="justify-content:space-between">
-            <strong>הוספת תגובה מהירה</strong>
-            <button id="fab-close" class="close">סגור ✖</button>
-          </div>
-          <div class="row">
-            <label style="white-space:nowrap;">מס' כתף:</label>
-            <select id="fab-runner">${runnerOptions}</select>
-          </div>
-          <div class="row">
-            <label style="white-space:nowrap;">הערה:</label>
-            <input id="fab-input" type="text" placeholder="הוסף הערה...">
-            <button id="fab-mic" class="mic" title="הכתבה קולית" aria-label="הכתבה קולית">🎤</button>
-          </div>
-          <div class="actions">
-            <button id="fab-send" class="send" disabled>שמור</button>
-          </div>
-        `;
-
-        const selectEl = document.getElementById('fab-runner');
-        const inputEl = document.getElementById('fab-input');
-        const micBtn = document.getElementById('fab-mic');
-        const sendBtn = document.getElementById('fab-send');
-
-        const updateSendEnabled = () => { sendBtn.disabled = inputEl.value.trim().length === 0; };
-        inputEl.addEventListener('input', updateSendEnabled);
-        inputEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (!sendBtn.disabled) doSend();
-            }
-        });
-        sendBtn.onclick = doSend;
-
-        function doSend() {
-            const shoulder = selectEl.value;
-            const text = inputEl.value.trim();
-            if (!shoulder || !text) return;
-            if (state.generalComments[shoulder]) {
-                state.generalComments[shoulder] += ' | ' + text;
-            } else {
-                state.generalComments[shoulder] = text;
-            }
-            saveState();
-            inputEl.value = '';
-            updateSendEnabled();
-            document.getElementById('qc-sheet-backdrop').style.display = 'none';
-            document.getElementById('qc-sheet').style.display = 'none';
-            if (navigator.vibrate) navigator.vibrate(10);
-            render(); // עדכון מיידי של המסך
-        }
-
-        // הכתבה קולית (אם נתמך)
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = null, isRecording = false;
-
-        if (SR) {
-            recognition = new SR();
-            recognition.lang = 'he-IL';
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript || '';
-                inputEl.value = transcript;
-                updateSendEnabled();
-            };
-            recognition.onerror = () => { isRecording = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
-            recognition.onend = () => { isRecording = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; };
-
-            const startRec = (e) => {
-                e.preventDefault();
-                if (!isRecording) {
-                    try { recognition.start(); isRecording = true; micBtn.classList.add('recording'); micBtn.textContent = '🛑'; } catch { }
-                }
-            };
-            const stopRec = (e) => { e.preventDefault(); if (isRecording) recognition.stop(); };
-
-            micBtn.addEventListener('mousedown', startRec);
-            micBtn.addEventListener('mouseup', stopRec);
-            micBtn.addEventListener('mouseleave', stopRec);
-            micBtn.addEventListener('touchstart', startRec, { passive: false });
-            micBtn.addEventListener('touchend', stopRec);
-        } else {
-            micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS";
-        }
-    }
-}
 /**
  * Handles a runner selection for stretcher or jerrican based on the new counting rules.
  * @param {number} shoulderNumber - The shoulder number of the runner.
@@ -4974,3 +2478,54 @@ function handleSociometricSelection(shoulderNumber, type, heatIndex) {
     saveState();
     render();
 }
+
+// --- Runner Management & Backup/Restore ---
+
+/**
+ * יוצר מועמדים רנדומליים וממלא עד התקרה (CONFIG.MAX_RUNNERS) ללא כפילויות.
+ * @param {number} [count] - כמות להוספה. אם לא צוינה, ימולא עד התקרה.
+ */
+function generateRandomRunners(count) {
+    const used = new Set(state.runners.map(r => r.shoulderNumber));
+    const remaining = Math.max(0, CONFIG.MAX_RUNNERS - used.size);
+    const target = Math.min(remaining, count || remaining);
+    if (target <= 0) return;
+
+    // מאגר מספרים פנוי 1..999
+    const pool = [];
+    for (let i = 1; i <= 999; i++) {
+        if (!used.has(i)) pool.push(i);
+    }
+    // ערבול מהיר (Fisher–Yates)
+    for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const selected = pool.slice(0, target).map(n => ({ shoulderNumber: n }));
+
+    state.runners = state.runners.concat(selected).sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+    saveState();
+}
+
+/**
+ * Helper: compute results for a single heat/sprint.
+ * - Finishers sorted by time asc; DNFs follow in original order.
+ * - Scores: winner = 7; others = round(7 * fastest/time). DNFs = 1.
+ */
+
+/**
+ * Returns per-heat sprint results with rank and score.
+ * @param {{arrivals:Array}} heat
+ * @returns {Array<{rank:number, shoulderNumber:number, finishTime:number|null, score:number, comment:string|null}>}
+ */
+
+
+/**
+ * Returns per-heat crawling sprint results with rank and score.
+ * @param {{arrivals:Array}} sprint
+ * @returns {Array<{rank:number, shoulderNumber:number, finishTime:number|null, score:number, comment:string|null}>}
+ */
+
+// חשיפת פונקציות עבור quick-comments.js
+window.saveState = saveState;
+window.render = render;
