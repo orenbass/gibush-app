@@ -52,7 +52,7 @@
       const compact = document.createElement('style');
       compact.id = 'qc-style-compact';
       compact.textContent = `
-.qc-row{flex-wrap:nowrap}
+.qc-row{flex-wrap:wrap} /* <--- שנה את השורה הזו */
 .qc-runner-select{width:64px; height:32px; font-size:14px}
 .qc-sendBtn{height:32px; padding:0 10px; font-size:14px}
 .qc-input{height:32px; font-size:14px}
@@ -226,7 +226,18 @@
 .qc-sheet .send:disabled{opacity:.5; cursor:not-allowed}
 .qc-sheet .close{margin-inline-start:auto; background:#e5e7eb; border:none; border-radius:10px; padding:8px 10px; cursor:pointer}
 .dark .qc-sheet .close{background:#374151; color:#e5e7eb}
-.qc-sheet select{ text-align:center; text-align-last:center; }`;
+.qc-sheet select{ text-align:center; text-align-last:center; }
+            .quick-comment-bar {
+                /* ... existing styles ... */
+            }
+            .qc-controls {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap; /* הוסף את השורה הזו */
+            }
+            /* ... a lot of other existing styles ... */
+        `;
       document.head.appendChild(s);
     }
 
