@@ -212,9 +212,7 @@ ${carriersListHtml}
                 </div>
                 <textarea id="gc-textarea" placeholder="כתוב הערה..." ></textarea>
                 <div class="gc-actions">
-                  <div style="display:flex;gap:8px;">
-                    <button type="button" class="gc-btn gc-btn-mic" id="gc-mic-btn">🎤 הקלטה</button>
-                  </div>
+                  <div style="display:flex;gap:8px;" id="gc-mic-area"><!-- mic cloned here --></div>
                   <div style="display:flex;gap:8px;">
                     <button type="button" class="gc-btn gc-btn-cancel" data-gc-close>ביטול</button>
                     <button type="button" class="gc-btn gc-btn-save" id="gc-save-btn">שמירה</button>
@@ -228,7 +226,30 @@ ${carriersListHtml}
         const gcBackdrop = document.getElementById('gc-top-backdrop');
         const gcTextarea = document.getElementById('gc-textarea');
         const gcSaveBtn = document.getElementById('gc-save-btn');
-        const gcMicBtn  = document.getElementById('gc-mic-btn');
+        const gcMicArea = document.getElementById('gc-mic-area');
+
+        function mountSharedMic(){
+            if (!gcMicArea) return;
+            const source = document.getElementById('quick-comment-mic-btn');
+            if (!source) {
+                // אולי עדיין לא נטען / המשתמש לא פתח את הבר – ננסה שוב רגע אחרי
+                setTimeout(mountSharedMic, 300);
+                return;
+            }
+            // מנקה קיים
+            gcMicArea.innerHTML = '';
+            const clone = source.cloneNode(true);
+            // מזהה חדש למודאל
+            clone.id = 'gc-modal-mic-btn';
+            clone.classList.remove('recording');
+            // להימנע מקשירת מאזינים כפולים שנוצרו בעבר
+            clone._commentMicAttached = false;
+            // כותב טולטיפ מתאים
+            clone.title = 'הקלטת דיבור';
+            gcMicArea.appendChild(clone);
+            // חיבור המיקרופון האוניברסלי
+            window.attachCommentMic && window.attachCommentMic(clone, gcTextarea);
+        }
 
         function openGc(sn){
             currentGcSn = sn;
@@ -236,12 +257,13 @@ ${carriersListHtml}
             gcTextarea.value = existing;
             gcBackdrop.style.display = 'block';
             document.body.style.overflow = 'hidden';
+            mountSharedMic();
             gcTextarea.focus();
         }
         function closeGc(){
             gcBackdrop.style.display = 'none';
             document.body.style.overflow = '';
-            stopMic();
+            window.stopAllCommentMics && window.stopAllCommentMics();
             currentGcSn = null;
         }
         function saveGc(){
@@ -277,48 +299,6 @@ ${carriersListHtml}
                 e.preventDefault(); saveGc();
             }
         });
-
-        // מיקרופון
-        let recognition=null, recognizing=false;
-        function initMic(){
-            if (recognition) return;
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if(!SR){
-                gcMicBtn.disabled = true;
-                gcMicBtn.textContent = 'לא נתמך';
-                return;
-            }
-            recognition = new SR();
-            recognition.lang = 'he-IL';
-            recognition.interimResults = true;
-            recognition.continuous = true;
-            recognition.onresult = (ev)=>{
-                let base = gcTextarea.value;
-                for (let i=ev.resultIndex;i<ev.results.length;i++){
-                    const tr = ev.results[i][0].transcript;
-                    if (ev.results[i].isFinal){
-                        base += (base && !base.endsWith(' ')?' ':'') + tr.trim();
-                    }
-                }
-                gcTextarea.value = base;
-            };
-            recognition.onend = ()=>{ if (recognizing) toggleMic(); };
-        }
-        function startMic(){
-            initMic();
-            if(!recognition) return;
-            recognizing = true;
-            gcMicBtn.classList.add('recording');
-            recognition.start();
-        }
-        function stopMic(){
-            if(!recognition) return;
-            recognizing = false;
-            try{recognition.stop();}catch(e){}
-            gcMicBtn.classList.remove('recording');
-        }
-        function toggleMic(){ recognizing ? stopMic() : startMic(); }
-        gcMicBtn.addEventListener('click', toggleMic);
 
         // מאזינים לבחירת נשאי שק
         document.querySelectorAll('.runner-sack-btn').forEach(btn =>
