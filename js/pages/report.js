@@ -411,33 +411,28 @@
    * Handles the Google Drive upload button click.
    */
   async function handleDriveUploadClick(e) {
-    const btn = e.currentTarget;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = 'מעבד... ⏳';
-    btn.disabled = true;
-
+    const btn = e.currentTarget; // שמירת הכפתור
     try {
-      if (!window.GoogleDriveUploader || !window.exportToExcel) {
-        throw new Error('Required functions (Uploader/Exporter) not found.');
+      btn.disabled = true;
+      console.log('Starting export...');
+      const blob = await window.exportToExcel();
+      console.log('Got blob?', blob instanceof Blob, blob);
+      if (!(blob instanceof Blob)) {
+        alert('יצירת הקובץ נכשלה');
+        // אין צורך ב-return כי השגיאה תיזרק או שהפונקציה תמשיך ל-finally
+        return; 
       }
-      const excelBlob = await window.exportToExcel();
-      const result = await window.GoogleDriveUploader.upload(excelBlob);
-
-      if (result.status === 'success') {
-        btn.innerHTML = 'הועלה בהצלחה ✅';
-        alert(result.message);
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      console.error('Upload process failed:', error);
-      btn.innerHTML = 'נכשל ❌';
-      alert(`ההעלאה נכשלה: ${error.message}`);
+      const res = await window.GoogleDriveUploader.upload(blob);
+      console.log('Upload result:', res);
+      alert(res.status === 'success' ? 'הקובץ נשלח!' : 'שגיאה: ' + res.message);
+    } catch (err) {
+      console.error("Upload process failed:", err);
+      alert('כשל בתהליך ההעלאה: ' + err.message);
     } finally {
-      setTimeout(() => {
-        btn.innerHTML = originalText;
+      // בדיקה אם הכפתור עדיין קיים לפני שמפעילים אותו מחדש
+      if (btn) {
         btn.disabled = false;
-      }, 3000);
+      }
     }
   }
 
