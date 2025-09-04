@@ -15,20 +15,58 @@
                   text-align:right;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;color:#111827
                 }
                 .dark .gc-input{background:rgba(255,255,255,.06);color:inherit;border-color:rgba(255,255,255,.18)}
+
                 .runner-sack-btn{
-                  display:inline-flex;align-items:center;justify-content:center;
-                  padding:8px 10px;
-                  border:1px solid rgba(0,0,0,.15);
-                  border-radius:8px;
+                  display:inline-flex;
+                  align-items:center;
+                  justify-content:center;
+                  flex-direction:column;
+                  gap:4px;
+                  width:100%;
+                  min-height:72px;
+                  padding:10px 8px;
                   background:#e5e7eb;
                   color:#111827;
-                  cursor:pointer;
+                  border:1px solid rgba(0,0,0,.15);
+                  border-radius:10px;
                   font-weight:700;
-                  transition:.15s;
+                  font-size:20px;
+                  cursor:pointer;
+                  transition:.15s background,.15s box-shadow,.15s transform;
+                  box-shadow:0 1px 2px rgba(0,0,0,.15);
+                  user-select:none;
                 }
-                .runner-sack-btn:hover{background:#d1d5db}
+                .runner-sack-btn:hover{
+                  background:#d9dbe0;
+                }
+                .runner-sack-btn:active{
+                  transform:translateY(1px);
+                  box-shadow:0 0 0 rgba(0,0,0,0.15);
+                }
 
-                /* בחירה – ירוק (סלקטור ספציפי כדי שלא יידרס) */
+                /* טיימר קטן */
+                .runner-sack-btn .mini-sack-time{
+                  font-size:11px;
+                  line-height:1;
+                  font-family:monospace;
+                  color:#374151;
+                  opacity:.85;
+                  margin-top:2px;
+                }
+                .runner-sack-btn:not(.selected) .mini-sack-time{
+                  visibility:hidden;
+                }
+                .dark .runner-sack-btn{
+                  background:#374151;
+                  color:#f1f5f9;
+                  border-color:rgba(255,255,255,.18);
+                }
+                .dark .runner-sack-btn:hover{
+                  background:#425065;
+                }
+                .dark .runner-sack-btn .mini-sack-time{color:#cbd5e1}
+
+                /* בחירה – ירוק עדין */
                 #sack-carrier-container .runner-sack-btn.selected{
                   background:#d1fbe8 !important;
                   color:#065f46 !important;
@@ -37,15 +75,6 @@
                 }
                 #sack-carrier-container .runner-sack-btn.selected:hover{
                   background:#baf4d9 !important;
-                }
-
-                .dark #sack-carrier-container .runner-sack-btn{
-                  background:rgba(255,255,255,.08);
-                  border-color:rgba(255,255,255,.18);
-                  color:inherit;
-                }
-                .dark #sack-carrier-container .runner-sack-btn:hover{
-                  background:rgba(255,255,255,.12);
                 }
                 .dark #sack-carrier-container .runner-sack-btn.selected{
                   background:#065f46 !important;
@@ -78,11 +107,17 @@
     <h3 class="text-xl font-semibold mb-4 text-center">בחר את נושאי השק (עד ${CONFIG.MAX_SACK_CARRIERS})</h3>
     <div class="cs-grid-3min">
         ${activeRunners.map(r => {
-            const isSelected = state.crawlingDrills.activeSackCarriers.includes(r.shoulderNumber);
+            const sn = r.shoulderNumber;
+            const isSelected = state.crawlingDrills.activeSackCarriers.includes(sn);
             const canSelect = isSelected || state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
+            const sackData = state.crawlingDrills.sackCarriers?.[sn];
+            const timeText = isSelected && sackData
+                ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now()-sackData.startTime : 0))
+                : (isSelected ? '00:00' : '');
             return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''}"
-                        data-shoulder-number="${r.shoulderNumber}" ${!canSelect ? 'disabled' : ''}>
-                        ${r.shoulderNumber}
+                        data-shoulder-number="${sn}" ${!canSelect ? 'disabled' : ''}>
+                        <span>${sn}</span>
+                        <span class="mini-sack-time" id="mini-sack-timer-${sn}">${timeText}</span>
                     </button>`;
         }).join('')}
     </div>
@@ -161,5 +196,21 @@ ${carriersListHtml}
         // מסירים פוטר ניווט אם קיים (לא צריך בר תחתון)
         const footer = document.getElementById('footer-navigation');
         if (footer) footer.innerHTML = '';
+
+        // עדכון טיימרים קטנים
+        function updateMiniSackTimers(){
+            (state.crawlingDrills.activeSackCarriers || []).forEach(sn=>{
+                const data = state.crawlingDrills.sackCarriers?.[sn];
+                if(!data) return;
+                const el = document.getElementById('mini-sack-timer-'+sn);
+                if(!el) return;
+                el.textContent = formatTime_no_ms(
+                    data.totalTime + (data.startTime ? Date.now()-data.startTime : 0)
+                );
+            });
+        }
+        clearInterval(window._miniSackTimersInterval);
+        window._miniSackTimersInterval = setInterval(updateMiniSackTimers,1000);
+        updateMiniSackTimers();
     };
 })();
