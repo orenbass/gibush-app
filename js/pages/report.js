@@ -411,20 +411,22 @@
    * Handles the Google Drive upload button click.
    */
   async function handleDriveUploadClick(e) {
-    const btn = e.currentTarget; // שמירת הכפתור
+    const btn = e.currentTarget;
     try {
       btn.disabled = true;
       console.log('Starting export...');
-      const blob = await window.exportToExcel();
+      
+      // שימוש בשם החדש והייחודי של הפונקציה
+      const blob = await window.GibushAppExporter.createExcelBlob(); 
+      
       console.log('Got blob?', blob instanceof Blob, blob);
       if (!(blob instanceof Blob)) {
-        alert('יצירת הקובץ נכשלה');
-        // אין צורך ב-return כי השגיאה תיזרק או שהפונקציה תמשיך ל-finally
+        alert('יצירת הקובץ נכשלה. בדוק את הקונסול לפרטים.');
         return; 
       }
       const res = await window.GoogleDriveUploader.upload(blob);
       console.log('Upload result:', res);
-      alert(res.status === 'success' ? 'הקובץ נשלח!' : 'שגיאה: ' + res.message);
+      alert(res.status === 'success' ? 'הקובץ נשלח בהצלחה!' : 'שגיאה בהעלאה: ' + res.message);
     } catch (err) {
       console.error("Upload process failed:", err);
       alert('כשל בתהליך ההעלאה: ' + err.message);
