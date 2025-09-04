@@ -284,7 +284,8 @@
       <div class="report-header-bar">
         <h2>סיכום ציונים – רצים פעילים</h2>
         <div class="control-buttons">
-          <button id="export-excel-btn" class="btn btn-outline">💾 ייצוא לאקסל</button>
+          <button id="upload-drive-btn" class="btn btn-outline">📤 העלאה ל-Drive</button>
+          <button id="export-excel-btn" class="btn btn-outline">💾 הורדת אקסל</button>
         </div>
       </div>
 
@@ -354,7 +355,7 @@
     });
 
     // רק כפתור ייצוא אקסל רגיל
-    document.getElementById('export-excel-btn')?.addEventListener('click', exportToExcel);
+    document.getElementById('export-excel-btn')?.addEventListener('click', handleExcelDownloadClick);
 
     contentDiv.querySelectorAll('.score-input').forEach(inp => {
       inp.addEventListener('click', () => {
@@ -393,5 +394,66 @@
       inputEl.closest('.score-item')?.classList.remove('editing');
       window.Pages.renderReportPage();
     }
+
+    // --- מאזינים חדשים ונקיים ---
+    const uploadBtn = document.getElementById('upload-drive-btn');
+    if (uploadBtn) {
+      uploadBtn.addEventListener('click', handleDriveUploadClick);
+    }
+
+    const exportBtn = document.getElementById('export-excel-btn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', handleExcelDownloadClick);
+    }
   };
-})();
+
+  /**
+   * Handles the Google Drive upload button click.
+   */
+  async function handleDriveUploadClick(e) {
+    const btn = e.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'מעבד... ⏳';
+    btn.disabled = true;
+
+    try {
+      if (!window.GoogleDriveUploader || !window.exportToExcel) {
+        throw new Error('Required functions (Uploader/Exporter) not found.');
+      }
+      const excelBlob = await window.exportToExcel();
+      const result = await window.GoogleDriveUploader.upload(excelBlob);
+
+      if (result.status === 'success') {
+        btn.innerHTML = 'הועלה בהצלחה ✅';
+        alert(result.message);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error('Upload process failed:', error);
+      btn.innerHTML = 'נכשל ❌';
+      alert(`ההעלאה נכשלה: ${error.message}`);
+    } finally {
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }, 3000);
+    }
+  }
+
+  /**
+   * Handles the local Excel download button click.
+   */
+  async function handleExcelDownloadClick() {
+    const excelBlob = await window.exportToExcel();
+    const url = window.URL.createObjectURL(excelBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `GibushReport_${new Date().toLocaleDateString('en-CA')}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+  }
+
+})(); // סוף ה-IIFE של הקובץ
