@@ -15,12 +15,47 @@
                   text-align:right;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;color:#111827
                 }
                 .dark .gc-input{background:rgba(255,255,255,.06);color:inherit;border-color:rgba(255,255,255,.18)}
-                .runner-sack-btn{display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#e5e7eb;color:#111827;cursor:pointer}
+                .runner-sack-btn{
+                  display:inline-flex;align-items:center;justify-content:center;
+                  padding:8px 10px;
+                  border:1px solid rgba(0,0,0,.15);
+                  border-radius:8px;
+                  background:#e5e7eb;
+                  color:#111827;
+                  cursor:pointer;
+                  font-weight:700;
+                  transition:.15s;
+                }
                 .runner-sack-btn:hover{background:#d1d5db}
-                .runner-sack-btn.selected{background:#60a5fa;color:#fff;border-color:#3b82f6}
-                .dark .runner-sack-btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:inherit}
-                .dark .runner-sack-btn:hover{background:rgba(255,255,255,.12)}
-                .dark .runner-sack-btn.selected{background:#2563eb;border-color:#1d4ed8;color:#fff}
+
+                /* בחירה – ירוק (סלקטור ספציפי כדי שלא יידרס) */
+                #sack-carrier-container .runner-sack-btn.selected{
+                  background:#d1fbe8 !important;
+                  color:#065f46 !important;
+                  border-color:#059669 !important;
+                  box-shadow:0 0 0 1px #059669 inset,0 2px 4px rgba(0,0,0,.08);
+                }
+                #sack-carrier-container .runner-sack-btn.selected:hover{
+                  background:#baf4d9 !important;
+                }
+
+                .dark #sack-carrier-container .runner-sack-btn{
+                  background:rgba(255,255,255,.08);
+                  border-color:rgba(255,255,255,.18);
+                  color:inherit;
+                }
+                .dark #sack-carrier-container .runner-sack-btn:hover{
+                  background:rgba(255,255,255,.12);
+                }
+                .dark #sack-carrier-container .runner-sack-btn.selected{
+                  background:#065f46 !important;
+                  border-color:#047857 !important;
+                  color:#ecfdf5 !important;
+                  box-shadow:0 0 0 1px #047857 inset;
+                }
+                .dark #sack-carrier-container .runner-sack-btn.selected:hover{
+                  background:#056c41 !important;
+                }
             `;
             document.head.appendChild(s);
         }
@@ -45,9 +80,9 @@
         ${activeRunners.map(r => {
             const isSelected = state.crawlingDrills.activeSackCarriers.includes(r.shoulderNumber);
             const canSelect = isSelected || state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
-            return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} font-bold text-xl"
+            return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''}"
                         data-shoulder-number="${r.shoulderNumber}" ${!canSelect ? 'disabled' : ''}>
-                        ${r.shoulderNumber} <span>🎒</span>
+                        ${r.shoulderNumber}
                     </button>`;
         }).join('')}
     </div>
