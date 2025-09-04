@@ -177,7 +177,7 @@
           const gc = state.generalComments?.[sn] || '';
           return `<div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
               <span class="font-bold text-gray-700 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${i+1}. ${sn}</span>
-              <span class="flex-1">
+              <span class="flex-1" style="min-width: 0;">
                 <button type="button"
                         class="gc-open-btn ${gc ? 'has-text' : ''}"
                         data-open-gc="${sn}"
