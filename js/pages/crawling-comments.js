@@ -10,81 +10,33 @@
                 .cs-grid-3min{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
                 @media (min-width:640px){.cs-grid-3min{grid-template-columns:repeat(5,minmax(0,1fr))}}
                 .arrival-header{padding:4px 6px;color:#6b7280}
-                .gc-input{
-                  width:100%;height:34px;line-height:34px;font-size:13px;padding:0 8px;
-                  text-align:right;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;color:#111827
-                }
+                .gc-input{width:100%;height:34px;line-height:34px;font-size:13px;padding:0 8px;text-align:right;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;color:#111827}
                 .dark .gc-input{background:rgba(255,255,255,.06);color:inherit;border-color:rgba(255,255,255,.18)}
-
                 .runner-sack-btn{
-                  display:inline-flex;
-                  align-items:center;
-                  justify-content:center;
-                  flex-direction:column;
-                  gap:4px;
-                  width:100%;
-                  min-height:72px;
-                  padding:10px 8px;
-                  background:#e5e7eb;
-                  color:#111827;
-                  border:1px solid rgba(0,0,0,.15);
-                  border-radius:10px;
-                  font-weight:700;
-                  font-size:20px;
-                  cursor:pointer;
-                  transition:.15s background,.15s box-shadow,.15s transform;
-                  box-shadow:0 1px 2px rgba(0,0,0,.15);
-                  user-select:none;
+                  display:inline-flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;
+                  width:100%;min-height:72px;padding:10px 8px;background:#e5e7eb;color:#111827;
+                  border:1px solid rgba(0,0,0,.15);border-radius:10px;font-weight:700;font-size:20px;
+                  cursor:pointer;transition:.15s background,.15s box-shadow,.15s transform;box-shadow:0 1px 2px rgba(0,0,0,.15);user-select:none;
                 }
-                .runner-sack-btn:hover{
-                  background:#d9dbe0;
-                }
-                .runner-sack-btn:active{
-                  transform:translateY(1px);
-                  box-shadow:0 0 0 rgba(0,0,0,0.15);
-                }
-
-                /* טיימר קטן */
+                .runner-sack-btn:hover{background:#d9dbe0}
+                .runner-sack-btn:active{transform:translateY(1px);box-shadow:0 0 0 rgba(0,0,0,.15)}
                 .runner-sack-btn .mini-sack-time{
-                  font-size:11px;
-                  line-height:1;
-                  font-family:monospace;
-                  color:#374151;
-                  opacity:.85;
-                  margin-top:2px;
+                  font-size:11px;line-height:1;font-family:monospace;color:#374151;opacity:.85;margin-top:2px;
                 }
-                .runner-sack-btn:not(.selected) .mini-sack-time{
-                  visibility:hidden;
-                }
-                .dark .runner-sack-btn{
-                  background:#374151;
-                  color:#f1f5f9;
-                  border-color:rgba(255,255,255,.18);
-                }
-                .dark .runner-sack-btn:hover{
-                  background:#425065;
-                }
+                /* הסתרה רק אם לא נבחר ואין לו זמן שמור */
+                .runner-sack-btn:not(.selected):not(.has-sack-time) .mini-sack-time{visibility:hidden}
+                .dark .runner-sack-btn{background:#374151;color:#f1f5f9;border-color:rgba(255,255,255,.18)}
+                .dark .runner-sack-btn:hover{background:#425065}
                 .dark .runner-sack-btn .mini-sack-time{color:#cbd5e1}
-
-                /* בחירה – ירוק עדין */
                 #sack-carrier-container .runner-sack-btn.selected{
-                  background:#d1fbe8 !important;
-                  color:#065f46 !important;
-                  border-color:#059669 !important;
+                  background:#d1fbe8 !important;color:#065f46 !important;border-color:#059669 !important;
                   box-shadow:0 0 0 1px #059669 inset,0 2px 4px rgba(0,0,0,.08);
                 }
-                #sack-carrier-container .runner-sack-btn.selected:hover{
-                  background:#baf4d9 !important;
-                }
+                #sack-carrier-container .runner-sack-btn.selected:hover{background:#baf4d9 !important}
                 .dark #sack-carrier-container .runner-sack-btn.selected{
-                  background:#065f46 !important;
-                  border-color:#047857 !important;
-                  color:#ecfdf5 !important;
-                  box-shadow:0 0 0 1px #047857 inset;
+                  background:#065f46 !important;border-color:#047857 !Important;color:#ecfdf5 !important;box-shadow:0 0 0 1px #047857 inset;
                 }
-                .dark #sack-carrier-container .runner-sack-btn.selected:hover{
-                  background:#056c41 !important;
-                }
+                .dark #sack-carrier-container .runner-sack-btn.selected:hover{background:#056c41 !important}
             `;
             document.head.appendChild(s);
         }
@@ -111,10 +63,11 @@
             const isSelected = state.crawlingDrills.activeSackCarriers.includes(sn);
             const canSelect = isSelected || state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
             const sackData = state.crawlingDrills.sackCarriers?.[sn];
-            const timeText = isSelected && sackData
+            const hasTime = !!(sackData && (sackData.totalTime > 0 || sackData.startTime));
+            const timeText = hasTime
                 ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now()-sackData.startTime : 0))
                 : (isSelected ? '00:00' : '');
-            return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''}"
+            return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} ${hasTime ? 'has-sack-time' : ''}"
                         data-shoulder-number="${sn}" ${!canSelect ? 'disabled' : ''}>
                         <span>${sn}</span>
                         <span class="mini-sack-time" id="mini-sack-timer-${sn}">${timeText}</span>
