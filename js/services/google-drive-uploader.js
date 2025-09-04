@@ -1,7 +1,7 @@
 (function() {
   if (window.GoogleDriveUploader) return;
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzztgKN6DOLtJ_nEP711fUpgEfZXBr6AB6FGsfKOwPixe7Tv0ck1fR9mjsenWUuTQg/exec'; // <-- החלף ב-URL שהעתקת מהסקריפט
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwteUl8IgGUpDku14VslePd9MCROeU9ZRBFaIudSQ/dev'; // <-- החלף ב-URL שהעתקת מהסקריפט
 
   /**
    * Converts a Blob object to a Base64 string.
@@ -60,3 +60,25 @@
   };
 
 })();
+
+// בקובץ שבו מוגדרת הפונקציה exportToExcel (למשל, js/utils/export.js)
+
+async function exportToExcel() {
+  // ...
+  // כל הקוד הקיים שלך שבונה את ה-workbook וממלא אותו בנתונים
+  // const workbook = new ExcelJS.Workbook();
+  // ...
+
+  // --- זה החלק הקריטי ---
+  // במקום לגרום להורדה, נייצר את הקובץ בזיכרון ונחזיר אותו כאובייקט Blob
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+
+  // ודא שהפונקציה מחזירה את ה-Blob
+  return blob;
+}
+
+// ודא שהפונקציה זמינה גלובלית
+window.exportToExcel = exportToExcel;
