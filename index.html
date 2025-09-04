@@ -20,31 +20,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <!-- Utils and config first -->
-    <script src="./config.js" defer></script>
-    <script src="./js/config/crawling-config.js" defer></script>
-    <script src="./js/utils/time.js" defer></script>
-    <script src="./js/utils/modal.js" defer></script>
-    <script src="./js/utils/scoring.js" defer></script>
-    <script src="./js/utils/pwa.js" defer></script>
+    <script src="./config.js"></script>
+    <script src="./js/config/crawling-config.js"></script>
+    <script src="./js/utils/time.js"></script>
+    <script src="./js/utils/modal.js"></script>
+    <script src="./js/utils/scoring.js"></script>
+    <script src="./js/utils/pwa.js"></script>
     <script src="js/utils/comment-mic.js"></script>
-    <script src="js/services/google-drive-uploader.js" defer></script> <!-- הוסף את השורה הזו -->
+    <script src="js/utils/export.js"></script> <!-- חייב לבוא אחרי exceljs -->
+    <script src="js/services/google-drive-uploader.js"></script> <!-- מגדיר את GoogleDriveUploader -->
 
     <!-- Page modules (after utils/config) -->
-    <script src="./js/pages/runners.js" defer></script>
-    <script src="./js/pages/admin-settings.js" defer></script>
-    <script src="./js/pages/status-management.js" defer></script>
-    <script src="./js/pages/heat.js" defer></script>
-    <script src="./js/pages/crawling-comments.js" defer></script>
-    <script src="./js/pages/crawling-sprint.js" defer></script>
-    <script src="./js/pages/report.js" defer></script>
-    <script src="./js/pages/stretcher-heat.js" defer></script>
+    <script src="./js/pages/runners.js"></script>
+    <script src="./js/pages/admin-settings.js"></script>
+    <script src="./js/pages/status-management.js"></script>
+    <script src="./js/pages/heat.js"></script>
+    <script src="./js/pages/crawling-comments.js"></script>
+    <script src="./js/pages/crawling-sprint.js"></script>
+    <script src="./js/pages/report.js"></script> <!-- חייב לבוא אחרי export.js ו-uploader.js -->
+    <script src="./js/pages/stretcher-heat.js"></script>
     <script src="js/icons/stretcher.js"></script>
     <script src="js/icons/jerrican.js"></script>
     <!-- או: <script src="js/icons/index.js"></script> -->
 
     <!-- Main app (kept last) -->
-    <script src="quick-comments.js" defer></script>
-    <script src="app.js" defer></script>
+    <script src="quick-comments.js"></script>
+    <script src="app.js"></script>
 </head>
 <body>
     <div id="app" class="min-h-screen flex flex-col items-center p-4 bg-gray-100 text-gray-800">
