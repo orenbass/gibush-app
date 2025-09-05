@@ -1595,7 +1595,13 @@ function render() {
 
     switch (state.currentPage) {
         case PAGES.RUNNERS: window.Pages.renderRunnersPage?.(); break;
-        case PAGES.ADMIN_SETTINGS: window.Pages.renderAdminSettingsPage?.(); break;
+        case PAGES.ADMIN_SETTINGS: 
+            if (window.Pages?.renderAdminSettingsPage) {
+                window.Pages.renderAdminSettingsPage();
+            } else {
+                console.warn('Admin settings page not ready');
+            }
+            break;
         case PAGES.STATUS_MANAGEMENT: window.Pages.renderStatusManagementPage?.(); break;
         case PAGES.HEATS: window.Pages.renderHeatPage?.(state.currentHeatIndex); break;
         case PAGES.CRAWLING_COMMENTS: window.Pages.renderCrawlingDrillsCommentsPage?.(); break;
