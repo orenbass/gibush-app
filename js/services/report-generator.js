@@ -1,22 +1,7 @@
 (function () {
   window.ReportGenerator = window.ReportGenerator || {};
 
-  /**
-   * פונקציה פרטית לחישוב ציון בטוח
-   */
-  function safeScore(fnName, runner) {
-    try {
-      if (typeof window[fnName] === 'function') return window[fnName](runner);
-    } catch (e) {
-      console.warn('safeScore error', fnName, e);
-    }
-    return 0;
-  }
-
-  /**
-   * פונקציה ציבורית שמכינה את נתוני הדוח ויוצרת מהם קובץ Blob
-   * @returns {Promise<Blob>} A promise that resolves with the Excel file Blob.
-   */
+  /* ====== Public API ====== */
   window.ReportGenerator.generateFinalReportBlob = async function (options = {}) {
     console.log('ReportGenerator: building full workbook...');
     if (!window.ExcelJS) throw new Error('ExcelJS not loaded');
@@ -26,6 +11,7 @@
     wb.created = new Date();
     wb.modified = new Date();
 
+    // High-level summary & structured sheets
     addSummarySheet(wb);
     addRunnersSheet(wb);
     addSprintSheet(wb);
@@ -33,6 +19,13 @@
     addStretcherSheet(wb);
     addManualScoresSheet(wb);
     addCommentsSheet(wb);
+
+    // Detailed raw sheets per drill
+    addSprintRawSheet(wb);
+    addCrawlingRawSheet(wb);
+    addStretcherRawSheet(wb);
+
+    // Generic raw dump
     if (options.includeRaw !== false) addRawJsonSheet(wb);
 
     console.log('Sheets:', wb.worksheets.map(w => w.name));
@@ -42,8 +35,23 @@
     });
   };
 
-  /* ---------- SHEETS ---------- */
+  /* ====== Scores helpers ====== */
+  function safeScore(fnName, runner) {
+    try {
+      if (typeof window[fnName] === 'function') return window[fnName](runner);
+    } catch (e) { console.warn('safeScore error', fnName, e); }
+    return 0;
+  }
 
+  function getRunnerScores(r) {
+    const manual = state.manualScores?.[r.shoulderNumber] || {};
+    const sprint = typeof manual.sprint === 'number' ? manual.sprint : safeScore('calculateSprintFinalScore', r);
+    const crawl = typeof manual.crawl === 'number' ? manual.crawl : safeScore('calculateCrawlingFinalScore', r);
+    const stretcher = typeof manual.stretcher === 'number' ? manual.stretcher : safeScore('calculateStretcherFinalScore', r);
+    return { sprint, crawl, stretcher, total: sprint + crawl + stretcher };
+  }
+
+  /* ====== Summary / Structured Sheets ====== */
   function addSummarySheet(wb) {
     const ws = wb.addWorksheet('סיכום', { views: [{ state: 'frozen', ySplit: 1 }] });
     header(ws, ['מספר', 'סה״כ', 'ספרינט', 'זחילה', 'אלונקה', 'סטטוס', 'הערה']);
@@ -66,7 +74,7 @@
 
   function addRunnersSheet(wb) {
     const ws = wb.addWorksheet('רצים', { views: [{ state: 'frozen', ySplit: 1 }] });
-    header(ws, ['#', 'סטטוס', 'הערה כללית', 'שם (אם קיים)', 'GroupId?']);
+    header(ws, ['#', 'סטטוס', 'הערה כללית', 'שם', 'קבוצה']);
     (state.runners || []).forEach(r => {
       ws.addRow([
         r.shoulderNumber,
@@ -81,9 +89,8 @@
 
   function addSprintSheet(wb) {
     const ws = wb.addWorksheet('ספרינט', { views: [{ state: 'frozen', ySplit: 1 }] });
-    // TODO: עדכן אם מבנה הנתונים שונה
-    header(ws, ['מספר', 'מקצה', 'מיקום במקצה', 'זמן (RAW)', 'זמן (פורמט)', 'ציוני ביניים?', 'ציון סופי']);
-    const heats = state.sprintHeats || state.heats || []; // ניחוש שמות
+    header(ws, ['מספר', 'מקצה', 'מיקום במקצה', 'זמן RAW', 'זמן תצוגה', 'Splits', 'ציון סופי']);
+    const heats = state.sprintHeats || state.heats || [];
     heats.forEach((heat, heatIdx) => {
       (heat.runners || heat.results || []).forEach((runnerResult, pos) => {
         const shoulder = runnerResult.shoulderNumber || runnerResult.shoulder || runnerResult.id;
@@ -93,12 +100,12 @@
         const formatted = formatMaybe(raw);
         ws.addRow([
           shoulder,
-            heatIdx + 1,
-            pos + 1,
-            raw,
-            formatted,
-            runnerResult.splitTimes ? JSON.stringify(runnerResult.splitTimes) : '',
-            scores.sprint
+          heatIdx + 1,
+          pos + 1,
+          raw,
+          formatted,
+          runnerResult.splitTimes ? JSON.stringify(runnerResult.splitTimes) : '',
+          scores.sprint
         ]);
       });
     });
@@ -107,8 +114,7 @@
 
   function addCrawlingSheet(wb) {
     const ws = wb.addWorksheet('זחילה', { views: [{ state: 'frozen', ySplit: 1 }] });
-    // TODO: עדכן אם קיימת לוגיקת שלבי זחילה / תרגילים שונים
-    header(ws, ['מספר', 'ציון בסיס', 'ציון ידני (אם קיים)', 'סטטוס', 'הערות זחילה?']);
+    header(ws, ['מספר', 'ציון בסיס', 'ציון ידני', 'סטטוס', 'הערת זחילה']);
     (state.runners || []).forEach(r => {
       const manual = state.manualScores?.[r.shoulderNumber];
       const base = safeScore('calculateCrawlingFinalScore', r);
@@ -127,12 +133,10 @@
 
   function addStretcherSheet(wb) {
     const ws = wb.addWorksheet('אלונקה', { views: [{ state: 'frozen', ySplit: 1 }] });
-    // TODO: אם יש מבנה של "stretcherHeats" / "stretcherRounds" – לעדכן
-    header(ws, ['מספר', 'זמן / אינדקסים', 'ציון בסיס', 'ידני', 'הערה?']);
+    header(ws, ['מספר', 'Raw Times/Indexes', 'ציון בסיס', 'ידני', 'הערה']);
     (state.runners || []).forEach(r => {
       const manual = state.manualScores?.[r.shoulderNumber];
       const base = safeScore('calculateStretcherFinalScore', r);
-      // אם קיימים זמנים במבנה state.stretcherHeats לדוגמה – שלוף
       const rawTimes = getStretcherTimes(r.shoulderNumber);
       ws.addRow([
         r.shoulderNumber,
@@ -168,6 +172,91 @@
     autoFit(ws);
   }
 
+  /* ====== RAW Detailed Sheets ====== */
+
+  // Sprint Raw
+  function addSprintRawSheet(wb) {
+    const heats = state.sprintHeats || state.heats;
+    if (!Array.isArray(heats) || !heats.length) return;
+    const ws = wb.addWorksheet('Sprint Raw', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+    // Collect all dynamic keys
+    const rows = [];
+    heats.forEach((heat, hIdx) => {
+      const list = heat.runners || heat.results || [];
+      list.forEach((rRes, pos) => {
+        const row = {
+          heatIndex: hIdx + 1,
+          positionInHeat: pos + 1,
+          shoulderNumber: rRes.shoulderNumber || rRes.shoulder || rRes.id || '',
+          rawTime: rRes.time || rRes.rawTime || '',
+          displayTime: formatMaybe(rRes.time || rRes.rawTime),
+          penalty: rRes.penalty || '',
+          dnf: rRes.dnf || rRes.DNF || '',
+          startTime: rRes.startTime || '',
+          endTime: rRes.endTime || '',
+          splitTimes: rRes.splitTimes ? JSON.stringify(rRes.splitTimes) : ''
+        };
+        rows.push(row);
+      });
+    });
+    sheetFromObjects(ws, rows);
+  }
+
+  // Crawling Raw
+  function addCrawlingRawSheet(wb) {
+    // Guess possible raw data locations
+    const drills = state.crawlingDrills;
+    if (!drills) return;
+    const candidateArrays = [];
+    if (Array.isArray(drills.sessions)) candidateArrays.push({ name: 'sessions', arr: drills.sessions });
+    if (Array.isArray(drills.drills)) candidateArrays.push({ name: 'drills', arr: drills.drills });
+    if (Array.isArray(drills.events)) candidateArrays.push({ name: 'events', arr: drills.events });
+
+    if (!candidateArrays.length) {
+      // fallback: runnerStatuses as table
+      const statuses = drills.runnerStatuses || {};
+      const ws = wb.addWorksheet('Crawling Raw', { views: [{ state: 'frozen', ySplit: 1 }] });
+      const rows = Object.entries(statuses).map(([shoulder, status]) => ({ shoulderNumber: shoulder, status }));
+      sheetFromObjects(ws, rows);
+      return;
+    }
+
+    // merge arrays into one with a source tag
+    const merged = [];
+    candidateArrays.forEach(c => {
+      c.arr.forEach((item, idx) => {
+        merged.push({ _source: c.name, _index: idx, ...flattenObject(item) });
+      });
+    });
+
+    const ws = wb.addWorksheet('Crawling Raw', { views: [{ state: 'frozen', ySplit: 1 }] });
+    sheetFromObjects(ws, merged);
+  }
+
+  // Stretcher Raw
+  function addStretcherRawSheet(wb) {
+    const heats = state.stretcherHeats || state.stretcherRounds || state.stretcher || [];
+    if (!Array.isArray(heats) || !heats.length) return;
+    const ws = wb.addWorksheet('Stretcher Raw', { views: [{ state: 'frozen', ySplit: 1 }] });
+    const rows = [];
+    heats.forEach((heat, hIdx) => {
+      const list = heat.runners || heat.results || heat.data || [];
+      list.forEach((rRes, pos) => {
+        rows.push({
+          heatIndex: hIdx + 1,
+          positionInHeat: pos + 1,
+          shoulderNumber: rRes.shoulderNumber || rRes.shoulder || rRes.id || '',
+          rawTime: rRes.time || rRes.rawTime || '',
+          displayTime: formatMaybe(rRes.time || rRes.rawTime),
+          partials: rRes.splitTimes ? JSON.stringify(rRes.splitTimes) : '',
+          meta: rRes.meta ? JSON.stringify(rRes.meta) : ''
+        });
+      });
+    });
+    sheetFromObjects(ws, rows);
+  }
+
   function addRawJsonSheet(wb) {
     const ws = wb.addWorksheet('RAW', { views: [{ state: 'frozen', ySplit: 1 }] });
     header(ws, ['Key', 'JSON']);
@@ -178,7 +267,9 @@
       'crawlingDrills',
       'sprintHeats',
       'heats',
-      'stretcherHeats'
+      'stretcherHeats',
+      'stretcherRounds',
+      'stretcher'
     ];
     keys.forEach(k => {
       if (state[k] !== undefined) {
@@ -188,32 +279,18 @@
     autoFit(ws);
   }
 
-  /* ---------- HELPERS ---------- */
-
-  function getRunnerScores(r) {
-    const manual = state.manualScores?.[r.shoulderNumber] || {};
-    const sprint = typeof manual.sprint === 'number' ? manual.sprint : safeScore('calculateSprintFinalScore', r);
-    const crawl = typeof manual.crawl === 'number' ? manual.crawl : safeScore('calculateCrawlingFinalScore', r);
-    const stretcher = typeof manual.stretcher === 'number' ? manual.stretcher : safeScore('calculateStretcherFinalScore', r);
-    return { sprint, crawl, stretcher, total: sprint + crawl + stretcher };
-  }
+  /* ====== Generic Helpers ====== */
 
   function header(ws, arr) {
     const row = ws.addRow(arr);
     row.font = { bold: true };
     row.alignment = { vertical: 'middle', horizontal: 'center' };
     row.eachCell(c => {
-      c.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFE2E8F0' }
-      };
-      c.border = {
-        top: { style: 'thin', color: { argb: 'FF888888' } },
-        left: { style: 'thin', color: { argb: 'FF888888' } },
-        bottom: { style: 'thin', color: { argb: 'FF888888' } },
-        right: { style: 'thin', color: { argb: 'FF888888' } }
-      };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+      c.border = ['top', 'left', 'bottom', 'right'].reduce((b, side) => {
+        b[side] = { style: 'thin', color: { argb: 'FFAAAAAA' } };
+        return b;
+      }, {});
     });
   }
 
@@ -226,7 +303,7 @@
         if (typeof v !== 'string') v = v.toString();
         max = Math.max(max, v.length + 2);
       });
-      col.width = Math.min(70, max);
+      col.width = Math.min(80, max);
     });
   }
 
@@ -238,15 +315,58 @@
   }
 
   function extractCrawlingComment(shoulderNumber) {
-    // עדכן אם קיימת לוגיקת הערות ייעודית לזחילה
-    // כרגע נחזיר מההערות הכלליות
+    // ניתן להרחיב אם יש מבנה ייעודי לזחילה
     return state.generalComments?.[shoulderNumber] || '';
   }
 
   function getStretcherTimes(shoulderNumber) {
-    // TODO: אם יש מבנה מפורט של תוצאות אלונקה – עדכן כאן
-    // כרגע מחזיר מחרוזת ריקה/ניחוש
+    // אם יש מבנה מפורט – לעדכן כאן
     return '';
+  }
+
+  function flattenObject(obj, prefix = '', out = {}) {
+    if (obj == null) return out;
+    if (typeof obj !== 'object') {
+      out[prefix || 'value'] = obj;
+      return out;
+    }
+    if (Array.isArray(obj)) {
+      obj.forEach((v, i) => {
+        flattenObject(v, prefix ? `${prefix}[${i}]` : `[${i}]`, out);
+      });
+      return out;
+    }
+    Object.keys(obj).forEach(k => {
+      const val = obj[k];
+      const newKey = prefix ? `${prefix}.${k}` : k;
+      if (val && typeof val === 'object' && !Array.isArray(val)) {
+        flattenObject(val, newKey, out);
+      } else if (Array.isArray(val)) {
+        flattenObject(val, newKey, out);
+      } else {
+        out[newKey] = val;
+      }
+    });
+    return out;
+  }
+
+  function sheetFromObjects(ws, rows) {
+    if (!rows.length) {
+      header(ws, ['EMPTY']);
+      ws.addRow(['אין נתונים']);
+      return;
+    }
+    // collect columns
+    const colsSet = new Set();
+    rows.forEach(r => {
+      Object.keys(r).forEach(k => colsSet.add(k));
+    });
+    const cols = Array.from(colsSet);
+    header(ws, cols);
+    rows.forEach(r => {
+      ws.addRow(cols.map(c => (r[c] != null ? r[c] : '')));
+    });
+    autoFit(ws);
   }
 
 })();
