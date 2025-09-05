@@ -1,57 +1,61 @@
+window.GibushAppExporter = window.GibushAppExporter || {};
 
-window.exportToExcel = function exportToExcel() {
+window.GibushAppExporter.createExcelBlob = function createExcelBlob() {
   return new Promise((resolve, reject) => {
-    console.log('exportToExcel: התחלת יצירת הקובץ.');
+    // הגדרת Timeout למניעת תקיעה של האפליקציה
+    const timeoutId = setTimeout(() => {
+      console.error('createExcelBlob: Timeout! התהליך לקח יותר מ-10 שניות ובוטל.');
+      reject(new Error('Timeout: יצירת קובץ האקסל נתקעה. בדוק את הנתונים בקונסול.'));
+    }, 10000); // 10 שניות
+
+    console.log('createExcelBlob: התחלת יצירת הקובץ.');
     try {
-      // 1. בדיקה האם ספריית ExcelJS נטענה
       if (typeof ExcelJS === 'undefined') {
-        console.error('exportToExcel: ספריית ExcelJS לא נטענה!');
-        alert('שגיאה קריטית: ספריית ExcelJS לא נטענה.');
+        clearTimeout(timeoutId);
         reject(new Error('ExcelJS library not loaded.'));
         return;
       }
-      console.log('exportToExcel: ספריית ExcelJS נמצאה.');
 
-      // 2. יצירת קובץ וגיליון
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Report');
-      console.log('exportToExcel: נוצר קובץ וגיליון עבודה.');
 
-      // 3. הוספת נתונים
       ws.addRow(['דוח גיבוש', new Date().toLocaleString('he-IL')]);
       ws.addRow([]);
       ws.addRow(['מספר כתף', 'ניקוד סופי']);
       
       const runners = window.state?.runners || [];
+      
+      // הדפסת הנתונים הגולמיים לבדיקה - זה החלק החשוב!
+      console.log('createExcelBlob: הנתונים שיוכנסו לקובץ:', JSON.parse(JSON.stringify(runners)));
+
       if (runners.length === 0) {
-        console.warn('exportToExcel: לא נמצאו נתוני מתמודדים. הדוח יהיה ריק.');
+        console.warn('createExcelBlob: לא נמצאו נתוני מתמודדים.');
       }
       
       runners.forEach(r => {
-        ws.addRow([r.shoulderNumber, r.totalScore || 0]);
+        const shoulder = r.shoulderNumber;
+        const score = r.totalScore || 0;
+        ws.addRow([shoulder, score]);
       });
-      console.log('exportToExcel: הנתונים הוספו לגיליון.');
+      console.log('createExcelBlob: הנתונים הוספו לגיליון.');
 
-      // 4. יצירת הקובץ הבינארי (באופן אסינכרוני)
-      console.log('exportToExcel: מתחיל יצירת Buffer...');
+      console.log('createExcelBlob: מתחיל יצירת Buffer...');
       wb.xlsx.writeBuffer().then(buffer => {
-        console.log(`exportToExcel: נוצר Buffer בגודל ${buffer.byteLength} בתים.`);
-
-        // 5. יצירת אובייקט Blob
+        clearTimeout(timeoutId); // בטל את ה-Timeout כי התהליך הצליח
+        console.log(`createExcelBlob: נוצר Buffer בגודל ${buffer.byteLength} בתים.`);
         const blob = new Blob([buffer], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         });
-        console.log(`exportToExcel: נוצר Blob בגודל ${blob.size}. התהליך הסתיים בהצלחה!`);
-        
-        resolve(blob); // החזרת ה-Blob והשלמת ה-Promise
+        resolve(blob);
       }).catch(err => {
-        console.error('exportToExcel: שגיאה ביצירת ה-Buffer:', err);
+        clearTimeout(timeoutId);
+        console.error('createExcelBlob: שגיאה ביצירת ה-Buffer:', err);
         reject(err);
       });
 
     } catch (error) {
-      console.error('exportToExcel: אירעה שגיאה קריטית בתהליך יצירת הקובץ:', error);
-      alert('שגיאה ביצירת קובץ האקסל: ' + error.message);
+      clearTimeout(timeoutId);
+      console.error('createExcelBlob: אירעה שגיאה קריטית:', error);
       reject(error);
     }
   });

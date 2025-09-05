@@ -1,5 +1,6 @@
 (function () {
   window.Pages = window.Pages || {};
+  const contentDiv = document.getElementById('content');
 
   function ensureReportCss() {
     let st = document.getElementById('report-cards-style');
@@ -240,10 +241,19 @@
     window.exportToExcel = () => alert('פונקציית ייצוא לאקסל טרם הוגדרה.');
   }
 
+  /**
+   * פונקציית הרינדור הראשית - אחראית רק על יצירת ה-HTML
+   */
   window.Pages.renderReportPage = function renderReportPage() {
+    const contentDiv = document.getElementById('content');
+    if (!contentDiv) {
+      console.error("renderReportPage: לא נמצא האלמנט #content");
+      return;
+    }
     ensureReportCss();
-    if (window.headerTitle) headerTitle.textContent = 'דוח מסכם';
+    if (window.headerTitle) window.headerTitle.textContent = 'דוח מסכם';
 
+    // --- לוגיקת חישוב נתונים (נשארת זהה) ---
     state.manualScores = state.manualScores || {};
     state.generalComments = state.generalComments || {};
     state.crawlingDrills = state.crawlingDrills || { runnerStatuses: {} };
@@ -280,6 +290,7 @@
       return { medal: '', showNumber: true, number: rank.toString() };
     };
 
+    // --- יצירת ה-HTML ---
     contentDiv.innerHTML = `
       <div class="report-header-bar">
         <h2>סיכום ציונים – רצים פעילים</h2>
@@ -346,39 +357,26 @@
       <div class="export-hint">עדכון ציון: לחיצה על המספר ושחרור (יציאה מהשדה) שומר. עריכת הערה: לחיצה על כפתור ההערה.</div>
     `;
 
-    // חיבור מאזינים לכפתורי הערות
+    // --- חיבור מאזינים מקומיים (לא לכפתורי ייצוא) ---
     contentDiv.querySelectorAll('[data-comment-btn]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const shoulder = btn.getAttribute('data-comment-btn');
-        openCommentModal(shoulder);
-      });
+      btn.addEventListener('click', () => openCommentModal(btn.getAttribute('data-comment-btn')));
     });
 
-    // רק כפתור ייצוא אקסל רגיל
-    document.getElementById('export-excel-btn')?.addEventListener('click', handleExcelDownloadClick);
-
     contentDiv.querySelectorAll('.score-input').forEach(inp => {
-      inp.addEventListener('click', () => {
-        if (!inp.hasAttribute('readonly')) return;
-        startInlineEdit(inp);
-      });
-      inp.addEventListener('keydown', e => {
-        if (inp.hasAttribute('readonly')) return;
-        if (e.key === 'Enter') { e.preventDefault(); commitInline(inp); }
-      });
-      inp.addEventListener('blur', () => {
-        if (!inp.hasAttribute('readonly')) commitInline(inp);
-      });
+      inp.addEventListener('click', () => startInlineEdit(inp));
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitInline(inp); } });
+      inp.addEventListener('blur', () => commitInline(inp));
     });
 
     function startInlineEdit(inputEl) {
+      if (!inputEl.hasAttribute('readonly')) return;
       inputEl.dataset.prev = inputEl.value;
       inputEl.removeAttribute('readonly');
-      inputEl.closest('.score-item')?.classList.add('editing');
-      setTimeout(()=>{ inputEl.focus(); inputEl.select(); },0);
+      setTimeout(() => { inputEl.focus(); inputEl.select(); }, 0);
     }
 
     function commitInline(inputEl) {
+      if (inputEl.hasAttribute('readonly')) return;
       let v = parseInt(inputEl.value,10);
       if (isNaN(v)) v = parseInt(inputEl.dataset.prev,10) || 1;
       v = Math.min(7, Math.max(1, v));
@@ -394,63 +392,79 @@
       inputEl.closest('.score-item')?.classList.remove('editing');
       window.Pages.renderReportPage();
     }
-
-    // --- מאזינים חדשים ונקיים ---
-    const uploadBtn = document.getElementById('upload-drive-btn');
-    if (uploadBtn) {
-      uploadBtn.addEventListener('click', handleDriveUploadClick);
-    }
-
-    const exportBtn = document.getElementById('export-excel-btn');
-    if (exportBtn) {
-      exportBtn.addEventListener('click', handleExcelDownloadClick);
-    }
   };
 
   /**
-   * Handles the Google Drive upload button click.
+   * מטפל בלחיצה על כפתור העלאה ל-Drive
    */
-  async function handleDriveUploadClick(e) {
-    const btn = e.currentTarget;
+  async function handleDriveUploadClick(btn) {
+    btn.disabled = true;
+    const show = (typeof window.showLoading === 'function') ? window.showLoading : (m)=>console.log('[loading]', m);
+    const hide = (typeof window.hideLoading === 'function') ? window.hideLoading : ()=>{};
+    show('יוצר דוח ושולח ל-Drive...');
     try {
-      btn.disabled = true;
-      console.log('Starting export...');
-      
-      // שימוש בשם החדש והייחודי של הפונקציה
-      const blob = await window.GibushAppExporter.createExcelBlob(); 
-      
-      console.log('Got blob?', blob instanceof Blob, blob);
-      if (!(blob instanceof Blob)) {
-        alert('יצירת הקובץ נכשלה. בדוק את הקונסול לפרטים.');
-        return; 
-      }
+      const blob = await window.ReportGenerator.generateFinalReportBlob();
       const res = await window.GoogleDriveUploader.upload(blob);
-      console.log('Upload result:', res);
       alert(res.status === 'success' ? 'הקובץ נשלח בהצלחה!' : 'שגיאה בהעלאה: ' + res.message);
     } catch (err) {
       console.error("Upload process failed:", err);
       alert('כשל בתהליך ההעלאה: ' + err.message);
     } finally {
-      // בדיקה אם הכפתור עדיין קיים לפני שמפעילים אותו מחדש
-      if (btn) {
-        btn.disabled = false;
-      }
+      hide();
+      btn.disabled = false;
     }
   }
 
   /**
-   * Handles the local Excel download button click.
+   * מטפל בלחיצה על כפתור הורדה מקומית
    */
-  async function handleExcelDownloadClick() {
-    const excelBlob = await window.exportToExcel();
-    const url = window.URL.createObjectURL(excelBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `GibushReport_${new Date().toLocaleDateString('en-CA')}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    a.remove();
+  async function handleExcelDownloadClick(btn) {
+    btn.disabled = true;
+    const show = (typeof window.showLoading === 'function') ? window.showLoading : (m)=>console.log('[loading]', m);
+    const hide = (typeof window.hideLoading === 'function') ? window.hideLoading : ()=>{};
+    show('יוצר קובץ אקסל...');
+    try {
+      const blob = await window.ReportGenerator.generateFinalReportBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `GibushReport_${new Date().toLocaleDateString('en-CA')}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Local download failed:", err);
+      alert('כשל בהורדת הקובץ: ' + err.message);
+    } finally {
+      hide();
+      btn.disabled = false;
+    }
   }
 
-})(); // סוף ה-IIFE של הקובץ
+  /**
+   * מאזין אירועים מרכזי. הופך להיות פונקציה ציבורית.
+   */
+  window.Pages.initReportPageListeners = function initReportPageListeners() {
+    const contentDiv = document.getElementById('content');
+    if (!contentDiv || contentDiv.dataset.reportListenersAttached) {
+      return; // מונע חיבור כפול
+    }
+    contentDiv.dataset.reportListenersAttached = 'true';
+
+    contentDiv.addEventListener('click', async (e) => {
+      const uploadBtn = e.target.closest('#upload-drive-btn');
+      const exportBtn = e.target.closest('#export-excel-btn');
+      // ... לוגיקה נוספת לטיפול בכפתורים אחרים ...
+
+      if (uploadBtn) {
+        await handleDriveUploadClick(uploadBtn);
+      } else if (exportBtn) {
+        await handleExcelDownloadClick(exportBtn);
+      }
+    });
+
+    // ... (שאר המאזינים לעריכת ציונים) ...
+  };
+
+})(); // סוף ה-IIFE

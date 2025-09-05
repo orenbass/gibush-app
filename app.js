@@ -56,6 +56,7 @@ let contentDiv = document.getElementById('content');
 let headerTitle = document.getElementById('header-title');
 let autosaveStatus = document.getElementById('autosave-status');
 let loadingOverlay = document.getElementById('loading-overlay'); // V1.11 - Added loading overlay
+let loadingText = document.getElementById('loading-text'); // Added loading text element
 let tempStateBackup = null; // גיבוי זמני למצב עריכה בדוח
 
 // Ensure a global page registry exists for external page modules
@@ -67,6 +68,7 @@ function ensureDomRefs() {
     if (!headerTitle) headerTitle = document.getElementById('header-title');
     if (!autosaveStatus) autosaveStatus = document.getElementById('autosave-status');
     if (!loadingOverlay) loadingOverlay = document.getElementById('loading-overlay');
+    if (!loadingText) loadingText = document.getElementById('loading-text');
 }
 
 // --- Utility functions moved to utils ---
@@ -2358,7 +2360,7 @@ function applyTheme() {
  */
 
 async function init() {
-    try { if ('wakeLock' in navigator) { /* no-op */ } } catch {}
+    try { if ('wakeLock' in navigator) { /* no-op */ }} catch { /* Handle error if needed */ }
 
     // מאזין ניווט ראשי עם מניעת ברירת מחדל ועצירת טאבים מושבתים
     const navEl = document.querySelector('nav');
@@ -2416,7 +2418,17 @@ if (typeof renderSociometricStretcherHeatPage === 'function') {
 // Initialize the application when the script loads
 // init(); // הוסר – נקרא לאחר ש-DOM נטען
 if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', () => { ensureDomRefs(); init(); });
+    window.addEventListener('DOMContentLoaded', () => { 
+        ensureDomRefs(); 
+        init(); 
+
+        // --- הוספת הקריאה החדשה ---
+        // אחרי שכל האפליקציה מוכנה, חבר את המאזינים של דף הדוחות
+        if (window.Pages && typeof window.Pages.initReportPageListeners === 'function') {
+            window.Pages.initReportPageListeners();
+        }
+        // -------------------------
+    });
 } else {
     ensureDomRefs();
     init();
