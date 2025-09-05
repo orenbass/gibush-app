@@ -1,20 +1,10 @@
 {
-  "name": "מערכת גיבוש חת\"מ",
-  "short_name": "גיבוש חת\"מ",
-  "start_url": "./index.html",
+  "name": "Gibush App",
+  "short_name": "Gibush",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1a202c",
   "icons": [
-    {
-      "src": "./icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "./icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
