@@ -15,29 +15,29 @@ const state = {
 
     currentPage: PAGES.RUNNERS, // הדף הפעיל הנוכחי
 
-    lastPage: PAGES.RUNNERS,    // מאחסן את הדף האחרון שבו ביקרנו לפני סטטוס/הגדרות מנהל
+    lastPage: PAGES.RUNNERS,    // מאחסן את הדף האחרון שבו ביקרנו לפני סטטוס/הגדרות מנהל
 
-    runners: [],         // מערך של אובייקטי רצים { shoulderNumber: number }
+    runners: [],         // מערך של אובייקטי רצים { shoulderNumber: number }
 
-    heats: [],           // מערך של אובייקטי מקצי ספרינט
+    heats: [],           // מערך של אובייקטי מקצי ספרינט
 
-    currentHeatIndex: 0,     // אינדקס המקצה הנוכחי המוצג
+    currentHeatIndex: 0,     // אינדקס המקצה הנוכחי המוצג
 
-    timer: null,             // מזהה מרווח (Interval ID) לטיימר הראשי
+    timer: null,             // מזהה מרווח (Interval ID) לטיימר הראשי
 
-    startTime: 0,            // חותמת זמן של התחלת המקצה/ספרינט הנוכחי
+    startTime: 0,            // חותמת זמן של התחלת המקצה/ספרינט הנוכחי
 
-    isTimerRunning: false,       // דגל המציין אם הטיימר הראשי פעיל
+    isTimerRunning: false,       // דגל המציין אם הטיימר הראשי פעיל
 
-    evaluatorName: '',   // שם המעריך
+    evaluatorName: '',   // שם המעריך
 
-    groupNumber: '',         // מספר הקבוצה
+    groupNumber: '',         // מספר הקבוצה
 
-    crawlingDrills: {},      // אובייקט לנתוני תרגילי זחילה (הערות, ספרינטים, נושאי שק)
+    crawlingDrills: {},      // אובייקט לנתוני תרגילי זחילה (הערות, ספרינטים, נושאי שק)
 
     generalComments: {}, // הוספת שדה להערות כלליות
 
-    sociometricStretcher: {},    // אובייקט לנתוני אלונקה סוציומטרית (מקצים, נושאים, הערות)
+    sociometricStretcher: {},    // אובייקט לנתוני אלונקה סוציומטרית (מקצים, נושאים, הערות)
 
     themeMode: 'auto', // אפשרויות: 'auto', 'light', 'dark'
 

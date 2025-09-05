@@ -107,6 +107,15 @@
         .shoulder-badge{padding:2px 6px;top:-8px}
         .runner-number-big{font-size:13px}
       }
+
+      /* === Shoulder badge alignment tweak === */
+      .runner-card-r { --content-offset:60px; padding-right: var(--content-offset); }
+      @media (max-width:750px){ .runner-card-r { --content-offset:50px; } }
+      @media (max-width:400px){ .runner-card-r { --content-offset:45px; } }
+      .runner-card-r .shoulder-badge{
+        left: calc(50% - (var(--content-offset) / 2));
+        transform: translateX(-50%);
+      }
     `;
   }
 
@@ -241,6 +250,20 @@
     window.exportToExcel = () => alert('פונקציית ייצוא לאקסל טרם הוגדרה.');
   }
 
+  function buildReportFileName() {
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2,'0');
+    const yy = String(now.getFullYear()).slice(-2);
+    const groupNumber =
+      state?.groupNumber ||
+      state?.currentGroup ||
+      state?.group ||
+      (state?.runners && state.runners[0]?.group) ||
+      (state?.runners && state.runners[0]?.groupId) ||
+      '1';
+    return `קבוצה-${groupNumber}_${mm}.${yy}.xlsx`;
+  }
+
   /**
    * פונקציית הרינדור הראשית - אחראית רק על יצירת ה-HTML
    */
@@ -295,7 +318,7 @@
       <div class="report-header-bar">
         <h2>סיכום ציונים – רצים פעילים</h2>
         <div class="control-buttons">
-          <button id="upload-drive-btn" class="btn btn-outline">📤 העלאה ל-Drive</button>
+          <button id="upload-drive-btn" class="btn btn-outline">📤שלח קובץ למנהל</button>
           <button id="export-excel-btn" class="btn btn-outline">💾 הורדת אקסל</button>
         </div>
       </div>
@@ -404,7 +427,8 @@
     show('יוצר דוח ושולח ל-Drive...');
     try {
       const blob = await window.ReportGenerator.generateFinalReportBlob();
-      const res = await window.GoogleDriveUploader.upload(blob);
+      const fileName = buildReportFileName();
+      const res = await window.GoogleDriveUploader.upload(blob, { fileName });
       alert(res.status === 'success' ? 'הקובץ נשלח בהצלחה!' : 'שגיאה בהעלאה: ' + res.message);
     } catch (err) {
       console.error("Upload process failed:", err);
@@ -428,7 +452,8 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `GibushReport_${new Date().toLocaleDateString('en-CA')}.xlsx`;
+      const fileName = buildReportFileName();
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();

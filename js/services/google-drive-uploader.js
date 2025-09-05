@@ -24,11 +24,11 @@
     });
   }
 
-  async function upload(excelBlob) {
+  async function upload(blob, opts = {}) {
     try {
       if (!APPS_SCRIPT_URL) throw new Error('Missing APPS_SCRIPT_URL');
 
-      let blobToUpload = excelBlob;
+      let blobToUpload = blob;
       if (blobToUpload && typeof blobToUpload.then === 'function') {
         console.warn('upload(): got a Promise instead of Blob – awaiting it.');
         blobToUpload = await blobToUpload;
@@ -47,7 +47,7 @@
       const base64String = await blobToBase64(blobToUpload);
       console.log('Uploader: base64 length =', base64String.length);
 
-      const fileName = `GibushReport_${new Date().toLocaleDateString('en-CA').replace(/-/g,'')}.xlsx`;
+      const fileName = opts.fileName || `GibushReport_${new Date().toLocaleDateString('en-CA').replace(/-/g,'')}.xlsx`;
 
       // IMPORTANT: Remove 'no-cors' to see the actual response from Google
       const response = await fetch(APPS_SCRIPT_URL, {
