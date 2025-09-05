@@ -25,7 +25,6 @@
             const s2 = document.createElement('style');
             s2.id = 'crawling-sprint-style';
             s2.textContent = `
-                /* grid: min 3 per row; grow on larger screens */
                 .cs-grid-3min{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
                 @media (min-width:640px){.cs-grid-3min{grid-template-columns:repeat(5,minmax(0,1fr))}}
                 .arrival-header{padding:4px 6px;color:#6b7280}
@@ -35,6 +34,39 @@
             document.head.appendChild(s2);
         }
 
+        // Shared heat bar style (match sprints)
+        if (!document.getElementById('heat-bar-style')) {
+            const st = document.createElement('style');
+            st.id = 'heat-bar-style';
+            st.textContent = `
+              .heat-bar{direction:rtl;display:flex;align-items:center;justify-content:space-between;
+                gap:12px;background:#1e3a8a;color:#fff;padding:10px 16px;border-radius:16px;
+                margin:12px 0 14px;}
+              .dark .heat-bar{background:#334155}
+              .heat-bar-btn{background:#2563eb;color:#fff;border:none;font-weight:600;
+                padding:8px 14px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px}
+              .heat-bar-btn[disabled]{opacity:.55;cursor:not-allowed}
+              .heat-bar-btn:hover:not([disabled]){background:#1d4ed8}
+              .heat-bar-center{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+              .heat-bar-title{font-size:16px;font-weight:700;letter-spacing:.5px}
+              .heat-timer-box{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
+              .heat-timer-box .icon-clock{font-size:22px}
+              #timer-display{font-family:monospace;font-size:22px;min-width:92px;text-align:center}
+              .timer-btn-sm{background:#16a34a;color:#fff;border:none;padding:6px 14px;border-radius:10px;
+                font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+                box-shadow:0 2px 6px rgba(0,0,0,.18);transition:.18s;font-size:14px}
+              .timer-btn-sm#stop-btn{background:#dc2626}
+              .timer-btn-sm#undo-btn{background:#fde047;color:#1e293b}
+              .timer-btn-sm.hidden{display:none!important}
+              .timer-btn-sm:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.28)}
+              .dark .timer-btn-sm{background:#0f172a;color:#fff}
+              .dark .timer-btn-sm#stop-btn{background:#b91c1c}
+              .dark .timer-btn-sm#undo-btn{background:#eab308;color:#1e293b}
+              .dark .timer-btn-sm#start-btn{background:#15803d}
+            `;
+            document.head.appendChild(st);
+        }
+
         const activeRunners = state.runners
             .filter(r => r.shoulderNumber
                 && !state.crawlingDrills.runnerStatuses[r.shoulderNumber]
@@ -42,15 +74,22 @@
             .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
 
         const headerNav = `
-            <div class="heat-header">
-                <button id="prev-crawling-sprint-btn-inline" class="prev-inline-btn" ${sprintIndex === 0 ? 'disabled' : ''}>
-                    <span class="text-xl">→</span> קודם
-                </button>
-                <div class="heat-title">מקצה זחילה ${sprintIndex + 1}/${CONFIG.MAX_CRAWLING_SPRINTS}</div>
-                <button id="next-crawling-sprint-btn-inline" class="next-inline-btn">
-                    ${sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1 ? 'הבא' : CONFIG.STRETCHER_PAGE_LABEL} <span class="text-xl">←</span>
-                </button>
+          <div class="heat-bar">
+            <button id="prev-crawling-sprint-btn-inline" class="heat-bar-btn" ${sprintIndex === 0 ? 'disabled' : ''}>← קודם</button>
+            <div class="heat-bar-center">
+              <div class="heat-bar-title">מקצה זחילה ${sprintIndex + 1}/${CONFIG.MAX_CRAWLING_SPRINTS}</div>
+              <div class="heat-timer-box">
+                <span class="icon-clock">🕒</span>
+                <span id="timer-display" class="timer-display" aria-live="polite">00:00</span>
+                <button id="start-btn" class="timer-btn-sm ${sprint.started ? 'hidden' : ''}">התחל</button>
+                <button id="stop-btn" class="timer-btn-sm ${!sprint.started || sprint.finished ? 'hidden' : ''}">סיים</button>
+                <button id="undo-btn" class="timer-btn-sm ${!sprint.started || sprint.finished || sprint.arrivals.length === 0 ? 'hidden' : ''}" title="בטל הגעה אחרונה">↶ בטל</button>
+              </div>
             </div>
+            <button id="next-crawling-sprint-btn-inline" class="heat-bar-btn">
+              ${sprintIndex < CONFIG.MAX_CRAWLING_SPRINTS - 1 ? 'הבא' : CONFIG.STRETCHER_PAGE_LABEL} →
+            </button>
+          </div>
         `;
 
         // Arrivals header (like sprints)
@@ -85,28 +124,19 @@
         `;
 
         contentDiv.innerHTML = `
-            ${headerNav}
-            <div id="timer-display" class="text-4xl md:text-6xl font-mono my-4 text-center timer-display" aria-live="polite">00:00</div>
-
-            <div class="flex justify-center gap-2 my-3 flex-wrap">
-                <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${sprint.started ? 'hidden' : ''}">התחל</button>
-                <button id="stop-btn" class="bg-red-500 hover:bg-red-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished ? 'hidden' : ''}">סיים</button>
-                <button id="undo-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white text-base md:text-xl font-bold py-2 px-4 rounded-lg ${!sprint.started || sprint.finished || sprint.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
+          ${headerNav}
+          <div id="runner-buttons-container" class="my-4 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
+            <h3 class="text-base md:text-lg font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
+            <div class="cs-grid-3min">
+              ${activeRunners.map(r => `
+                <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg text-xl"
+                        data-shoulder-number="${r.shoulderNumber}">
+                  ${r.shoulderNumber}
+                </button>`).join('')}
             </div>
-
-            <div id="runner-buttons-container" class="my-5 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
-                <h3 class="text-base md:text-xl font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
-                <div class="cs-grid-3min">
-                    ${activeRunners.map(r => `
-                        <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg text-xl"
-                                data-shoulder-number="${r.shoulderNumber}">
-                            ${r.shoulderNumber}
-                        </button>`).join('')}
-                </div>
-            </div>
-
-            ${arrivalsHeaderHtml}
-            ${arrivalsListHtml}
+          </div>
+          ${arrivalsHeaderHtml}
+          ${arrivalsListHtml}
         `;
 
         // Timer
