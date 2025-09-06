@@ -1,6 +1,44 @@
 (function () {
     window.Pages = window.Pages || {};
 
+    // הוספה: פונקציית טעינת מודול ההערות (אם לא נטען)
+    function ensureCommentsModalLoaded() {
+        return new Promise((resolve, reject) => {
+            if (window.CommentsModal?.open) return resolve();
+            if (document.querySelector('script[data-comments-modal]')) {
+                const check = () => {
+                    if (window.CommentsModal?.open) resolve();
+                    else setTimeout(check, 40);
+                };
+                return check();
+            }
+            const s = document.createElement('script');
+            s.src = 'js/components/commentsModal.js';
+            s.async = true;
+            s.dataset.commentsModal = 'true';
+            s.onload = () => window.CommentsModal?.open ? resolve() : reject(new Error('CommentsModal missing'));
+            s.onerror = () => reject(new Error('Failed loading commentsModal.js'));
+            document.head.appendChild(s);
+        });
+    }
+
+    // הוספה/עדכון: טקסט ברירת מחדל אחיד לכפתור הערות ריק
+    function truncateCommentsSummary(raw, max = 20) {
+        const EMPTY_LABEL = 'כתוב הערה...';
+        if (raw == null) return EMPTY_LABEL;
+        let str;
+        if (Array.isArray(raw)) {
+            const cleaned = raw.filter(c => !!c && c.trim());
+            if (!cleaned.length) return EMPTY_LABEL;
+            str = cleaned.join(' | ');
+        } else {
+            str = String(raw || '').trim();
+            if (!str) return EMPTY_LABEL;
+        }
+        const single = str.replace(/\s+/g, ' ');
+        return single.length > max ? single.slice(0, max) + '…' : single;
+    }
+
     window.Pages.renderCrawlingSprintPage = function renderCrawlingSprintPage(sprintIndex) {
         const contentDiv = document.getElementById('content');
         const headerTitle = document.getElementById('header-title');
@@ -67,6 +105,21 @@
             document.head.appendChild(st);
         }
 
+        // הוספה: CSS לכפתור הערות אם לא קיים
+        if (!document.getElementById('comment-btn-style')) {
+            const cst = document.createElement('style');
+            cst.id = 'comment-btn-style';
+            cst.textContent = `
+              .comment-btn{background:#2563eb;color:#fff;font-weight:500;font-size:11px;border:0;border-radius:8px;padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.15s}
+              .comment-btn:hover{background:#1d4ed8}
+              .dark .comment-btn{background:#1d4ed8}
+              .dark .comment-btn:hover{background:#1e40af}
+              .comment-btn-empty{opacity:.7;font-style:italic}
+              .comment-btn-empty:hover{opacity:1;font-style:normal}
+            `;
+            document.head.appendChild(cst);
+        }
+
         const activeRunners = state.runners
             .filter(r => r.shoulderNumber
                 && !state.crawlingDrills.runnerStatuses[r.shoulderNumber]
@@ -97,7 +150,7 @@
             <div class="arrival-header">
                 <div class="flex items-center gap-2">
                     <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:right;">מספר כתף</span>
-                    <span class="flex-1 text-center font-semibold text-xs md:text-sm">הערות כלליות</span>
+                    <span class="flex-1 text-center font-semibold text-xs md:text-sm">הערות</span>
                     <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:left;">זמן</span>
                 </div>
             </div>` : '';
@@ -107,17 +160,24 @@
             <div id="arrival-list" class="space-y-2">
                 ${sprint.arrivals.map((arrival, index) => {
                     const sn = arrival.shoulderNumber;
-                    const gc = (state.generalComments && state.generalComments[sn]) ? state.generalComments[sn] : '';
+                    const gcRaw = state.generalComments?.[sn];
+                    const hasComment = Array.isArray(gcRaw)
+                        ? gcRaw.some(c => c && c.trim())
+                        : !!(gcRaw && String(gcRaw).trim());
+                    const summary = truncateCommentsSummary(gcRaw);
                     const timeText = arrival.finishTime != null
                         ? formatTime_no_ms(arrival.finishTime)
                         : (arrival.comment || '');
                     return `
-                        <div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
-                            <span class="font-bold text-gray-700 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${index + 1}. ${sn}</span>
-                            <span class="flex-1">
-                                <input class="gc-input" type="text" data-shoulder-number="${sn}" value="${(gc || '').replace(/"/g, '&quot;')}" placeholder="הערה כללית...">
+                        <div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2 dark:bg-slate-700">
+                            <span class="font-bold text-gray-700 dark:text-gray-100 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${index + 1}. ${sn}</span>
+                            <span class="flex-1 flex justify-center">
+                                <button class="comment-btn ${hasComment ? '' : 'comment-btn-empty'}"
+                                  data-comment-btn="${sn}" title="עריכת הערות">
+                                  ${summary} ✎
+                                </button>
                             </span>
-                            <span class="font-mono text-gray-600 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:left;">${timeText}</span>
+                            <span class="font-mono text-gray-600 dark:text-gray-200 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:left;">${timeText}</span>
                         </div>`;
                 }).join('')}
             </div>
@@ -167,16 +227,35 @@
             saveState(); render();
         });
 
-        // General comments live update
-        contentDiv.querySelectorAll('.gc-input').forEach(inp => {
-            inp.addEventListener('input', (e) => {
-                const sn = parseInt(e.target.dataset.shoulderNumber, 10);
-                const v = e.target.value || '';
-                state.generalComments = state.generalComments || {};
-                if (v.trim().length === 0) delete state.generalComments[sn];
-                else state.generalComments[sn] = v;
-                saveState();
+        // מאזיני כפתורי הערות (חדש)
+        contentDiv.querySelectorAll('[data-comment-btn]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const sn = btn.getAttribute('data-comment-btn');
+                try {
+                    await ensureCommentsModalLoaded();
+                    window.CommentsModal.open(sn, {
+                        originBtn: btn,
+                        truncateFn: truncateCommentsSummary
+                    });
+                } catch (err) {
+                    console.error(err);
+                    alert('שגיאה בטעינת מודול ההערות');
+                }
             });
         });
+
+        // ...example inside handler של "הערה מהירה" (התאם למיקום המדויק שלך)...
+        const sn = shoulderNumber; // המתמודד
+        if (addQuickComment(sn, quickInput.value)) {
+            quickInput.value = '';
+            // עדכון טקסט כפתור (אם קיים כפתור):
+            const btn = document.querySelector(`[data-comment-btn="${sn}"]`);
+            if (btn) {
+                const raw = state.generalComments[sn];
+                btn.innerHTML = truncateCommentsSummary(raw) + ' ✎';
+                const empty = !raw.length;
+                btn.classList.toggle('comment-btn-empty', empty);
+            }
+        }
     };
 })();

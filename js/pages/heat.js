@@ -1,5 +1,23 @@
 (function () {
     window.Pages = window.Pages || {};
+
+    function ensureCommentsModalLoaded() {
+        return new Promise((resolve, reject) => {
+            if (window.CommentsModal?.open) return resolve();
+            if (document.querySelector('script[data-comments-modal]')) {
+                const chk = () => window.CommentsModal?.open ? resolve() : setTimeout(chk, 40);
+                return chk();
+            }
+            const s = document.createElement('script');
+            s.src = 'js/components/commentsModal.js';
+            s.async = true;
+            s.dataset.commentsModal = 'true';
+            s.onload = () => window.CommentsModal?.open ? resolve() : reject(new Error('CommentsModal missing'));
+            s.onerror = () => reject(new Error('Failed loading commentsModal.js'));
+            document.head.appendChild(s);
+        });
+    }
+
     window.Pages.renderHeatPage = function renderHeatPage(heatIndex) {
         const contentDiv = document.getElementById('content');
         const headerTitle = document.getElementById('header-title');
@@ -73,6 +91,54 @@
             document.head.appendChild(style);
         }
 
+        // סגנון מוקדם לכפתורי "כתוב הערה" כדי שלא יחכו לטעינת המודול
+        if (!document.getElementById('comment-btn-style')) {
+            const cs = document.createElement('style');
+            cs.id = 'comment-btn-style';
+            cs.textContent = `
+              .comment-btn {
+                display:inline-flex;
+                align-items:center;
+                gap:6px;
+                padding:6px 10px;
+                font-size:12px;
+                font-weight:500;
+                line-height:1.2;
+                border:1px solid #d1d5db;
+                border-radius:8px;
+                background:#f3f4f6;
+                color:#374151;
+                cursor:pointer;
+                max-width:100%;
+                white-space:nowrap;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                direction:rtl;
+                transition:.15s background,.15s border-color;
+              }
+              .comment-btn:hover { background:#e5e7eb; }
+              .comment-btn-empty {
+                background:#ffffff;
+                color:#6b7280;
+              }
+              .comment-btn-empty:hover { background:#f3f4f6; }
+              .dark .comment-btn {
+                background:#374151;
+                border-color:#4b5563;
+                color:#e2e8f0;
+              }
+              .dark .comment-btn:hover { background:#425065; }
+              .dark .comment-btn-empty {
+                background:#1f2937;
+                color:#94a3b8;
+              }
+              .dark .comment-btn-empty:hover { background:#303b47; }
+            `;
+            document.head.appendChild(cs);
+        }
+        // טעינה מקדימה (לא חובה await) כדי שסגנון המלא יחליף אם יש
+        ensureCommentsModalLoaded();
+
         if (!document.getElementById('inline-nav-style')) {
             const style = document.createElement('style');
             style.id = 'inline-nav-style';
@@ -100,7 +166,7 @@
                 <span class="text-xl">→</span> קודם
             </button>
             <div class="heat-title">מקצה ספרינט ${heatIndex + 1}/${CONFIG.NUM_HEATS}</div>
-            <button id="next-heat-btn-inline" class="next-inline-btn">
+            <button id="next-heat-btn-inline">
                 ${heatIndex < CONFIG.NUM_HEATS - 1 ? 'הבא' : 'למסך זחילות'} <span class="text-xl">←</span>
             </button>
         </div>`;
@@ -137,18 +203,28 @@
     
             <div id="arrival-list" class="space-y-2">
                 ${heat.arrivals.map((arrival, index) => {
-            const sn = arrival.shoulderNumber;
-            const gc = (state.generalComments && state.generalComments[sn]) ? state.generalComments[sn] : '';
-            const timeText = arrival.finishTime ? formatTime(arrival.finishTime) : (arrival.comment || '');
-            return `
+                  const sn = arrival.shoulderNumber;
+                  const gcRaw = state.generalComments?.[sn];
+                  const gcDisplay = truncateHeatComment(gcRaw, 24);
+                  const has = Array.isArray(gcRaw)
+                    ? gcRaw.some(c => c && c.trim())
+                    : !!(gcRaw && String(gcRaw).trim());
+                  const timeText = arrival.finishTime
+                    ? formatTime(arrival.finishTime)
+                    : (arrival.comment || '');
+                  return `
                     <div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
                         <span class="font-bold text-gray-700 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${index + 1}. ${sn}</span>
-                        <span class="flex-1">
-                            <input class="gc-input" type="text" data-shoulder-number="${sn}" value="${(gc || '').replace(/"/g, '&quot;')}" placeholder="הערה כללית...">
+                        <span class="flex-1 flex justify-center" style="min-width:0;">
+                          <button class="comment-btn ${has ? '' : 'comment-btn-empty'}"
+                                  data-comment-btn="${sn}"
+                                  title="עריכת הערות">
+                            ${gcDisplay} ✎
+                          </button>
                         </span>
                         <span class="font-mono text-gray-600 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:left;">${timeText}</span>
                     </div>`;
-        }).join('')}
+                }).join('')}
             </div>
         `;
 
@@ -164,14 +240,6 @@
         document.getElementById('stop-btn')?.addEventListener('click', () => confirmStopAndAdvance(heat, 'sprint'));
         document.getElementById('undo-btn')?.addEventListener('click', () => handleUndoArrival(heat));
         document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, heat, state.currentHeatIndex));
-
-        contentDiv.querySelectorAll('.gc-input').forEach(inp => {
-            inp.addEventListener('input', (e) => {
-                const sn = e.currentTarget.dataset.shoulderNumber;
-                state.generalComments[sn] = e.currentTarget.value;
-                saveState();
-            });
-        });
 
         document.getElementById('next-heat-btn-inline')?.addEventListener('click', () => {
             if (state.currentHeatIndex < CONFIG.NUM_HEATS - 1) {
@@ -190,5 +258,38 @@
                 render();
             }
         });
+
+        contentDiv.querySelectorAll('[data-comment-btn]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const sn = btn.getAttribute('data-comment-btn');
+                try {
+                    await ensureCommentsModalLoaded();
+                    window.CommentsModal.open(sn, {
+                        originBtn: btn,
+                        truncateFn: truncateHeatComment
+                    });
+                } catch (e) {
+                    console.error(e);
+                    alert('שגיאה בטעינת מודול ההערות');
+                }
+            });
+        });
     };
+
+    function normalizeCommentsForDisplay(raw){
+        if (Array.isArray(raw)) {
+            return raw
+                .filter(c => c && c.trim())
+                .join(' | ');
+        }
+        return (raw || '');
+    }
+
+    function truncateHeatComment(raw, max = 24){
+        const EMPTY = 'כתוב הערה...';
+        const str0 = normalizeCommentsForDisplay(raw);
+        if (!str0.trim()) return EMPTY;
+        const s = str0.replace(/\s+/g,' ');
+        return s.length > max ? s.slice(0,max) + '…' : s;
+    }
 })();

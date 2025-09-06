@@ -47,6 +47,45 @@
       document.head.appendChild(style);
     }
 
+    if (!document.getElementById('qc-style-overrides')) {
+      const ov = document.createElement('style');
+      ov.id = 'qc-style-overrides';
+      ov.textContent = `
+        /* התאמות גודל לשמירת כל האלמנטים בשורה העליונה */
+        .quickbar .qc-row:first-child { flex-wrap: nowrap !important; }
+        .quickbar .qc-runner-select {
+          width:58px; height:34px; font-size:13px; padding:0 4px;
+        }
+        .quickbar #group-comments-select.qc-group-select {
+          flex:1 1 auto;
+          min-width:95px;
+          max-width:170px;
+          height:34px;
+          font-size:12px;
+          padding:0 6px;
+        }
+        .quickbar .qc-sendBtn {
+          height:34px;
+          padding:0 10px;
+          font-size:13px;
+          line-height:1;
+          flex-shrink:0;
+        }
+        /* הקטנה קלה גם לשורת ההקלדה (אם רוצים אחידות) */
+        .quickbar .qc-input {
+          height:34px;
+          font-size:14px;
+        }
+        .quickbar .qc-micBtn {
+          width:34px; height:34px; font-size:16px;
+        }
+        @media (max-width:480px){
+          .quickbar #group-comments-select.qc-group-select { max-width:140px; }
+        }
+      `;
+      document.head.appendChild(ov);
+    }
+
     // קומפקט – הקטנת רכיבי שורה עליונה במסכים צרים
     if (!document.getElementById('qc-style-compact')) {
       const compact = document.createElement('style');
@@ -145,15 +184,13 @@
       const selected = selectEl.value;
       const text = inputEl.value.trim();
       if (!selected || !text) return;
-      const gc = window.state.generalComments || (window.state.generalComments = {});
-      if (gc[selected]) gc[selected] += ' | ' + text; else gc[selected] = text;
-      window.saveState?.();
-      window.render?.();
-      if (navigator.vibrate) navigator.vibrate(10);
-      inputEl.value = '';
-      inputEl.placeholder = 'נשמר!';
-      updateSendEnabled();
-      setTimeout(() => { inputEl.placeholder = 'הערה מהירה'; }, 900);
+      if (addCommentItem(selected, text)) {
+        if (navigator.vibrate) navigator.vibrate(10);
+        inputEl.value = '';
+        inputEl.placeholder = 'נשמר!';
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        setTimeout(() => { inputEl.placeholder = 'הערה מהירה'; }, 900);
+      }
     }
     sendBtn.addEventListener('click', send);
 
@@ -338,15 +375,13 @@
         const shoulder = selectEl.value;
         const text = inputEl.value.trim();
         if (!shoulder || !text) return;
-        const gc = window.state.generalComments || (window.state.generalComments = {});
-        if (gc[shoulder]) gc[shoulder] += ' | ' + text; else gc[shoulder] = text;
-        window.saveState?.();
-        inputEl.value = '';
-        updateSendEnabled();
-        document.getElementById('qc-sheet-backdrop').style.display = 'none';
-        document.getElementById('qc-sheet').style.display = 'none';
-        if (navigator.vibrate) navigator.vibrate(10);
-        window.render?.();
+        if (addCommentItem(shoulder, text)) {
+          inputEl.value = '';
+          updateSendEnabled();
+          document.getElementById('qc-sheet-backdrop').style.display = 'none';
+          document.getElementById('qc-sheet').style.display = 'none';
+          if (navigator.vibrate) navigator.vibrate(10);
+        }
       }
 
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -384,4 +419,81 @@
       }
     }
   };
+
+  // === Utilities for comments as array ===
+  function ensureCommentArray(key) {
+    window.state = window.state || {};
+    const gc = state.generalComments || (state.generalComments = {});
+    const cur = gc[key];
+    if (Array.isArray(cur)) return cur;
+    if (typeof cur === 'string' && cur.trim()) {
+      // אם זו מחרוזת עם מפריד היסטורי – פצל
+      if (cur.includes(' | ')) {
+        gc[key] = cur.split('|').map(s => s.trim()).filter(Boolean);
+      } else {
+        gc[key] = [cur.trim()];
+      }
+    } else if (!cur) {
+      gc[key] = [];
+    } else {
+      gc[key] = [String(cur).trim()];
+    }
+    return gc[key];
+  }
+
+  function addCommentItem(key, text, opts = {}) {
+    const t = (text || '').trim();
+    if (!t) return false;
+    const arr = ensureCommentArray(key);
+    arr.unshift(t); // חדש למעלה
+    if (opts.save !== false && typeof window.saveState === 'function') saveState();
+    updateCommentButtonsFor(key);
+    return true;
+  }
+
+  // עדכון הכפתורים שמציגים תקציר ההערות (אם קיימים בדף)
+  function updateCommentButtonsFor(key) {
+    const raw = state.generalComments?.[key];
+    const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    const summary = truncateAny(raw);
+    document.querySelectorAll(`[data-comment-btn="${key}"]`).forEach(btn => {
+      btn.innerHTML = summary + ' ✎';
+      const empty = !arr.some(c => c && c.trim());
+      btn.classList.toggle('comment-btn-empty', empty);
+    });
+  }
+
+  // פונקציית קיצור כללית (נופל חזרה על טקסט ברירת מחדל אם אין)
+  function truncateAny(raw, max = 24) {
+    if (raw == null) return 'כתוב הערה...';
+    let s;
+    if (Array.isArray(raw)) {
+      const c = raw.filter(x => x && x.trim());
+      if (!c.length) return 'כתוב הערה...';
+      s = c.join(' | ');
+    } else {
+      s = String(raw).trim();
+      if (!s) return 'כתוב הערה...';
+    }
+    s = s.replace(/\s+/g, ' ');
+    return s.length > max ? s.slice(0, max) + '…' : s;
+  }
+
+  // מיגרציה חד פעמית (אם ערכים ישנים כמחרוזת מאוחדת)
+  (function migrateOnce() {
+    if (window.__commentsMigrated) return;
+    window.__commentsMigrated = true;
+    if (!window.state?.generalComments) return;
+    let changed = false;
+    Object.entries(state.generalComments).forEach(([k, v]) => {
+      if (typeof v === 'string' && v.includes(' | ')) {
+        const parts = v.split('|').map(s => s.trim()).filter(Boolean);
+        if (parts.length > 1) {
+          state.generalComments[k] = parts;
+          changed = true;
+        }
+      }
+    });
+    if (changed && typeof saveState === 'function') saveState();
+  })();
 })();

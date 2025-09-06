@@ -118,6 +118,39 @@
         left: calc(50% - (var(--content-offset) / 2));
         transform: translateX(-50%);
       }
+      /* Comment modal (improved light/dark) */
+      .comment-modal .c-row{background:#f1f5f9}
+      .dark .comment-modal .c-row{background:#273549}
+      .comment-modal input[type="text"],
+      .comment-modal textarea,
+      .comment-modal .c-edit{
+        background:#f8fafc;
+        border:1px solid #cbd5e1;
+        color:#1e293b;
+        border-radius:10px;
+      }
+      .dark .comment-modal input[type="text"],
+      .dark .comment-modal textarea,
+      .dark .comment-modal .c-edit{
+        background:#1f2937;
+        border:1px solid #475569;
+        color:#f1f5f9;
+      }
+      .comment-modal input[type="text"]:focus,
+      .comment-modal textarea:focus,
+      .comment-modal .c-edit:focus{
+        outline:none;
+        border-color:#3b82f6;
+        box-shadow:0 0 0 2px rgba(59,130,246,.15);
+      }
+      .dark .comment-modal input[type="text"]:focus,
+      .dark .comment-modal textarea:focus,
+      .dark .comment-modal .c-edit:focus{
+        border-color:#60a5fa;
+        box-shadow:0 0 0 2px rgba(96,165,250,.2);
+      }
+      .comment-modal ::placeholder{color:#94a3b8}
+      .dark .comment-modal ::placeholder{color:#64748b}
     `;
   }
 
@@ -184,63 +217,20 @@
     `;
   }
 
-  function truncateComment(str, max = 24) {
-    if (!str || !str.trim()) return 'כתוב הערה...'; // placeholder במקום '—'
-    const c = str.replace(/\s+/g, ' ').trim();
-    return c.length > max ? c.slice(0, max) + '…' : c;
-  }
-
-  function openCommentModal(shoulderNumber) {
-    document.querySelector('.comment-modal-backdrop')?.remove();
-    const current = (state.generalComments && state.generalComments[shoulderNumber]) || '';
-    let draft = current;
-    const backdrop = document.createElement('div');
-    backdrop.className = 'comment-modal-backdrop';
-    backdrop.innerHTML = `
-      <div class="comment-modal" role="dialog" aria-modal="true">
-        <header style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <h3>הערה – מס' כתף ${shoulderNumber}</h3>
-          <button class="btn-outline btn" data-close style="padding:4px 10px;font-size:14px">✕</button>
-        </header>
-        <div class="modal-body">
-          <textarea id="comment-editor" placeholder="כתוב הערה כללית...">${current}</textarea>
-          <div class="note-muted">הערה זו תוצג בדוח המסכם ובמסכי ההדפסה.</div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-outline" data-cancel>ביטול</button>
-          <button class="btn" data-save style="background:#059669;color:#fff">שמור</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(backdrop);
-
-    const textarea = backdrop.querySelector('#comment-editor');
-    if (textarea) {
-      textarea.addEventListener('input', e => draft = e.target.value);
-      setTimeout(() => textarea.focus(), 40);
+  // החלף את truncateComment (תמיכה במערך)
+  function truncateComment(raw, max = 24) {
+    if (raw == null) return 'כתוב הערה...';
+    let str;
+    if (Array.isArray(raw)) {
+      if (!raw.length) return 'כתוב הערה...';
+      str = raw.filter(c => !!c && c.trim()).join(' | ');
+      if (!str.trim()) return 'כתוב הערה...';
+    } else {
+      if (!String(raw).trim()) return 'כתוב הערה...';
+      str = String(raw).trim();
     }
-
-    function closeModal() { backdrop.remove(); }
-    function confirmDiscard() {
-      return draft !== current ? confirm('השינויים לא ישמרו. לצאת?') : true;
-    }
-
-    backdrop.addEventListener('click', e => {
-      if (e.target === backdrop && confirmDiscard()) closeModal();
-    });
-    backdrop.querySelector('[data-close]').addEventListener('click', () => {
-      if (confirmDiscard()) closeModal();
-    });
-    backdrop.querySelector('[data-cancel]').addEventListener('click', () => {
-      if (confirmDiscard()) closeModal();
-    });
-    backdrop.querySelector('[data-save]').addEventListener('click', () => {
-      state.generalComments = state.generalComments || {};
-      state.generalComments[shoulderNumber] = draft.trim();
-      saveState();
-      closeModal();
-      window.Pages.renderReportPage();
-    });
+    const c = str.replace(/\s+/g,' ');
+    return c.length > max ? c.slice(0,max) + '…' : c;
   }
 
   function safeScore(fnName, runner) {
@@ -264,6 +254,32 @@
       (state?.runners && state.runners[0]?.groupId) ||
       '1';
     return `קבוצה-${groupNumber}_${mm}.${yy}.xlsx`;
+  }
+
+  function ensureCommentsModalLoaded() {
+    return new Promise((resolve, reject) => {
+      if (window.CommentsModal && typeof window.CommentsModal.open === 'function') {
+        return resolve();
+      }
+      // כבר נטען בתהליך קודם?
+      if (document.querySelector('script[data-comments-modal]')) {
+        const check = () => {
+          if (window.CommentsModal) resolve();
+          else setTimeout(check, 40);
+        };
+        return check();
+      }
+      const s = document.createElement('script');
+      s.src = 'js/components/commentsModal.js'; // עדכן אם הנתיב שונה
+      s.async = true;
+      s.dataset.commentsModal = 'true';
+      s.onload = () => {
+        if (window.CommentsModal) resolve();
+        else reject(new Error('commentsModal.js loaded but window.CommentsModal missing'));
+      };
+      s.onerror = () => reject(new Error('Failed loading commentsModal.js'));
+      document.head.appendChild(s);
+    });
   }
 
   /**
@@ -328,8 +344,9 @@
       <div class="report-cards-grid">
         ${active.map((r,i) => {
           const rankDisplay = getRankDisplay(i + 1); // תיקון: היה חסר
-          const rawComment = state.generalComments[r.shoulderNumber] || '';
-          const hasComment = !!rawComment.trim();
+          const rawComment = state.generalComments[r.shoulderNumber];
+          const arr = Array.isArray(rawComment) ? rawComment : (rawComment ? [rawComment] : []);
+          const hasComment = arr.some(c => c && c.trim());
           const commentDisplay = truncateComment(rawComment);
           return `
             <div class="runner-card-r ${getCardClass(i)}" data-card="${r.shoulderNumber}">
@@ -392,7 +409,20 @@
 
     // --- חיבור מאזינים מקומיים (לא לכפתורי ייצוא) ---
     contentDiv.querySelectorAll('[data-comment-btn]').forEach(btn => {
-      btn.addEventListener('click', () => openCommentModal(btn.getAttribute('data-comment-btn')));
+      btn.addEventListener('click', async () => {
+        const shoulder = btn.getAttribute('data-comment-btn');
+        try {
+          await ensureCommentsModalLoaded();
+          if (window.CommentsModal?.open) {
+            window.CommentsModal.open(shoulder);
+          } else {
+            alert('מודול ההערות לא נטען.');
+          }
+        } catch (e) {
+          console.error(e);
+          alert('שגיאה בטעינת מודול ההערות');
+        }
+      });
     });
 
     contentDiv.querySelectorAll('.score-input').forEach(inp => {
