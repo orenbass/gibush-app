@@ -57,6 +57,8 @@
       .comment-btn:hover{background:#1d4ed8}
       .dark .comment-btn{background:#1d4ed8}
       .dark .comment-btn:hover{background:#1e40af}
+      .comment-btn-empty{opacity:.75;font-style:italic}
+      .comment-btn-empty:hover{opacity:1;font-style:normal}
 
       .inactive-panel{max-width:980px;margin:34px auto 0}
       .inactive-grid{display:flex;flex-wrap:wrap;gap:8px}
@@ -183,7 +185,7 @@
   }
 
   function truncateComment(str, max = 24) {
-    if (!str) return '—';
+    if (!str || !str.trim()) return 'כתוב הערה...'; // placeholder במקום '—'
     const c = str.replace(/\s+/g, ' ').trim();
     return c.length > max ? c.slice(0, max) + '…' : c;
   }
@@ -325,8 +327,10 @@
 
       <div class="report-cards-grid">
         ${active.map((r,i) => {
-          const comment = state.generalComments[r.shoulderNumber] || '';
-          const rankDisplay = getRankDisplay(i + 1);
+          const rankDisplay = getRankDisplay(i + 1); // תיקון: היה חסר
+          const rawComment = state.generalComments[r.shoulderNumber] || '';
+          const hasComment = !!rawComment.trim();
+          const commentDisplay = truncateComment(rawComment);
           return `
             <div class="runner-card-r ${getCardClass(i)}" data-card="${r.shoulderNumber}">
               <div class="rank-badge" title="דירוג">
@@ -339,29 +343,29 @@
               <div class="scores-inline">
                 <div class="score-item">
                   <div class="score-label">ספרינט</div>
-                  <input class="score-input" type="number" inputmode="numeric" pattern="[0-9]*"
-                    min="1" max="7" step="1" enterkeyhint="done" aria-label="ציון ספרינט"
+                  <input class="score-input" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                    data-min="1" data-max="7" aria-label="ציון ספרינט"
                     value="${r.sprintScore}" data-shoulder="${r.shoulderNumber}"
-                    data-type="sprint" readonly>
+                    data-type="sprint">
                 </div>
                 <div class="score-item">
                   <div class="score-label">זחילה</div>
-                  <input class="score-input" type="number" inputmode="numeric" pattern="[0-9]*"
-                    min="1" max="7" step="1" enterkeyhint="done" aria-label="ציון זחילה"
+                  <input class="score-input" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                    data-min="1" data-max="7" aria-label="ציון זחילה"
                     value="${r.crawlingScore}" data-shoulder="${r.shoulderNumber}"
-                    data-type="crawl" readonly>
+                    data-type="crawl">
                 </div>
                 <div class="score-item">
                   <div class="score-label">${(CONFIG?.STRETCHER_PAGE_LABEL || 'אלונקה').replace('אלונקה','אלונקות')}</div>
-                  <input class="score-input" type="number" inputmode="numeric" pattern="[0-9]*"
-                    min="1" max="7" step="1" enterkeyhint="done" aria-label="ציון אלונקות"
+                  <input class="score-input" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                    data-min="1" data-max="7" aria-label="ציון אלונקות"
                     value="${r.stretcherScore}" data-shoulder="${r.shoulderNumber}"
-                    data-type="stretcher" readonly>
+                    data-type="stretcher">
                 </div>
               </div>
               <div class="comment-trigger">
-                <button class="comment-btn" data-comment-btn="${r.shoulderNumber}">
-                  ${truncateComment(comment)} ✎
+                <button class="comment-btn ${hasComment ? '' : 'comment-btn-empty'}" data-comment-btn="${r.shoulderNumber}">
+                  ${commentDisplay} ✎
                 </button>
               </div>
             </div>
@@ -392,34 +396,36 @@
     });
 
     contentDiv.querySelectorAll('.score-input').forEach(inp => {
-      inp.addEventListener('click', () => startInlineEdit(inp));
-      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitInline(inp); } });
-      inp.addEventListener('blur', () => commitInline(inp));
+      inp.dataset.prev = inp.value;
+      inp.addEventListener('focus', () => {
+        setTimeout(() => {
+          try { inp.select(); } catch(_){}
+        }, 0);
+      });
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          inp.blur();
+        }
+      });
+      inp.addEventListener('blur', () => commitScore(inp));
     });
 
-    function startInlineEdit(inputEl) {
-      if (!inputEl.hasAttribute('readonly')) return;
-      inputEl.dataset.prev = inputEl.value;
-      inputEl.removeAttribute('readonly');
-      setTimeout(() => { inputEl.focus(); inputEl.select(); }, 0);
-    }
-
-    function commitInline(inputEl) {
-      if (inputEl.hasAttribute('readonly')) return;
-      let v = parseInt(inputEl.value,10);
-      if (isNaN(v)) v = parseInt(inputEl.dataset.prev,10) || 1;
+    function commitScore(inputEl) {
+      let v = parseInt(inputEl.value, 10);
+      if (isNaN(v)) v = parseInt(inputEl.dataset.prev, 10) || 1;
       v = Math.min(7, Math.max(1, v));
-      if (v !== parseInt(inputEl.dataset.prev,10)) {
+      if (v !== parseInt(inputEl.dataset.prev, 10)) {
         const shoulder = inputEl.dataset.shoulder;
         const type = inputEl.dataset.type;
-        state.manualScores[shoulder] = state.manualScores[shoulder] || { sprint:1,crawl:1,stretcher:1 };
+        state.manualScores[shoulder] = state.manualScores[shoulder] || { sprint:1, crawl:1, stretcher:1 };
         state.manualScores[shoulder][type] = v;
         saveState();
+        inputEl.dataset.prev = v;
+        window.Pages.renderReportPage();
+        return;
       }
       inputEl.value = v;
-      inputEl.setAttribute('readonly','');
-      inputEl.closest('.score-item')?.classList.remove('editing');
-      window.Pages.renderReportPage();
     }
   };
 
