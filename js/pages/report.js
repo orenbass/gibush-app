@@ -339,18 +339,24 @@
               <div class="scores-inline">
                 <div class="score-item">
                   <div class="score-label">ספרינט</div>
-                  <input class="score-input" type="number" min="1" max="7" value="${r.sprintScore}"
-                    data-shoulder="${r.shoulderNumber}" data-type="sprint" readonly>
+                  <input class="score-input" type="number" inputmode="numeric" pattern="[0-9]*"
+                    min="1" max="7" step="1" enterkeyhint="done" aria-label="ציון ספרינט"
+                    value="${r.sprintScore}" data-shoulder="${r.shoulderNumber}"
+                    data-type="sprint" readonly>
                 </div>
                 <div class="score-item">
                   <div class="score-label">זחילה</div>
-                  <input class="score-input" type="number" min="1" max="7" value="${r.crawlingScore}"
-                    data-shoulder="${r.shoulderNumber}" data-type="crawl" readonly>
+                  <input class="score-input" type="number" inputmode="numeric" pattern="[0-9]*"
+                    min="1" max="7" step="1" enterkeyhint="done" aria-label="ציון זחילה"
+                    value="${r.crawlingScore}" data-shoulder="${r.shoulderNumber}"
+                    data-type="crawl" readonly>
                 </div>
                 <div class="score-item">
                   <div class="score-label">${(CONFIG?.STRETCHER_PAGE_LABEL || 'אלונקה').replace('אלונקה','אלונקות')}</div>
-                  <input class="score-input" type="number" min="1" max="7" value="${r.stretcherScore}"
-                    data-shoulder="${r.shoulderNumber}" data-type="stretcher" readonly>
+                  <input class="score-input" type="number" inputmode="numeric" pattern="[0-9]*"
+                    min="1" max="7" step="1" enterkeyhint="done" aria-label="ציון אלונקות"
+                    value="${r.stretcherScore}" data-shoulder="${r.shoulderNumber}"
+                    data-type="stretcher" readonly>
                 </div>
               </div>
               <div class="comment-trigger">
