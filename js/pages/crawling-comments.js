@@ -104,6 +104,52 @@
                 .dark .gc-btn-mic{background:#374151;color:#e2e8f0}
                 .dark .gc-btn-mic:hover{background:#425065}
                 .dark .gc-btn-mic.recording{background:#b91c1c}
+                .runner-sack-btn{
+                  position:relative;
+                }
+                .runner-comment-indicator{
+                  position:absolute;
+                  top:4px;
+                  inset-inline-end:4px;
+                  width:32px;
+                  height:32px;
+                  border-radius:10px;
+                  display:flex;
+                  flex-direction:column;
+                  align-items:center;
+                  justify-content:center;
+                  font-size:12px;
+                  font-weight:700;
+                  color:#fff;
+                  line-height:1.05;
+                  box-shadow:0 2px 4px rgba(0,0,0,.25);
+                  cursor:pointer;
+                  user-select:none;
+                  transition:.2s background,.2s transform;
+                  padding:2px 0 1px;
+                  box-sizing:border-box;
+                }
+                .runner-comment-indicator .ci-icon{
+                  display:block;
+                  width:14px;
+                  height:14px;
+                }
+                .runner-comment-indicator .ci-icon svg{
+                  width:100%;
+                  height:100%;
+                  display:block;
+                }
+                .runner-comment-indicator .ci-count{
+                  font-size:11px;
+                  font-weight:700;
+                  line-height:1;
+                  margin-top:1px;
+                }
+                .runner-comment-indicator:active{transform:scale(.92)}
+                .dark .runner-comment-indicator{box-shadow:0 2px 4px rgba(0,0,0,.55)}
+                .runner-comment-indicator[data-count="0"]{
+                  background:#9ca3af;
+                }
             `;
             document.head.appendChild(s);
         }
@@ -141,6 +187,86 @@
             return str.length > max ? str.slice(0, max) + '…' : str;
         }
 
+        function getRunnerCommentCount(sn){
+            const raw = state.generalComments?.[sn];
+            if (!raw) return 0;
+            if (Array.isArray(raw)) return raw.filter(c=>c && c.trim()).length;
+            return String(raw).trim() ? 1 : 0;
+        }
+        function commentCountColor(cnt){
+            const colors = [
+              '#9ca3af', // 0
+              '#f87171', // 1
+              '#fb923c', // 2
+              '#fbbf24', // 3
+              '#34d399', // 4
+              '#059669'  // 5+
+            ];
+            return colors[Math.min(cnt,5)];
+        }
+        function buildCommentIndicatorHTML(sn){
+            const cnt = getRunnerCommentCount(sn);
+            const title = cnt === 0
+              ? 'אין הערות – לחץ להוספה'
+              : `${cnt} הערה${cnt>1?'ות':''} (לחץ לעריכה)`;
+            return `<span class="runner-comment-indicator"
+                           data-comment-indicator="${sn}"
+                           data-count="${cnt}"
+                           title="${title}"
+                           style="background:${commentCountColor(cnt)};">
+                      <span class="ci-icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M2 3.5A2.5 2.5 0 0 1 4.5 1h11A2.5 2.5 0 0 1 18 3.5v7A2.5 2.5 0 0 1 15.5 13H10.9l-3.6 3.2c-.9.8-2.3.1-2.3-1V13H4.5A2.5 2.5 0 0 1 2 10.5v-7Z"/>
+                        </svg>
+                      </span>
+                      <span class="ci-count">${cnt===0?'+':cnt}</span>
+                    </span>`;
+        }
+
+        function updateAllCommentIndicators(root=document){
+            root.querySelectorAll('[data-comment-indicator]').forEach(el=>{
+                const sn = el.getAttribute('data-comment-indicator');
+                const cnt = getRunnerCommentCount(sn);
+                el.dataset.count = cnt;
+                const countEl = el.querySelector('.ci-count');
+                if (countEl) countEl.textContent = cnt===0?'+':cnt;
+                el.style.background = commentCountColor(cnt);
+                el.title = cnt === 0
+                  ? 'אין הערות – לחץ להוספה'
+                  : `${cnt} הערה${cnt>1?'ות':''} (לחץ לעריכה)`;
+            });
+        }
+
+        function rebuildCommentIndicator(sn, root = document){
+            const oldEl = root.querySelector(`.runner-comment-indicator[data-comment-indicator="${sn}"]`);
+            if (!oldEl) return;
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = buildCommentIndicatorHTML(sn);
+            const newEl = wrapper.firstElementChild;
+            oldEl.replaceWith(newEl);
+            // חיבור מאזין מחדש
+            newEl.addEventListener('click', indicatorClickHandler);
+        }
+
+        async function indicatorClickHandler(e){
+            e.stopPropagation();
+            const el = e.currentTarget;
+            const sn = el.getAttribute('data-comment-indicator');
+            try{
+                await ensureCommentsModalLoaded();
+                // לא מעבירים originBtn כדי שלא ידרוס את ה-HTML
+                window.CommentsModal.open(sn, {
+                    afterChange: () => {
+                        rebuildCommentIndicator(sn, contentDiv);
+                        updateAllCommentIndicators(contentDiv);
+                    }
+                });
+            }catch(err){
+                console.error(err);
+                alert('שגיאה בטעינת מודול ההערות');
+            }
+        }
+
         // רצים פעילים (שטרם סומנו כסיימו)
         const activeRunners = state.runners
             .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
@@ -169,7 +295,8 @@
                 : (isSelected ? '00:00' : '');
             return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} ${hasTime ? 'has-sack-time' : ''}"
                         data-shoulder-number="${sn}" ${!canSelect ? 'disabled' : ''}>
-                        <span>${sn}</span>
+                        <span class="runner-number">${sn}</span>
+                        ${buildCommentIndicatorHTML(sn)}
                         <span class="mini-sack-time" id="mini-sack-timer-${sn}">${timeText}</span>
                     </button>`;
         }).join('')}
@@ -207,17 +334,26 @@
           const timeText = sackData
               ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now()-sackData.startTime : 0))
               : '00:00';
-          const raw = state.generalComments?.[sn];
-          const has = Array.isArray(raw) ? raw.some(c=>c && c.trim()) : !!(raw && String(raw).trim());
-          const summary = truncateCrawlCommentSummary(raw);
+          const cnt = getRunnerCommentCount(sn);
+          const title = cnt === 0
+            ? 'אין הערות – לחץ להוספה'
+            : `${cnt} הערה${cnt>1?'ות':''} (לחץ לעריכה)`;
           return `<div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2 dark:bg-slate-700">
               <span class="font-bold text-gray-700 dark:text-gray-100 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${i+1}. ${sn}</span>
               <span class="flex-1 flex justify-center" style="min-width:0;">
-                <button class="comment-btn ${has ? '' : 'comment-btn-empty'}"
-                        data-comment-btn="${sn}"
-                        title="עריכת הערות">
-                  ${summary} ✎
-                </button>
+                <span class="runner-comment-indicator"
+                      data-comment-indicator="${sn}"
+                      data-comment-btn="${sn}"
+                      data-count="${cnt}"
+                      title="${title}"
+                      style="background:${commentCountColor(cnt)};">
+                  <span class="ci-icon" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M2 3.5A2.5 2.5 0 0 1 4.5 1h11A2.5 2.5 0 0 1 18 3.5v7A2.5 2.5 0 0 1 15.5 13H10.9l-3.6 3.2c-.9.8-2.3.1-2.3-1V13H4.5A2.5 2.5 0 0 1 2 10.5v-7Z"/>
+                    </svg>
+                  </span>
+                  <span class="ci-count">${cnt===0?'+':cnt}</span>
+                </span>
               </span>
               <span class="font-mono text-gray-600 dark:text-gray-200 text-sm md:text-base whitespace-nowrap"
                     style="min-width:88px;text-align:left;" id="sack-timer-${sn}">${timeText}</span>
@@ -304,15 +440,15 @@ ${carriersListHtml}
             if (currentGcSn == null) return;
             const val = gcTextarea.value.trim();
             state.generalComments = state.generalComments || {};
-            if (!val) delete state.generalComments[currentGcSn];
-            else state.generalComments[currentGcSn] = val;
-            saveState();
-            const btn = contentDiv.querySelector(`.gc-open-btn[data-open-gc="${currentGcSn}"]`);
-            if (btn){
-                btn.textContent = val || 'הוסף הערה';
-                btn.classList.toggle('has-text', !!val);
-                btn.title = val || 'הוסף הערה';
+            if (!val) {
+                delete state.generalComments[currentGcSn];
+            } else {
+                state.generalComments[currentGcSn] = val;
             }
+            saveState();
+            // עדכון האינדיקטור במסכים – מספר + צבע
+            rebuildCommentIndicator(currentGcSn, contentDiv);
+            updateAllCommentIndicators(contentDiv);
             closeGc();
         }
 
@@ -339,34 +475,13 @@ ${carriersListHtml}
             btn.addEventListener('click', handleSackCarrierToggle)
         );
 
-        // מאזינים להערות
-        contentDiv.querySelectorAll('.gc-input').forEach(inp=>{
-            inp.addEventListener('input', e=>{
-                const sn = +e.target.dataset.shoulderNumber;
-                const v = e.target.value || '';
-                state.generalComments = state.generalComments || {};
-                if (!v.trim()) delete state.generalComments[sn];
-                else state.generalComments[sn] = v;
-                saveState();
-            });
+        // מאזיני אינדיקטור הערות בכפתורי נושאי שק
+        contentDiv.querySelectorAll('.runner-comment-indicator').forEach(ind=>{
+            ind.addEventListener('click', indicatorClickHandler);
         });
 
-        // מאזינים לכפתורי ההערות
-        contentDiv.querySelectorAll('[data-comment-btn]').forEach(btn=>{
-            btn.addEventListener('click', async ()=>{
-                const sn = btn.getAttribute('data-comment-btn');
-                try{
-                    await ensureCommentsModalLoaded();
-                    window.CommentsModal.open(sn, {
-                        originBtn: btn,
-                        truncateFn: truncateCrawlCommentSummary
-                    });
-                } catch(e){
-                    console.error(e);
-                    alert('שגיאה בטעינת מודול ההערות');
-                }
-            });
-        });
+        // עדכון ראשוני של הצבע והמספר
+        updateAllCommentIndicators(contentDiv);
 
         // מסירים פוטר ניווט אם קיים (לא צריך בר תחתון)
         const footer = document.getElementById('footer-navigation');
