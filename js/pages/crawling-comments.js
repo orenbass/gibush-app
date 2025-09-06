@@ -108,6 +108,39 @@
             document.head.appendChild(s);
         }
 
+        function ensureCommentsModalLoaded() {
+            return new Promise((resolve, reject) => {
+                if (window.CommentsModal?.open) return resolve();
+                if (document.querySelector('script[data-comments-modal]')) {
+                    const chk = () => window.CommentsModal?.open ? resolve() : setTimeout(chk, 40);
+                    return chk();
+                }
+                const s = document.createElement('script');
+                s.src = 'js/components/commentsModal.js';
+                s.async = true;
+                s.dataset.commentsModal = 'true';
+                s.onload = () => window.CommentsModal?.open ? resolve() : reject(new Error('CommentsModal missing'));
+                s.onerror = () => reject(new Error('Failed loading commentsModal.js'));
+                document.head.appendChild(s);
+            });
+        }
+
+        function truncateCrawlCommentSummary(raw, max = 24) {
+            const EMPTY = 'כתוב הערה...';
+            if (raw == null) return EMPTY;
+            let str;
+            if (Array.isArray(raw)) {
+                const cleaned = raw.filter(c => c && c.trim());
+                if (!cleaned.length) return EMPTY;
+                str = cleaned.join(' | ');
+            } else {
+                str = String(raw || '').trim();
+                if (!str) return EMPTY;
+            }
+            str = str.replace(/\s+/g, ' ');
+            return str.length > max ? str.slice(0, max) + '…' : str;
+        }
+
         // רצים פעילים (שטרם סומנו כסיימו)
         const activeRunners = state.runners
             .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
@@ -161,7 +194,7 @@
 <div class="arrival-header">
   <div class="flex items-center gap-2">
     <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:right;">מספר כתף</span>
-    <span class="flex-1 text-center font-semibold text-xs md:text-sm">הערות כלליות</span>
+    <span class="flex-1 text-center font-semibold text-xs md:text-sm">הערות</span>
     <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:left;">זמן</span>
   </div>
 </div>
@@ -174,18 +207,19 @@
           const timeText = sackData
               ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now()-sackData.startTime : 0))
               : '00:00';
-          const gc = state.generalComments?.[sn] || '';
-          return `<div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
-              <span class="font-bold text-gray-700 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${i+1}. ${sn}</span>
-              <span class="flex-1" style="min-width: 0;">
-                <button type="button"
-                        class="gc-open-btn ${gc ? 'has-text' : ''}"
-                        data-open-gc="${sn}"
-                        title="${gc ? gc.replace(/"/g,'&quot;') : 'הוסף הערה'}">
-                  ${gc ? gc.replace(/</g,'&lt;') : 'הוסף הערה'}
+          const raw = state.generalComments?.[sn];
+          const has = Array.isArray(raw) ? raw.some(c=>c && c.trim()) : !!(raw && String(raw).trim());
+          const summary = truncateCrawlCommentSummary(raw);
+          return `<div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2 dark:bg-slate-700">
+              <span class="font-bold text-gray-700 dark:text-gray-100 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${i+1}. ${sn}</span>
+              <span class="flex-1 flex justify-center" style="min-width:0;">
+                <button class="comment-btn ${has ? '' : 'comment-btn-empty'}"
+                        data-comment-btn="${sn}"
+                        title="עריכת הערות">
+                  ${summary} ✎
                 </button>
               </span>
-              <span class="font-mono text-gray-600 text-sm md:text-base whitespace-nowrap"
+              <span class="font-mono text-gray-600 dark:text-gray-200 text-sm md:text-base whitespace-nowrap"
                     style="min-width:88px;text-align:left;" id="sack-timer-${sn}">${timeText}</span>
             </div>`;
         }).join('')
@@ -314,6 +348,23 @@ ${carriersListHtml}
                 if (!v.trim()) delete state.generalComments[sn];
                 else state.generalComments[sn] = v;
                 saveState();
+            });
+        });
+
+        // מאזינים לכפתורי ההערות
+        contentDiv.querySelectorAll('[data-comment-btn]').forEach(btn=>{
+            btn.addEventListener('click', async ()=>{
+                const sn = btn.getAttribute('data-comment-btn');
+                try{
+                    await ensureCommentsModalLoaded();
+                    window.CommentsModal.open(sn, {
+                        originBtn: btn,
+                        truncateFn: truncateCrawlCommentSummary
+                    });
+                } catch(e){
+                    console.error(e);
+                    alert('שגיאה בטעינת מודול ההערות');
+                }
             });
         });
 
