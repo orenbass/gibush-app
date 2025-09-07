@@ -297,6 +297,12 @@
         }
         // שמירה = רק סגירה ועדכון כפתור
         saveState?.();
+
+        // קריאה למעדכן הגלובלי שיטפל ב-UI
+        if (window.CommentButtonUpdater) {
+          window.CommentButtonUpdater.update(shoulderNumber);
+        }
+
         attemptClose('save');
         return;
       }
@@ -327,4 +333,60 @@
   }
 
   window.CommentsModal = { open };
+})();
+
+(function () {
+  window.CommentButtonUpdater = {
+    /**
+     * מעדכן את התצוגה של כפתור הערות ספציפי על סמך המידע העדכני ב-state.
+     * @param {string | number} shoulderNumber מספר הכתף של הרץ לעדכון.
+     */
+    update: function (shoulderNumber) {
+      // מצא את הכפתור הרלוונטי בכל מקום בדף
+      const btn = document.querySelector(`[data-comment-btn="${shoulderNumber}"]`);
+      if (!btn) {
+        // console.log(`CommentButtonUpdater: לא נמצא כפתור עבור רץ #${shoulderNumber}`);
+        return;
+      }
+
+      // 1. קבל את המידע העדכני מה-state
+      const raw = window.state?.generalComments?.[shoulderNumber];
+      let arr = [];
+      if (Array.isArray(raw)) arr = raw.filter(c => c && c.trim());
+      else if (raw && String(raw).trim()) arr = [String(raw).trim()];
+      
+      const count = arr.length;
+      const level = Math.min(count, 5); // רמת צבע 0-5
+
+      // 2. עדכן את הטקסט
+      const textEl = btn.querySelector('.comment-text');
+      if (textEl) {
+        let text = 'כתוב הערה...';
+        if (count > 0) {
+          const joined = arr.join(' | ').replace(/\s+/g, ' ');
+          text = joined.length > 20 ? joined.slice(0, 17) + '...' : joined;
+        }
+        textEl.textContent = text;
+      }
+
+      // 3. עדכן את רמת הצבע (class)
+      // הסר את כל רמות הצבע הקודמות
+      for (let i = 0; i <= 5; i++) {
+        btn.classList.remove(`comment-level-${i}`);
+      }
+      // הוסף את הרמה הנכונה
+      btn.classList.add(`comment-level-${level}`);
+
+      // 4. עדכן את מצב "ריק" / "מלא"
+      if (count === 0) {
+        btn.classList.add('comment-btn-empty');
+      } else {
+        btn.classList.remove('comment-btn-empty');
+      }
+      
+      // 5. עדכן מידע נוסף (אופציונלי)
+      btn.dataset.commentCount = count;
+      btn.title = `הערות (#${shoulderNumber}) – ${count ? count + ' הערות' : 'אין הערות'}`;
+    }
+  };
 })();

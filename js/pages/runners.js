@@ -1,7 +1,43 @@
 (function () {
     window.Pages = window.Pages || {};
+
+    // פונקציה גלובלית לעדכון רשימת הפעילים בלבד
+    window.updateActiveRunners = function updateActiveRunners() {
+        const inactivePattern = /(retir|withdraw|dropped|drop\s*out|quit|inactive|not.?active|non.?active|eliminated|פרש|פרשה|פרישה|לא.?פעיל|עזב|עזבה|הוסר|הוסרה|נשר|נשרה|נשירה|לא\s*ממשיך|לא\s*משתתף|הודח|הודחה)/i;
+        const runners = Array.isArray(window.state?.runners) ? window.state.runners : [];
+        const runnerStatuses = state?.crawlingDrills?.runnerStatuses || {}; // NEW: מפה חיצונית
+
+        const active = runners.filter(r => {
+            if (!r) return false;
+            const sn = r.shoulderNumber;
+            if (sn == null || sn === '') return false;
+            if (runnerStatuses[sn]) return false; // NEW: אם מסומן חיצונית כלא פעיל
+            if (r.active === false || r.isActive === false) return false;
+            if (r.inactive || r.notActive || r.retired || r.isRetired || r.withdrawn || r.withdrew ||
+                r.dropped || r.droppedOut || r.quit || r.eliminated || r.removed || r.isRemoved ||
+                r.hidden || r.disabled) return false;
+            // טקסטים אפשריים
+            const statusStr = [r.status, r.state, r.phase, r.reason, r.note, r.notes, r.comment, r.description, r.label]
+                .filter(Boolean).join(' ');
+            if (statusStr && inactivePattern.test(statusStr)) return false;
+            return true;
+        });
+        // הסרת כפולים לפי מספר כתף
+        const seen = new Set();
+        window.state.activeRunners = active.filter(r => {
+            const key = String(r.shoulderNumber).trim();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        window.state.activeShoulders = window.state.activeRunners.map(r => String(r.shoulderNumber).trim());
+    };
+
     window.Pages.renderRunnersPage = function renderRunnersPage() {
         headerTitle.textContent = 'ניהול קבוצה';
+
+        // עדכון לפני רינדור (שיהיה זמין ל quick-comments)
+        window.updateActiveRunners();
 
         // אם אין פרטי הערכה - הצג חלון התחלתי
         if (!state.evaluatorName || !state.groupNumber) {
@@ -97,6 +133,11 @@
             <button id="reset-app-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm">אפס אפליקציה</button>
         </div>
     </div>`;
+
+        // רענון סרגל הערות מהירות לאחר חישוב פעילים
+        if (window.QuickComments?.renderBar && document.getElementById('quick-comment-bar-container')) {
+            window.QuickComments.renderBar(true);
+        }
 
         // הצגת רשימת מועמדים אם קיימים
         if (hasRunners) {

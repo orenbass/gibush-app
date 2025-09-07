@@ -734,3 +734,123 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
     transform: rotate(360deg);
   }
 }
+
+/* === סגנון אחיד לכפתור הערות מהיר === */
+.comment-btn.sprint-comment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1;
+  padding: 6px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all .25s;
+  position: relative;
+  max-width: 100%;
+  border: 1px solid transparent;
+}
+
+.comment-btn.sprint-comment-btn .comment-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  display: inline-block;
+}
+
+.comment-btn.sprint-comment-btn .comment-icon {
+  font-size: 14px;
+  opacity: .9;
+  line-height: 1;
+}
+
+.comment-btn.sprint-comment-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, .15);
+}
+
+.comment-btn.sprint-comment-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.comment-btn.sprint-comment-btn:focus {
+  outline: 2px solid rgba(147, 197, 253, .9);
+  outline-offset: 2px;
+}
+
+/* === Comment button color scale 0–5 (overrides previous block) === */
+
+/* Level 0 – Red */
+.comment-btn.sprint-comment-btn.comment-level-0{
+  background:#fee2e2;
+  border-color:#fca5a5;
+  color:#b91c1c;
+}
+.dark .comment-btn.sprint-comment-btn.comment-level-0{
+  background:#450a0a;
+  border-color:#991b1b;
+  color:#fecaca;
+}
+
+/* Level 1 – Orange */
+.comment-btn.sprint-comment-btn.comment-level-1{
+  background:#ffedd5;
+  border-color:#fdba74;
+  color:#9a3412;
+}
+.dark .comment-btn.sprint-comment-btn.comment-level-1{
+  background:#431407;
+  border-color:#c2410c;
+  color:#fed7aa;
+}
+
+/* Level 2 – Dark Yellow */
+.comment-btn.sprint-comment-btn.comment-level-2{
+  background:#facc15;
+  border-color:#eab308;
+  color:#854d0e;
+}
+.dark .comment-btn.sprint-comment-btn.comment-level-2{
+  background:#422006;
+  border-color:#b45309;
+  color:#fde68a;
+}
+
+/* Level 3 – Yellow */
+.comment-btn.sprint-comment-btn.comment-level-3{
+  background:#fef08a;
+  border-color:#facc15;
+  color:#713f12;
+}
+.dark .comment-btn.sprint-comment-btn.comment-level-3{
+  background:#444003;
+  border-color:#a16207;
+  color:#fef08a;
+}
+
+/* Level 4 – Yellow-Green */
+.comment-btn.sprint-comment-btn.comment-level-4{
+  background:#d9f99d;
+  border-color:#bef264;
+  color:#3f6212;
+}
+.dark .comment-btn.sprint-comment-btn.comment-level-4{
+  background:#1a2e05;
+  border-color:#4d7c0f;
+  color:#d9f99d;
+}
+
+/* Level 5 – Green */
+.comment-btn.sprint-comment-btn.comment-level-5{
+  background:#dcfce7;
+  border-color:#86efac;
+  color:#166534;
+}
+.dark .comment-btn.sprint-comment-btn.comment-level-5{
+  background:#062813;
+  border-color:#16a34a;
+  color:#bbf7d0;
+}

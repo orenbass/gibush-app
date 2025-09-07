@@ -72,7 +72,7 @@
     heat.selections = heat.selections || {};
     const selections = heat.selections;
 
-    const PAGE_LABEL = 'אלונקה סוציומטרית';
+    const PAGE_LABEL = 'מקצה';
     if (window.headerTitle) {
       headerTitle.textContent = `${PAGE_LABEL} – מקצה ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}`;
     }
