@@ -1,19 +1,32 @@
-const CACHE = 'gibush-v1';
+const CACHE_NAME = 'app-cache-v1';
 const ASSETS = [
-  './',
-  './index.html',
-  './app.js',
-  './styles/tailwind.css'
+  '/',
+  'index.html',
+  'app.js',
+  'css/styles.css',
+  // הוסף כאן רק קבצים שבטוח קיימים
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    for (const url of ASSETS) {
+      try {
+        const resp = await fetch(url, { cache: 'no-cache' });
+        if (!resp.ok) throw new Error(resp.status);
+        await cache.put(url, resp);
+      } catch (e) {
+        console.warn('[SW] skip caching', url, e.message);
+      }
+    }
+    self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
 });

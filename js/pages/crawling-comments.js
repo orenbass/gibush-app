@@ -104,52 +104,114 @@
                 .dark .gc-btn-mic{background:#374151;color:#e2e8f0}
                 .dark .gc-btn-mic:hover{background:#425065}
                 .dark .gc-btn-mic.recording{background:#b91c1c}
-                .runner-sack-btn{
-                  position:relative;
-                }
-                .runner-comment-indicator{
-                  position:absolute;
-                  top:4px;
-                  inset-inline-end:4px;
-                  width:32px;
-                  height:32px;
-                  border-radius:10px;
-                  display:flex;
-                  flex-direction:column;
-                  align-items:center;
-                  justify-content:center;
-                  font-size:12px;
-                  font-weight:700;
-                  color:#fff;
-                  line-height:1.05;
-                  box-shadow:0 2px 4px rgba(0,0,0,.25);
-                  cursor:pointer;
+
+                /* === בועת אינדיקציית הערות – אייקון בועה ממולא עם מספר בפנים === */
+                .runner-sack-btn{position:relative;padding-left:38px;} /* מקום לאייקון החדש */
+                .runner-sack-btn .comment-mini-indicator{
+                  position:absolute;top:4px;left:4px;
+                  width:30px;height:28px;
+                  display:flex;align-items:center;justify-content:center;
+                  font-weight:700;line-height:1;
                   user-select:none;
-                  transition:.2s background,.2s transform;
-                  padding:2px 0 1px;
-                  box-sizing:border-box;
                 }
-                .runner-comment-indicator .ci-icon{
-                  display:block;
-                  width:14px;
-                  height:14px;
+                .runner-sack-btn .comment-mini-indicator .bubble-wrapper{
+                  position:relative;width:100%;height:100%;
+                  display:flex;align-items:center;justify-content:center;
                 }
-                .runner-comment-indicator .ci-icon svg{
-                  width:100%;
-                  height:100%;
-                  display:block;
+                .runner-sack-btn .comment-mini-indicator .bubble-svg{
+                  width:100%;height:100%;display:block;
                 }
-                .runner-comment-indicator .ci-count{
+                .runner-sack-btn .comment-mini-indicator .bubble-fill{
+                  /* צבע מתעדכן לפי רמה */
+                  transition:fill .25s;
+                }
+                .runner-sack-btn .comment-mini-indicator .cm-count{
+                  position:absolute;
+                  top:50%;left:50%;
+                  transform:translate(-50%,-62%); /* הרמנו עוד קצת (-60% היה קודם) */
                   font-size:11px;
-                  font-weight:700;
-                  line-height:1;
-                  margin-top:1px;
+                  pointer-events:none;
+                  text-shadow:0 1px 2px rgba(0,0,0,.35);
+                  color:#fff; /* תמיד לבן */
                 }
-                .runner-comment-indicator:active{transform:scale(.92)}
-                .dark .runner-comment-indicator{box-shadow:0 2px 4px rgba(0,0,0,.55)}
-                .runner-comment-indicator[data-count="0"]{
-                  background:#9ca3af;
+                .runner-sack-btn .comment-mini-indicator.count-0 .cm-count{display:none;}
+                .runner-sack-btn .comment-mini-indicator.count-0::after{
+                  content:'+';position:absolute;
+                  top:50%;left:50%;
+                  transform:translate(-50%,-70%); /* היה -60% – הועלה מעט */
+                  font-size:16px;font-weight:400;
+                  text-shadow:0 1px 2px rgba(0,0,0,.35);
+                  color:#fff;
                 }
+
+                /* רמות צבע (fill) + צבע טקסט (color) – תואם styles.css */
+                .runner-sack-btn .comment-mini-indicator.level-0 .bubble-fill{fill:#fecaca;}
+                .runner-sack-btn .comment-mini-indicator.level-0{color:#b91c1c;}
+
+                .runner-sack-btn .comment-mini-indicator.level-1 .bubble-fill{fill:#fed7aa;}
+                .runner-sack-btn .comment-mini-indicator.level-1{color:#9a3412;}
+
+                .runner-sack-btn .comment-mini-indicator.level-2 .bubble-fill{fill:#fde047;}
+                .runner-sack-btn .comment-mini-indicator.level-2{color:#854d0e;}
+
+                .runner-sack-btn .comment-mini-indicator.level-3 .bubble-fill{fill:#fef9c3;}
+                .runner-sack-btn .comment-mini-indicator.level-3{color:#713f12;}
+
+                .runner-sack-btn .comment-mini-indicator.level-4 .bubble-fill{fill:#ecfccb;}
+                .runner-sack-btn .comment-mini-indicator.level-4{color:#3f6212;}
+
+                .runner-sack-btn .comment-mini-indicator.level-5 .bubble-fill{fill:#e7fef3;}
+                .runner-sack-btn .comment-mini-indicator.level-5{color:#166534;}
+
+                /* Dark */
+                .dark .runner-sack-btn .comment-mini-indicator.level-0 .bubble-fill{fill:#641414;}
+                .dark .runner-sack-btn .comment-mini-indicator.level-0{color:#fecaca;}
+
+                .dark .runner-sack-btn .comment-mini-indicator.level-1 .bubble-fill{fill:#5a250c;}
+                .dark .runner-sack-btn .comment-mini-indicator.level-1{color:#fed7aa;}
+
+                .dark .runner-sack-btn .comment-mini-indicator.level-2 .bubble-fill{fill:#5a3a05;}
+                .dark .runner-sack-btn .comment-mini-indicator.level-2{color:#fde68a;}
+
+                .dark .runner-sack-btn .comment-mini-indicator.level-3 .bubble-fill{fill:#55520a;}
+                .dark .runner-sack-btn .comment-mini-indicator.level-3{color:#fef08a;}
+
+                .dark .runner-sack-btn .comment-mini-indicator.level-4 .bubble-fill{fill:#25420a;}
+                .dark .runner-sack-btn .comment-mini-indicator.level-4{color:#d9f99d;}
+
+                .dark .runner-sack-btn .comment-mini-indicator.level-5 .bubble-fill{fill:#094226;}
+                .dark .runner-sack-btn .comment-mini-indicator.level-5{color:#bbf7d0;}
+
+                /* גרסת comment-level (הכפול) – הותאמה גם היא */
+                .comment-mini-indicator.comment-level-0 .bubble-fill{fill:#fecaca;}
+                .comment-mini-indicator.comment-level-1 .bubble-fill{fill:#fed7aa;}
+                .comment-mini-indicator.comment-level-2 .bubble-fill{fill:#fde047;}
+                .comment-mini-indicator.comment-level-3 .bubble-fill{fill:#fef9c3;}
+                .comment-mini-indicator.comment-level-4 .bubble-fill{fill:#ecfccb;}
+                .comment-mini-indicator.comment-level-5 .bubble-fill{fill:#e7fef3;}
+
+                .dark .comment-mini-indicator.comment-level-0 .bubble-fill{fill:#641414;}
+                .dark .comment-mini-indicator.comment-level-1 .bubble-fill{fill:#5a250c;}
+                .dark .comment-mini-indicator.comment-level-2 .bubble-fill{fill:#5a3a05;}
+                .dark .comment-mini-indicator.comment-level-3 .bubble-fill{fill:#55520a;}
+                .dark .comment-mini-indicator.comment-level-4 .bubble-fill{fill:#25420a;}
+                .dark .comment-mini-indicator.comment-level-5 .bubble-fill{fill:#094226;}
+
+                /* ADDED: לחצן הערות בטבלה – רוחב מלא, שורה אחת, פינות מעוגלות קלות */
+                #arrival-list .table-comment-btn{
+                  display:block;
+                  width:100%;
+                  padding:6px 10px;
+                  border-radius:6px;
+                  text-align:right;
+                  white-space:nowrap;
+                  overflow:hidden;
+                  text-overflow:ellipsis;
+                  line-height:1.2;
+                  font-size:12px;
+                  font-weight:500;
+                }
+                #arrival-list .table-comment-btn.comment-btn-empty{opacity:.7;}
             `;
             document.head.appendChild(s);
         }
@@ -187,85 +249,23 @@
             return str.length > max ? str.slice(0, max) + '…' : str;
         }
 
-        function getRunnerCommentCount(sn){
+        function getCommentCount(sn){
             const raw = state.generalComments?.[sn];
             if (!raw) return 0;
             if (Array.isArray(raw)) return raw.filter(c=>c && c.trim()).length;
             return String(raw).trim() ? 1 : 0;
         }
-        function commentCountColor(cnt){
-            const colors = [
-              '#9ca3af', // 0
-              '#f87171', // 1
-              '#fb923c', // 2
-              '#fbbf24', // 3
-              '#34d399', // 4
-              '#059669'  // 5+
-            ];
-            return colors[Math.min(cnt,5)];
+        function updateMiniCommentIndicator(sn){
+            const el = document.querySelector(`.comment-mini-indicator[data-mini-comment="${sn}"]`);
+            if(!el) return;
+            const count = getCommentCount(sn);
+            const level = Math.min(count,5);
+            for(let i=0;i<=5;i++) el.classList.remove(`comment-level-${i}`);
+            el.classList.add(`comment-level-${level}`);
+            const cntEl = el.querySelector('.cm-count');
+            if (cntEl) cntEl.textContent = count;
         }
-        function buildCommentIndicatorHTML(sn){
-            const cnt = getRunnerCommentCount(sn);
-            const title = cnt === 0
-              ? 'אין הערות – לחץ להוספה'
-              : `${cnt} הערה${cnt>1?'ות':''} (לחץ לעריכה)`;
-            return `<span class="runner-comment-indicator"
-                           data-comment-indicator="${sn}"
-                           data-count="${cnt}"
-                           title="${title}"
-                           style="background:${commentCountColor(cnt)};">
-                      <span class="ci-icon" aria-hidden="true">
-                        <svg viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2 3.5A2.5 2.5 0 0 1 4.5 1h11A2.5 2.5 0 0 1 18 3.5v7A2.5 2.5 0 0 1 15.5 13H10.9l-3.6 3.2c-.9.8-2.3.1-2.3-1V13H4.5A2.5 2.5 0 0 1 2 10.5v-7Z"/>
-                        </svg>
-                      </span>
-                      <span class="ci-count">${cnt===0?'+':cnt}</span>
-                    </span>`;
-        }
-
-        function updateAllCommentIndicators(root=document){
-            root.querySelectorAll('[data-comment-indicator]').forEach(el=>{
-                const sn = el.getAttribute('data-comment-indicator');
-                const cnt = getRunnerCommentCount(sn);
-                el.dataset.count = cnt;
-                const countEl = el.querySelector('.ci-count');
-                if (countEl) countEl.textContent = cnt===0?'+':cnt;
-                el.style.background = commentCountColor(cnt);
-                el.title = cnt === 0
-                  ? 'אין הערות – לחץ להוספה'
-                  : `${cnt} הערה${cnt>1?'ות':''} (לחץ לעריכה)`;
-            });
-        }
-
-        function rebuildCommentIndicator(sn, root = document){
-            const oldEl = root.querySelector(`.runner-comment-indicator[data-comment-indicator="${sn}"]`);
-            if (!oldEl) return;
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = buildCommentIndicatorHTML(sn);
-            const newEl = wrapper.firstElementChild;
-            oldEl.replaceWith(newEl);
-            // חיבור מאזין מחדש
-            newEl.addEventListener('click', indicatorClickHandler);
-        }
-
-        async function indicatorClickHandler(e){
-            e.stopPropagation();
-            const el = e.currentTarget;
-            const sn = el.getAttribute('data-comment-indicator');
-            try{
-                await ensureCommentsModalLoaded();
-                // לא מעבירים originBtn כדי שלא ידרוס את ה-HTML
-                window.CommentsModal.open(sn, {
-                    afterChange: () => {
-                        rebuildCommentIndicator(sn, contentDiv);
-                        updateAllCommentIndicators(contentDiv);
-                    }
-                });
-            }catch(err){
-                console.error(err);
-                alert('שגיאה בטעינת מודול ההערות');
-            }
-        }
+        window.updateMiniCommentIndicator = updateMiniCommentIndicator;
 
         // רצים פעילים (שטרם סומנו כסיימו)
         const activeRunners = state.runners
@@ -293,10 +293,23 @@
             const timeText = hasTime
                 ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now()-sackData.startTime : 0))
                 : (isSelected ? '00:00' : '');
+
+            // חישוב כמות הערות
+            const raw = state.generalComments?.[sn];
+            let arr = Array.isArray(raw) ? raw.filter(c=>c && c.trim()) :
+                      (raw && String(raw).trim() ? [String(raw).trim()] : []);
+            const cCount = arr.length;
+            const level = Math.min(cCount,5);
+
             return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} ${hasTime ? 'has-sack-time' : ''}"
                         data-shoulder-number="${sn}" ${!canSelect ? 'disabled' : ''}>
-                        <span class="runner-number">${sn}</span>
-                        ${buildCommentIndicatorHTML(sn)}
+                        <span class="comment-mini-indicator comment-level-${level}" data-mini-comment="${sn}" aria-label="הערות: ${cCount}">
+                          <svg class="bubble-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path class="bubble-fill" d="M4 3h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6l-4.6 4.6c-.62.62-1.4.18-1.4-.7V16H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2z"/>
+                          </svg>
+                          <span class="cm-count">${cCount}</span>
+                        </span>
+                        <span>${sn}</span>
                         <span class="mini-sack-time" id="mini-sack-timer-${sn}">${timeText}</span>
                     </button>`;
         }).join('')}
@@ -334,26 +347,21 @@
           const timeText = sackData
               ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now()-sackData.startTime : 0))
               : '00:00';
-          const cnt = getRunnerCommentCount(sn);
-          const title = cnt === 0
-            ? 'אין הערות – לחץ להוספה'
-            : `${cnt} הערה${cnt>1?'ות':''} (לחץ לעריכה)`;
+          const raw = state.generalComments?.[sn];
+          const arr = Array.isArray(raw) ? raw.filter(c=>c && c.trim()) :
+                       (raw && String(raw).trim() ? [String(raw).trim()] : []);
+          const has = arr.length > 0;
+          const cCount = arr.length;
+          const level = Math.min(cCount,5); // for color scale
+          const summary = truncateCrawlCommentSummary(raw);
           return `<div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2 dark:bg-slate-700">
               <span class="font-bold text-gray-700 dark:text-gray-100 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${i+1}. ${sn}</span>
-              <span class="flex-1 flex justify-center" style="min-width:0;">
-                <span class="runner-comment-indicator"
-                      data-comment-indicator="${sn}"
-                      data-comment-btn="${sn}"
-                      data-count="${cnt}"
-                      title="${title}"
-                      style="background:${commentCountColor(cnt)};">
-                  <span class="ci-icon" aria-hidden="true">
-                    <svg viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M2 3.5A2.5 2.5 0 0 1 4.5 1h11A2.5 2.5 0 0 1 18 3.5v7A2.5 2.5 0 0 1 15.5 13H10.9l-3.6 3.2c-.9.8-2.3.1-2.3-1V13H4.5A2.5 2.5 0 0 1 2 10.5v-7Z"/>
-                    </svg>
-                  </span>
-                  <span class="ci-count">${cnt===0?'+':cnt}</span>
-                </span>
+              <span class="flex-1" style="min-width:0;">
+                <button class="comment-btn sprint-comment-btn table-comment-btn comment-level-${level} ${has ? '' : 'comment-btn-empty'}"
+                        data-comment-btn="${sn}"
+                        title="עריכת הערות">
+                  ${summary} ✎
+                </button>
               </span>
               <span class="font-mono text-gray-600 dark:text-gray-200 text-sm md:text-base whitespace-nowrap"
                     style="min-width:88px;text-align:left;" id="sack-timer-${sn}">${timeText}</span>
@@ -440,15 +448,16 @@ ${carriersListHtml}
             if (currentGcSn == null) return;
             const val = gcTextarea.value.trim();
             state.generalComments = state.generalComments || {};
-            if (!val) {
-                delete state.generalComments[currentGcSn];
-            } else {
-                state.generalComments[currentGcSn] = val;
-            }
+            if (!val) delete state.generalComments[currentGcSn];
+            else state.generalComments[currentGcSn] = val;
             saveState();
-            // עדכון האינדיקטור במסכים – מספר + צבע
-            rebuildCommentIndicator(currentGcSn, contentDiv);
-            updateAllCommentIndicators(contentDiv);
+            updateMiniCommentIndicator(currentGcSn);
+            const btn = contentDiv.querySelector(`.gc-open-btn[data-open-gc="${currentGcSn}"]`);
+            if (btn){
+                btn.textContent = val || 'הוסף הערה';
+                btn.classList.toggle('has-text', !!val);
+                btn.title = val || 'הוסף הערה';
+            }
             closeGc();
         }
 
@@ -475,13 +484,41 @@ ${carriersListHtml}
             btn.addEventListener('click', handleSackCarrierToggle)
         );
 
-        // מאזיני אינדיקטור הערות בכפתורי נושאי שק
-        contentDiv.querySelectorAll('.runner-comment-indicator').forEach(ind=>{
-            ind.addEventListener('click', indicatorClickHandler);
+        // מאזינים להערות
+        contentDiv.querySelectorAll('.gc-input').forEach(inp=>{
+            inp.addEventListener('input', e=>{
+                const sn = +e.target.dataset.shoulderNumber;
+                const v = e.target.value || '';
+                state.generalComments = state.generalComments || {};
+                if (!v.trim()) delete state.generalComments[sn];
+                else state.generalComments[sn] = v;
+                saveState();
+            });
         });
 
-        // עדכון ראשוני של הצבע והמספר
-        updateAllCommentIndicators(contentDiv);
+        // מאזינים לכפתורי ההערות
+        contentDiv.querySelectorAll('[data-comment-btn]').forEach(btn=>{
+            btn.addEventListener('click', async ()=>{
+                const sn = btn.getAttribute('data-comment-btn');
+                try{
+                    await ensureCommentsModalLoaded();
+                    window.CommentsModal.open(sn, {
+                        originBtn: btn,
+                        truncateFn: truncateCrawlCommentSummary,
+                        onSave: (val)=>{
+                            state.generalComments = state.generalComments || {};
+                            state.generalComments[sn] = val;
+                            saveState();
+                            if (window.CommentButtonUpdater) CommentButtonUpdater.update(sn);
+                            updateMiniCommentIndicator(sn);
+                        }
+                    });
+                } catch(e){
+                    console.error(e);
+                    alert('שגיאה בטעינת מודול ההערות');
+                }
+            });
+        });
 
         // מסירים פוטר ניווט אם קיים (לא צריך בר תחתון)
         const footer = document.getElementById('footer-navigation');
@@ -502,5 +539,23 @@ ${carriersListHtml}
         clearInterval(window._miniSackTimersInterval);
         window._miniSackTimersInterval = setInterval(updateMiniSackTimers,1000);
         updateMiniSackTimers();
+
+        // הוספת ריענון גורף (קריאה חוזרת על כל הבועות המוצגות)
+        function refreshAllMiniIndicators(){
+            (displayedSackCarriers || []).forEach(r=>{
+                if(r && r.shoulderNumber!=null) updateMiniCommentIndicator(r.shoulderNumber);
+            });
+        }
+
+        // ריענון כאשר נלחץ כפתור שליחת "תגובה מהירה" (מהבר הגלובלי)
+        document.addEventListener('click', e=>{
+            if(e.target && e.target.id === 'quick-comment-send'){
+                // השהייה קצרה כדי לאפשר ל-state להתעדכן ולהישמר
+                setTimeout(refreshAllMiniIndicators, 120);
+            }
+        });
+
+        // אפשר גם לחשוף החוצה לשימוש עתידי
+        window.refreshAllMiniCommentIndicators = refreshAllMiniIndicators;
     };
 })();
