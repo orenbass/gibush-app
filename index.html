@@ -83,6 +83,35 @@
         /* Enable rapid taps (prevents browser double-tap zoom naturally) */
         html, body { touch-action: manipulation; }
     </style>
+    <style>
+        /* NEW: navigation tab styling */
+        .nav-tab {
+            border-bottom: 2px solid transparent;
+            border-radius: .5rem;
+            padding: .4rem .55rem;
+            font-weight: 600;
+            transition: background .18s, color .18s, border-color .18s, box-shadow .18s;
+        }
+        .nav-tab:is(:hover,:focus-visible) {
+            background: rgba(59,130,246,0.08);
+        }
+        .nav-tab.is-active {
+            background: linear-gradient(145deg,#2563eb,#1d4ed8);
+            color: #fff !important;
+            border-color: transparent;
+            box-shadow: 0 2px 4px rgba(0,0,0,.18);
+        }
+        .dark .nav-tab.is-active {
+            background: linear-gradient(145deg,#1d4ed8,#1e40af);
+            color: #fff !important;
+        }
+        .dark .nav-tab:is(:hover,:focus-visible){
+            background: rgba(96,165,250,0.15);
+        }
+        /* shrink emoji a bit on small screens */
+        .nav-tab > span:first-child { font-size: 1rem; line-height: 1; }
+        .nav-tab.is-active > span:first-child { transform: translateY(-1px); }
+    </style>
     <script>
         // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
         (function(){
@@ -143,8 +172,7 @@
                 </button>
             </header>
             <nav class="w-full max-w-6xl bg-white rounded-lg shadow-md overflow-x-auto mb-4">
-                <ul
-                    class="flex justify-start md:justify-center text-sm font-semibold text-gray-600 divide-x divide-x-reverse divide-gray-200">
+                <ul class="flex justify-start md:justify-center gap-x-1 text-sm font-semibold text-gray-600 px-1 py-1">
                     <li class="flex-shrink-0"><button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
                             data-page="runners"><span>👨‍👦</span><span class="text-xs mt-1">קבוצה</span></button></li>
