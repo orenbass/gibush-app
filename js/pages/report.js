@@ -114,24 +114,6 @@
     `;
   }
 
-  function ensureSafeAreaCss(){
-    if (document.getElementById('safe-area-style')) return;
-    const st = document.createElement('style');
-    st.id = 'safe-area-style';
-    st.textContent = `
-      :root {
-        --safe-area-top: env(safe-area-inset-top, 0px);
-      }
-      body {
-        padding-top: calc(var(--safe-area-top) + 12px);
-      }
-      @media (min-width:900px){
-        body { padding-top: calc(var(--safe-area-top) + 8px); }
-      }
-    `;
-    document.head.appendChild(st);
-  }
-
   function safeScore(fnName, runner) {
     try { if (typeof window[fnName] === 'function') return window[fnName](runner); } catch(e){ console.warn(e); }
     return 0;
@@ -306,7 +288,6 @@
   }
 
   window.Pages.renderReportPage = function renderReportPage() {
-    ensureSafeAreaCss();
     const contentDiv = document.getElementById('content');
     if (!contentDiv) return console.error("renderReportPage: לא נמצא האלמנט #content");
     
