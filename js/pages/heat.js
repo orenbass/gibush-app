@@ -67,34 +67,65 @@
         });
     }
 
-    /**
-     * פונקציית עזר לבניית כפתור הערות עם העיצוב והצבעים הנכונים.
-     * @param {string|number} shoulderNumber 
-     * @returns {string} HTML של הכפתור.
-     */
     function buildCommentButton(shoulderNumber) {
         const raw = state.generalComments?.[shoulderNumber];
-        let arr = Array.isArray(raw) ? raw.filter(c => c && c.trim()) : (raw ? [String(raw).trim()] : []);
+        const arr = Array.isArray(raw)
+            ? raw.filter(c => c && c.trim())
+            : (raw && String(raw).trim() ? [String(raw).trim()] : []);
         const count = arr.length;
         const level = Math.min(count, 5);
-        let text = 'כתוב הערה...';
-        if (count > 0) {
-            const joined = arr.join(' | ');
-            text = joined.length > 20 ? joined.slice(0, 17) + '...' : joined;
+        let summary = 'כתוב הערה...';
+        if (count) {
+            const joined = arr.join(' | ').replace(/\s+/g,' ');
+            summary = joined.length > 24 ? joined.slice(0,24) + '…' : joined;
         }
-        const emptyCls = count === 0 ? 'comment-btn-empty' : '';
-
-        // --- שינוי: הסרנו את 'comment-btn' והוספנו 'sprint-style-override' ---
-        // זה מונע מהעיצוב הישן לחול על הכפתור הזה.
         return `
-            <button type="button"
-                class="sprint-style-override sprint-comment-btn comment-level-${level} ${emptyCls}"
-                data-comment-btn="${shoulderNumber}"
-                title="הערות (#${shoulderNumber}) – ${count} הערות">
-                <span class="comment-text">${text}</span>
-                <span class="comment-icon">✎</span>
-            </button>`;
+        <button type="button"
+            class="comment-btn comment-level-${level} ${count ? '' : 'comment-btn-empty'}"
+            data-comment-btn="${shoulderNumber}"
+            data-comment-count="${count}"
+            title="הערות (${count})">
+            ${summary} ✎
+        </button>`;
     }
+
+    function getCommentMeta(sn){
+        const raw = state.generalComments?.[sn];
+        const arr = Array.isArray(raw)
+            ? raw.filter(c=>c && c.trim())
+            : (raw && String(raw).trim() ? [String(raw).trim()] : []);
+        const count = arr.length;
+        const level = Math.min(count,5);
+        let summary = 'כתוב הערה...';
+        if (count){
+            const joined = arr.join(' | ').replace(/\s+/g,' ');
+            summary = joined.length > 24 ? joined.slice(0,24)+'…' : joined;
+        }
+        return { summary, count, level, empty: count===0 };
+    }
+
+    function refreshSingleCommentButton(btn){
+        const sn = btn.getAttribute('data-comment-btn');
+        if (!sn) return;
+        const { summary, count, level, empty } = getCommentMeta(sn);
+        for (let i=0;i<=5;i++) btn.classList.remove(`comment-level-${i}`);
+        btn.classList.add(`comment-level-${level}`);
+        btn.classList.toggle('comment-btn-empty', empty);
+        btn.dataset.commentCount = count;
+        btn.title = `הערות (${count})`;
+        const desired = `${summary} ✎`;
+        if (btn.innerHTML !== desired) btn.innerHTML = desired;
+    }
+
+    function refreshAllHeatCommentButtons(root=document){
+        root.querySelectorAll('button.comment-btn[data-comment-btn]').forEach(refreshSingleCommentButton);
+    }
+
+    window.CommentButtonUpdater = window.CommentButtonUpdater || {};
+    window.CommentButtonUpdater.update = function(sn){
+        const btn = document.querySelector(`button.comment-btn[data-comment-btn="${sn}"]`);
+        if (btn) refreshSingleCommentButton(btn);
+    };
 
     window.Pages.renderHeatPage = async function renderHeatPage(heatIndex) {
         await ensureArrivalRowsLoaded();
@@ -135,12 +166,11 @@
 
         const arrivalsBlockHtml = ArrivalRows.render({
           arrivals: heat.arrivals,
-            getCommentButtonHtml: buildCommentButton,
-            formatTime: formatNoMs,
-            variant: 'float',
-            showHeader: true,
-            labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן ריצה' },
-            listId: 'arrival-list'
+          getCommentButtonHtml: buildCommentButton,
+          formatTime: formatNoMs,
+          showHeader: true,
+          labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן ריצה' },
+          listId: 'arrival-list'
         });
 
         const bodyHtml = `
@@ -166,6 +196,25 @@
           ${arrivalsBlockHtml}
         `;
         contentDiv.innerHTML = bodyHtml;
+
+        // --- AFTER INITIAL RENDER: ensure buttons reflect current state ---
+        refreshAllHeatCommentButtons(contentDiv);
+
+        // Monitor dynamic mutations (e.g., ArrivalRows re-renders rows) and re-apply
+        const arrivalList = contentDiv.querySelector('#arrival-list');
+        if (arrivalList){
+            if (window._heatCommentObserver) window._heatCommentObserver.disconnect();
+            window._heatCommentObserver = new MutationObserver(muts=>{
+                let need = false;
+                for (const m of muts){
+                    if (m.type === 'childList' || m.type === 'subtree' || m.addedNodes.length){
+                        need = true; break;
+                    }
+                }
+                if (need) requestAnimationFrame(()=>refreshAllHeatCommentButtons(arrivalList));
+            });
+            window._heatCommentObserver.observe(arrivalList,{childList:true,subtree:true});
+        }
 
         if (window.ensureTimerIcon) window.ensureTimerIcon();
 
@@ -195,15 +244,6 @@
           window._timerWrappedNoMs = true;
         })();
 
-        (function adjustHeatControls(){
-          const wrap = contentDiv.querySelector('.heat-controls-wrapper');
-          if(!wrap) return;
-          const visible = [...wrap.querySelectorAll('.timer-btn-sm:not(.hidden)')];
-            wrap.classList.remove('single','double');
-            if (visible.length === 1) wrap.classList.add('single');
-            else if (visible.length === 2) wrap.classList.add('double');
-        })();
-
         function adjustHeatActions(){
           const wrap = contentDiv.querySelector('.heat-actions');
           if(!wrap) return;
@@ -223,18 +263,22 @@
 
         document.getElementById('start-btn')?.addEventListener('click', () => {
           handleStart(heat);
-          setTimeout(adjustHeatActions,0);
+          setTimeout(()=>{adjustHeatActions(); refreshAllHeatCommentButtons(contentDiv);},0);
         });
         document.getElementById('stop-btn')?.addEventListener('click', () => {
           confirmStopAndAdvance(heat,'sprint');
-          setTimeout(adjustHeatActions,0);
+          setTimeout(()=>{adjustHeatActions(); refreshAllHeatCommentButtons(contentDiv);},0);
         });
         document.getElementById('undo-btn')?.addEventListener('click', () => {
           handleUndoArrival(heat);
-          setTimeout(adjustHeatActions,0);
+          setTimeout(()=>refreshAllHeatCommentButtons(contentDiv),0);
         });
 
-        document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, heat, state.currentHeatIndex));
+        document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => {
+            handleAddRunnerToHeat(e, heat, state.currentHeatIndex);
+            // אחרי הוספת רץ (ייתכן רנדר) נעדכן שוב
+            setTimeout(()=>refreshAllHeatCommentButtons(contentDiv),0);
+        });
 
         document.getElementById('next-heat-btn-inline')?.addEventListener('click', () => {
             if (state.currentHeatIndex < CONFIG.NUM_HEATS - 1) {
@@ -254,26 +298,25 @@
             }
         });
 
+        // Attach modal handlers (ArrivalRows helper)
         ArrivalRows.attachCommentHandlers(contentDiv, {
-          onOpen: async (sn, btn) => {
-            try{
-              await ensureCommentsModalLoaded();
-              window.CommentsModal.open(sn, {
-                originBtn: btn,
-                onSave: (val) => {
-                  state.generalComments = state.generalComments || {};
-                  state.generalComments[sn] = val;
-                  saveState();
-                  if (window.CommentButtonUpdater) {
-                    window.CommentButtonUpdater.update(sn);
-                  }
+            onOpen: async (sn, btn) => {
+                try {
+                    await ensureCommentsModalLoaded();
+                    window.CommentsModal.open(sn, {
+                        originBtn: btn,
+                        onSave: (val) => {
+                            state.generalComments = state.generalComments || {};
+                            state.generalComments[sn] = val;
+                            saveState();
+                            window.CommentButtonUpdater && window.CommentButtonUpdater.update(sn);
+                        }
+                    });
+                } catch (e) {
+                    console.error(e);
+                    alert('שגיאה בטעינת מודול ההערות');
                 }
-              });
-            }catch(e){
-              console.error(e);
-              alert('שגיאה בטעינת מודול ההערות');
             }
-          }
         });
     };
 

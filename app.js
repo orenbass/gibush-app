@@ -1,9 +1,17 @@
+// FIX: declare deferredInstallPrompt explicitly + scoped logging helper
+let deferredInstallPrompt = null;
+function logPWA(...args){ console.log('[PWA]', ...args); }
+
 if ("serviceWorker" in navigator) {
-    // Use root path so scope covers the whole app
-    navigator.serviceWorker.register("/service-worker.js").catch(console.error);
+    // FIX: use relative path so scope works when not hosted at domain root
+    navigator.serviceWorker.register("./service-worker.js")
+        .then(reg => {
+            logPWA('Service worker registered', reg.scope);
+        })
+        .catch(err => {
+            logPWA('Service worker registration failed', err);
+        });
 }
-
-
 
 // --- Global State ---
 
@@ -79,24 +87,31 @@ function ensureDomRefs() {
 function setupPWAInstallUI() {
     const installBtn = document.getElementById('install-btn');
     if (!installBtn) return;
-
     const isApple = /iP(hone|ad|od)|Mac/i.test(navigator.userAgent);
-    // iOS doesn’t support beforeinstallprompt – hide the button there
-    installBtn.style.display = isApple ? 'none' : 'none';
+    if (isApple) {
+        // iOS אין beforeinstallprompt – נשאיר מוסתר
+        installBtn.style.display = 'none';
+        return;
+    }
+    // בהתחלה חבוי עד beforeinstallprompt
+    installBtn.style.display = 'none';
 
     installBtn.addEventListener('click', async () => {
         if (!deferredInstallPrompt) {
-            showModal('התקנה', 'לא ניתן להתקין כעת. ודא שעמוד נטען דרך HTTPS ונסה מאוחר יותר.');
+            showModal('התקנה', 'לא זמינה כרגע (beforeinstallprompt לא ירה). ודא: HTTPS, service worker תקין, ביקור אחד לפחות בעמוד.');
             return;
         }
         deferredInstallPrompt.prompt();
-        await deferredInstallPrompt.userChoice.catch(() => {});
+        const choice = await deferredInstallPrompt.userChoice.catch(() => ({}));
+        logPWA('User choice', choice);
         deferredInstallPrompt = null;
         installBtn.style.display = 'none';
     });
 }
 
+// UPDATED listener with logs + safe display
 window.addEventListener('beforeinstallprompt', (event) => {
+    logPWA('beforeinstallprompt fired');
     event.preventDefault();
     deferredInstallPrompt = event;
     const installBtn = document.getElementById('install-btn');
@@ -104,11 +119,11 @@ window.addEventListener('beforeinstallprompt', (event) => {
 });
 
 window.addEventListener('appinstalled', () => {
+    logPWA('PWA installed');
     const installBtn = document.getElementById('install-btn');
     if (installBtn) installBtn.style.display = 'none';
     deferredInstallPrompt = null;
 });
-
 
 // --- Data Persistence & Initialization ---
 
@@ -1822,539 +1837,6 @@ function exitRunnerEditMode() {
     renderRunnerList();
 }
 
-/**
-
- * Renders the "Status Management" page, allowing global status changes for runners
-
- * Runners can be marked as 'temp_removed' (temporarily removed) or 'retired' (permanently retired).
-
- */
-
-/**
-
- * Renders a specific sprint heat page, including timer, runner arrival buttons,
-
- * and a list of arrived runners with their times and comments.
-
- * @param {number} heatIndex - The index of the heat to render.
-
- */
-/**
-
- * Renders the "Crawling Drills Comments" page, allowing general comments for runners
-
- * and managing sack carriers with their individual timers.
-
- */
-/**
-
- * Renders a specific crawling sprint page, similar to sprint heats but for crawling.
-
- * Includes timer, runner arrival buttons, and a list of arrived runners.
-
- * @param {number} sprintIndex - The index of the crawling sprint to render.
-
- */
-
-/**
-
- * Renders the "Report" page, displaying summary tables for active and inactive runners,
-
- * including their calculated scores and status. Provides an option to export data to Excel.
-
- */
-
-// --- Excel Export (Version 1.11 - תיקון באג) ---
-
-
-
-/**
-
- * מייצא את כל נתוני האפליקציה לקובץ אקסל עם מספר גיליונות.
-
- * משתמש בספריית ExcelJS ליצירת קובץ אקסל אמין.
-
- */
-
-async function exportToExcel() {
-
-    // הצגת מסך טעינה בזמן שהקובץ נוצר
-
-    loadingOverlay.classList.remove('hidden');
-
-
-
-    try {
-
-        const workbook = new ExcelJS.Workbook();
-
-        workbook.creator = 'SprintApp_v1.11';
-
-        workbook.created = new Date();
-
-
-
-        // הגדרת סגנון גבולות משותף לתאים
-
-        const border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-
-
-
-        // פונקציית עזר לעיצוב שורות כותרת
-
-        const styleHeader = (row) => {
-
-            row.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }; // גופן לבן ומודגש
-
-            row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } }; // רקע כחול
-
-            row.eachCell(cell => { cell.border = border; }); // החלת גבולות על כל תא
-
-        };
-
-
-
-        // --- 1. גיליון סיכום כללי ---
-
-        const summarySheet = workbook.addWorksheet('סיכום כללי');
-
-        summarySheet.views = [{ rightToLeft: true }]; // הגדרת כיוון הגיליון ל-RTL
-
-
-
-        // הוספת מידע כללי
-
-        summarySheet.addRow(['שם המעריך:', state.evaluatorName]);
-
-        summarySheet.addRow(['מספר קבוצה:', state.groupNumber]);
-
-        summarySheet.addRow(['תאריך ושעה:', new Date().toLocaleString('he-IL')]);
-
-        summarySheet.addRow([]); // שורה ריקה לרווח
-
-        summarySheet.addRow(['טבלת סיכום ציונים']).font = { bold: true, size: 14 }; // כותרת המקטע
-
-
-
-        // הוספת כותרת לטבלת הסיכום
-
-        const summaryHeader = summarySheet.addRow([
-            'דירוג',
-            "מס' כתף",
-            'סופי ספרינטים (1-7)',
-            'סופי זחילות (1-7)',
-            `סופי ${CONFIG.STRETCHER_PAGE_LABEL} (1-7)`,
-            'הערות כלליות',
-            'שם מעריך',
-            'מספר קבוצה'
-        ]);
-        styleHeader(summaryHeader); // החלת סגנונות כותרת
-
-
-
-        // הכנת נתוני רצים פעילים לטבלת הסיכום
-
-        const activeRunners = state.runners.filter(r => !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
-
-            .map(runner => {
-
-                const manual = state.manualScores[runner.shoulderNumber];
-
-                const sprintScore = manual?.sprint ?? calculateSprintFinalScore(runner);
-
-                const crawlingScore = manual?.crawl ?? calculateCrawlingFinalScore(runner);
-
-                const stretcherScore = manual?.stretcher ?? calculateStretcherFinalScore(runner);
-
-                return {
-
-                    runner,
-
-                    sprintScore,
-
-                    crawlingScore,
-
-                    stretcherScore,
-
-                    totalScore: sprintScore + crawlingScore + stretcherScore
-
-                };
-
-            })
-
-            .sort((a, b) => b.totalScore - a.totalScore); // מיון לפי ציון כולל בסדר יורד
-
-
-
-        // הוספת נתוני רצים פעילים לטבלת הסיכום
-
-        activeRunners.forEach((r, index) => {
-            const manual = state.manualScores[r.runner.shoulderNumber];
-            const sprintScore = manual?.sprint ?? calculateSprintFinalScore(r.runner);
-            const crawlingScore = manual?.crawl ?? calculateCrawlingFinalScore(r.runner);
-            const stretcherScore = manual?.stretcher ?? calculateStretcherFinalScore(r.runner);
-
-            // הערות
-            const generalComments = state.generalComments[r.runner.shoulderNumber] || '';
-
-            const row = summarySheet.addRow([
-                index + 1,
-                r.runner.shoulderNumber,
-                sprintScore,
-                crawlingScore,
-                stretcherScore,
-                generalComments,
-                state.evaluatorName,
-                state.groupNumber
-            ]);
-            row.eachCell((cell) => {
-                cell.border = border;
-                if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; // צבע שורה מתחלף
-            });
-        });
-
-        summarySheet.columns = [{ width: 10 }, { width: 15 }, { width: 25 }, { width: 25 }, { width: 25 }]; // הגדרת רוחב עמודות
-
-
-
-        // הוספת טבלת רצים לא פעילים אם קיימים
-
-        const inactiveRunners = state.runners.filter(r => state.crawlingDrills.runnerStatuses[r.shoulderNumber]);
-
-        if (inactiveRunners.length > 0) {
-
-            summarySheet.addRow([]); // שורה ריקה לרווח
-
-            summarySheet.addRow(["מס' כתף שאינם פעילים"]).font = { bold: true, size: 14 }; // כותרת מקטע
-
-            const inactiveHeader = summarySheet.addRow(["מס' כתף", "סטטוס"]);
-
-            styleHeader(inactiveHeader); // החלת סגנונות כותרת
-
-            inactiveRunners.forEach((runner, index) => {
-
-                const status = state.crawlingDrills.runnerStatuses[runner.shoulderNumber];
-
-                const statusText = status === 'retired' ? 'פרש' : 'גריעה זמנית';
-
-                const row = summarySheet.addRow([runner.shoulderNumber, statusText]);
-
-                row.eachCell((cell) => {
-
-                    cell.border = border;
-
-                    if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-
-                });
-
-            });
-
-        }
-
-        // --- 2. גיליון ספרינטים ---
-        const sprintsSheet = workbook.addWorksheet('ספרינטים');
-        sprintsSheet.views = [{ rightToLeft: true }];
-
-        // טבלת סיכום ממוצעי ציונים לכל רץ
-        sprintsSheet.addRow(['ממוצע ציוני ספרינטים']).font = { bold: true, size: 14 };
-        sprintsSheet.addRow([]);
-        const sprintsSummaryHeader = sprintsSheet.addRow(["מס' כתף", "ממוצע ציון (1-7)"]);
-        styleHeader(sprintsSummaryHeader);
-
-        // ממוצעי ציונים
-        state.runners
-            .slice()
-            .sort((a, b) => a.shoulderNumber - b.shoulderNumber)
-            .forEach((runner, index) => {
-                const avgScore = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateSprintFinalScore(runner);
-                const row = sprintsSheet.addRow([runner.shoulderNumber, avgScore]);
-                row.eachCell((cell) => {
-                    cell.border = border;
-                    if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-                });
-            });
-
-        sprintsSheet.addRow([]); // רווח
-
-        // פירוט לכל מקצה: דירוג, זמן, ציון, הערה
-        for (let i = 0; i < state.heats.length; i++) {
-            const heat = state.heats[i];
-
-            sprintsSheet.addRow([`מקצה ספרינט ${i + 1}`]).font = { bold: true, size: 12 };
-            const heatHeader = sprintsSheet.addRow(['דירוג', "מס' כתף", 'זמן', 'ציון (1-7)', 'הערה']);
-            styleHeader(heatHeader);
-
-            // חישוב תוצאות המקצה לפי היחס למנצח
-            const results = getSprintHeatResults(heat);
-
-            results.forEach((r, idx) => {
-                const timeTxt = (typeof r.finishTime === 'number' && r.finishTime > 0) ? formatTime(r.finishTime) : 'לא סיים';
-                const row = sprintsSheet.addRow([r.rank, r.shoulderNumber, timeTxt, r.score, r.comment || '']);
-                row.eachCell((cell) => {
-                    cell.border = border;
-                    if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
-                });
-            });
-
-            sprintsSheet.addRow([]); // רווח בין מקצים
-        }
-
-        // רוחב עמודות
-        sprintsSheet.columns = [{ width: 10 }, { width: 15 }, { width: 18 }, { width: 14 }, { width: 40 }];
-
-        // --- 3. גיליון סיכום זחילות ---
-
-        const crawlingSheet = workbook.addWorksheet('סיכום זחילות');
-
-        crawlingSheet.views = [{ rightToLeft: true }];
-
-        crawlingSheet.addRow(['טבלת סיכום זחילות']).font = { bold: true, size: 14 };
-
-        crawlingSheet.addRow([]);
-
-        const crawlingHeader1 = crawlingSheet.addRow(["מס' כתף", "זמן נשיאת שק כולל", "הערה כללית"]);
-
-        styleHeader(crawlingHeader1);
-
-        state.runners.forEach((runner, index) => {
-
-            const sackData = state.crawlingDrills.sackCarriers[runner.shoulderNumber];
-            const sackTimeMs = sackData ? (sackData.totalTime + (sackData.startTime ? Date.now() - sackData.startTime : 0)) : 0;
-            const sackTime = formatTime_no_ms(sackTimeMs);
-            const comment = state.crawlingDrills.comments[runner.shoulderNumber] || '';
-            const row = crawlingSheet.addRow([runner.shoulderNumber, sackTime, comment]);
-
-            row.eachCell((cell) => {
-
-                cell.border = border;
-
-                if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-
-            });
-
-        });
-
-        crawlingSheet.columns = [{ width: 15 }, { width: 25 }, { width: 80 }];
-
-        crawlingSheet.addRow([]);
-
-        crawlingSheet.addRow(['טבלת סיכום ספרינט זחילות']).font = { bold: true, size: 14 };
-
-        crawlingSheet.addRow([]);
-
-        const crawlingHeader2 = crawlingSheet.addRow(["מס' כתף", "דירוג ממוצע (1-7)"]);
-
-        crawlingSheet.addRow([]);
-        for (let i = 0; i < state.crawlingDrills.sprints.length; i++) {
-            const sprint = state.crawlingDrills.sprints[i];
-            crawlingSheet.addRow([`מקצה ספרינט זחילות ${i + 1}`]).font = { bold: true, size: 12 };
-            const heatHeader = crawlingSheet.addRow(['דירוג', "מס' כתף", 'זמן', 'ציון (1-7)', 'הערה']);
-            styleHeader(heatHeader);
-            const results = getCrawlingSprintHeatResults(sprint);
-            results.forEach((r, idx) => {
-                const timeTxt = (typeof r.finishTime === 'number' && r.finishTime > 0) ? formatTime(r.finishTime) : 'לא סיים';
-                const row = crawlingSheet.addRow([r.rank, r.shoulderNumber, timeTxt, r.score, r.comment || '']);
-                row.eachCell((cell) => {
-                    cell.border = border;
-                    if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
-                });
-            });
-
-            crawlingSheet.addRow([]);
-        }
-
-        styleHeader(crawlingHeader2);
-
-        state.runners.forEach((runner, index) => {
-
-            const score = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : getCrawlingSprintScore(runner);
-
-            const row = crawlingSheet.addRow([runner.shoulderNumber, score]);
-
-            row.eachCell((cell) => {
-
-                cell.border = border;
-
-                if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-
-            });
-
-        });
-
-
-
-        // --- 4. גיליון אלונקה סוציומטרית ---
-
-        const stretcherSheet = workbook.addWorksheet(CONFIG.STRETCHER_PAGE_LABEL);
-        stretcherSheet.views = [{ rightToLeft: true }];
-        stretcherSheet.addRow([`טבלת סיכום ${CONFIG.STRETCHER_PAGE_LABEL}`]).font = { bold: true, size: 14 };
-        stretcherSheet.addRow([]);
-
-        const stretcherHeader = stretcherSheet.addRow(["מס' כתף", `מס' פעמים ${CONFIG.STRETCHER_PAGE_LABEL}`, "מס' פעמים ג'ריקן", "ציון (1-7)"]); // עדכון כותרת
-        styleHeader(stretcherHeader);
-
-        state.runners.forEach((runner, index) => {
-            const score = state.crawlingDrills.runnerStatuses[runner.shoulderNumber] ? 'לא פעיל' : calculateStretcherFinalScore(runner);
-            const stretcherCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'stretcher').length;
-            const jerricanCount = state.sociometricStretcher.heats.filter(h => h.selections && h.selections[runner.shoulderNumber] === 'jerrican').length;
-
-            const row = stretcherSheet.addRow([runner.shoulderNumber, stretcherCount, jerricanCount, score]);
-            row.eachCell((cell) => {
-                cell.border = border;
-                if (index % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-            });
-        });
-        stretcherSheet.columns = [{ width: 15 }, { width: 22 }, { width: 22 }, { width: 16 }];
-
-        // פירוט לכל מקצה: מי נבחר ובאיזה תפקיד
-        stretcherSheet.addRow([]);
-        stretcherSheet.addRow([`פירוט בחירות לפי מקצה`]).font = { bold: true, size: 14 };
-        stretcherSheet.addRow([]);
-
-        for (let i = 0; i < state.sociometricStretcher.heats.length; i++) {
-            const heat = state.sociometricStretcher.heats[i];
-            stretcherSheet.addRow([`${CONFIG.STRETCHER_PAGE_LABEL} ${i + 1}`]).font = { bold: true, size: 12 };
-            const detailHeader = stretcherSheet.addRow(["מס' כתף", 'תפקיד']);
-            styleHeader(detailHeader);
-
-            const entries = Object.entries(heat.selections || {})
-                .map(([shoulder, type]) => ({ shoulder: parseInt(shoulder), type }))
-                .sort((a, b) => a.shoulder - b.shoulder);
-
-            entries.forEach((e, idx) => {
-                const row = stretcherSheet.addRow([e.shoulder, e.type === 'stretcher' ? CONFIG.STRETCHER_PAGE_LABEL : "ג'ריקן"]);
-                row.eachCell((cell) => {
-                    cell.border = border;
-                    if (idx % 2 !== 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
-                });
-            });
-
-            stretcherSheet.addRow([]);
-        }
-        // --- 5. גיליון נתוני הגעה גולמיים ---
-
-        const rawDataSheet = workbook.addWorksheet('נתוני הגעה גולמיים');
-
-        rawDataSheet.views = [{ rightToLeft: true }];
-
-        rawDataSheet.addRow(['נתוני הגעה גולמיים']).font = { bold: true, size: 14 };
-
-
-
-        // הוספת נתונים גולמיים ממקצי ספרינט
-
-        state.heats.forEach((heat, index) => {
-
-            rawDataSheet.addRow([]);
-
-            const heatHeader = rawDataSheet.addRow([`מקצה ספרינט ${index + 1}`]);
-
-            heatHeader.font = { bold: true };
-
-            const dataHeader = rawDataSheet.addRow(['דירוג', 'מס\' כתף', 'זמן', 'הערה']);
-
-            styleHeader(dataHeader);
-
-            heat.arrivals.forEach((arrival, rank) => {
-
-                rawDataSheet.addRow([rank + 1, arrival.shoulderNumber, arrival.finishTime ? formatTime(arrival.finishTime) : arrival.comment, arrival.comment || '']);
-
-            });
-
-        });
-
-
-
-        // הוספת נתונים גולמיים ממקצי זחילות
-
-        state.crawlingDrills.sprints.forEach((sprint, index) => {
-
-            rawDataSheet.addRow([]);
-
-            const heatHeader = rawDataSheet.addRow([`מקצה זחילה ${index + 1}`]);
-
-            heatHeader.font = { bold: true };
-
-            const dataHeader = rawDataSheet.addRow(['דירוג', 'מס\' כתף', 'זמן', 'הערה']);
-
-            styleHeader(dataHeader);
-
-            sprint.arrivals.forEach((arrival, rank) => {
-
-                rawDataSheet.addRow([rank + 1, arrival.shoulderNumber, arrival.finishTime ? formatTime(arrival.finishTime) : arrival.comment, arrival.comment || '']);
-
-            });
-
-        });
-
-
-
-        // --- יצירת קובץ והורדה ---
-
-        const buffer = await workbook.xlsx.writeBuffer(); // קבלת החוברת כבופר
-
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-        const link = document.createElement('a');
-
-        link.href = URL.createObjectURL(blob);
-
-        // הגדרת שם הקובץ עם מספר הקבוצה והתאריך
-
-        link.download = `SprintReport_v1.11_${state.groupNumber || 'group'}_${new Date().toLocaleDateString('he-IL').replace(/\./g, '-')}.xlsx`;
-
-        link.click(); // הפעלת ההורדה
-
-    } catch (e) {
-
-        console.error("Failed to create Excel file", e);
-
-        showModal('שגיאת ייצוא', `שגיאה ביצירת קובץ האקסל: ${e.message}. אנא נסה שוב.`);
-
-    } finally {
-
-        // הסתרת מסך הטעינה בסיום התהליך
-
-        loadingOverlay.classList.add('hidden');
-
-    }
-
-}
-
-
-
-// --- App Initialization ---
-
-
-
-/**
-
- * V1.1 - Applies the current theme (dark/light) to the UI.
-
- */
-
-function applyTheme() {
-    let theme;
-    if (state.themeMode === 'auto') {
-        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    } else {
-        theme = state.themeMode;
-    }
-    if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-    // עידכון אייקון
-    const themeIcon = document.getElementById('theme-icon');
-    if (themeIcon) {
-        if (state.themeMode === 'auto') themeIcon.textContent = '🌓'; // סמל למצבי אוטומט
-        else if (theme === 'dark') themeIcon.textContent = '☀️';
-        else themeIcon.textContent = '🌙';
-        themeIcon.title = state.themeMode === 'auto' ? 'מצב אוטומטי' : (theme === 'dark' ? 'מצב כהה' : 'מצב בהיר');
-    }
-}
-
 
 
 /**
@@ -2405,9 +1887,46 @@ async function init() {
 
     loadState();
     applyTheme();
+    setupPWAInstallUI(); // FIX: was never called
     render();
     setInterval(saveState, 60000);
 }
+
+// RESTORED: Theme application helper (was missing causing ReferenceError)
+function applyTheme() {
+    try {
+        const root = document.documentElement;
+        const mode = state.themeMode || 'auto';
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolved = (mode === 'auto') ? (prefersDark ? 'dark' : 'light') : mode;
+
+        if (resolved === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+
+        const themeIcon = document.getElementById('theme-icon');
+        if (themeIcon) {
+            if (mode === 'auto') themeIcon.textContent = '🌓';
+            else if (resolved === 'dark') themeIcon.textContent = '☀️';
+            else themeIcon.textContent = '🌙';
+            themeIcon.title = mode === 'auto'
+                ? 'מצב אוטומטי'
+                : (resolved === 'dark' ? 'מצב כהה' : 'מצב בהיר');
+        }
+    } catch (e) {
+        console.warn('applyTheme failed', e);
+    }
+}
+
+// Attach listener once for auto mode changes
+(function attachThemeMediaListener(){
+    if (window._themeMediaListenerAttached) return;
+    if (window.matchMedia) {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        mq.addEventListener?.('change', () => {
+            if (state.themeMode === 'auto') applyTheme();
+        });
+    }
+    window._themeMediaListenerAttached = true;
+})();
 
 window.Pages.renderRunnersPage ??= renderRunnersPage;
 window.Pages.renderAdminSettingsPage ??= renderAdminSettingsPage;
@@ -2440,110 +1959,28 @@ if (document.readyState === 'loading') {
     init();
 }
 
-// --- Sociometric Stretcher Logic (New Counting System) ---
-
-/**
- * Renders the sociometric selection page with a grid of runner cards.
- * Each card allows a one-time selection for stretcher or jerrican per heat.
- * @param {number} heatIndex - The index of the heat to render.
- */
-
-/**
- * כפתור צף (FAB) ו"חלון" תגובה מהירה עם צבעים ברורים
- */
-
-/**
- * Handles a runner selection for stretcher or jerrican based on the new counting rules.
- * @param {number} shoulderNumber - The shoulder number of the runner.
- * @param {string} type - The type of selection ('stretcher' or 'jerrican').
- * @param {number} heatIndex - The index of the current heat.
- */
-function handleSociometricSelection(shoulderNumber, type, heatIndex) {
-    const heat = state.sociometricStretcher.heats[heatIndex];
-    if (!heat.selections) heat.selections = {};
-
-    const current = heat.selections[shoulderNumber];
-
-    // חישוב ספירות נוכחיות
-    const counts = Object.values(heat.selections).reduce((acc, v) => {
-        if (v === 'stretcher') acc.stretcher++;
-        else if (v === 'jerrican') acc.jerrican++;
-        return acc;
-    }, { stretcher: 0, jerrican: 0 });
-
-    const maxForType = type === 'stretcher' ? CONFIG.MAX_STRETCHER_CARRIERS : CONFIG.MAX_JERRICAN_CARRIERS;
-    const curForType = type === 'stretcher' ? counts.stretcher : counts.jerrican;
-
-    if (current === type) {
-        // ביטול בחירה – לא “שורף” כלום
-        delete heat.selections[shoulderNumber];
-    } else if (!current) {
-        // בחירה חדשה
-        if (curForType >= maxForType) {
-            showModal('מגבלה הושגה', `לא ניתן לבחור יותר מ-${maxForType} ${type === 'stretcher' ? 'נושאי אלונקה' : "נושאי ג'ריקן"} במקצה זה.`);
-            return;
-        }
-        heat.selections[shoulderNumber] = type;
-    } else {
-        // מעבר מסוג אחד לאחר – בדיקת מכסה לסוג היעד
-        if (curForType >= maxForType) {
-            showModal('מגבלה הושגה', `לא ניתן לבחור יותר מ-${maxForType} ${type === 'stretcher' ? 'נושאי אלונקה' : "נושאי ג'ריקן"} במקצה זה.`);
-            return;
-        }
-        heat.selections[shoulderNumber] = type;
-    }
-
-    saveState();
-    render();
-}
-
-// --- Runner Management & Backup/Restore ---
-
-/**
- * יוצר מועמדים רנדומליים וממלא עד התקרה (CONFIG.MAX_RUNNERS) ללא כפילויות.
- * @param {number} [count] - כמות להוספה. אם לא צוינה, ימולא עד התקרה.
- */
+// ADDED: restore missing generateRandomRunners used by showAddRunnersModal
 function generateRandomRunners(count) {
-    const used = new Set(state.runners.map(r => r.shoulderNumber));
-    const remaining = Math.max(0, CONFIG.MAX_RUNNERS - used.size);
-    const target = Math.min(remaining, count || remaining);
-    if (target <= 0) return;
+    try {
+        const existing = new Set(state.runners.map(r => r.shoulderNumber));
+        const maxAddable = Math.max(0, CONFIG.MAX_RUNNERS - existing.size);
+        const toAdd = Math.min(maxAddable, count || maxAddable);
+        if (toAdd <= 0) return;
 
-    // מאגר מספרים פנוי 1..999
-    const pool = [];
-    for (let i = 1; i <= 999; i++) {
-        if (!used.has(i)) pool.push(i);
+        // Build pool of free numbers
+        const pool = [];
+        for (let n = 1; n <= 999; n++) {
+            if (!existing.has(n)) pool.push(n);
+        }
+        // Fisher–Yates shuffle (partial)
+        for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.random() * (i + 1) | 0;
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        const selected = pool.slice(0, toAdd).map(n => ({ shoulderNumber: n }));
+        state.runners = state.runners.concat(selected).sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+        saveState();
+    } catch(e) {
+        console.warn('generateRandomRunners failed', e);
     }
-    // ערבול מהיר (Fisher–Yates)
-    for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const selected = pool.slice(0, target).map(n => ({ shoulderNumber: n }));
-
-    state.runners = state.runners.concat(selected).sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-    saveState();
 }
-
-/**
- * Helper: compute results for a single heat/sprint.
- * - Finishers sorted by time asc; DNFs follow in original order.
- * - Scores: winner = 7; others = round(7 * fastest/time). DNFs = 1.
- */
-
-/**
- * Returns per-heat sprint results with rank and score.
- * @param {{arrivals:Array}} heat
- * @returns {Array<{rank:number, shoulderNumber:number, finishTime:number|null, score:number, comment:string|null}>}
- */
-
-
-/**
- * Returns per-heat crawling sprint results with rank and score.
- * @param {{arrivals:Array}} sprint
- * @returns {Array<{rank:number, shoulderNumber:number, finishTime:number|null, score:number, comment:string|null}>}
- */
-
-// חשיפת פונקציות עבור quick-comments.js
-window.saveState = saveState;
-window.render = render;

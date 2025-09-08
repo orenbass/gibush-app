@@ -129,6 +129,63 @@
             document.head.appendChild(la);
         }
 
+        // חדש: סגנון כפתורי הגעה זהה ל-heat (נטען פעם אחת)
+        if (!document.getElementById('heat-arrival-btn-style')) {
+            const s = document.createElement('style');
+            s.id = 'heat-arrival-btn-style';
+            s.textContent = `
+              /* כפתורי רץ – סגנון אחיד עם עמוד heat */
+              .arrival-btn{
+                position:relative;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-weight:700;
+                border-radius:14px;
+                font-size:clamp(1.4rem,4.2vw,2.4rem);
+                line-height:1;
+                padding:18px 8px;
+                background:linear-gradient(135deg,#2563eb,#1d4ed8);
+                color:#fff;
+                box-shadow:0 4px 10px -2px rgba(0,0,0,.35);
+                transition:.18s;
+                user-select:none;
+              }
+              .arrival-btn:focus-visible{
+                outline:3px solid #fff;
+                outline-offset:2px;
+              }
+              .arrival-btn:hover{
+                background:linear-gradient(135deg,#1d4ed8,#1e40af);
+                transform:translateY(-2px);
+                box-shadow:0 6px 14px -2px rgba(0,0,0,.45);
+              }
+              .arrival-btn:active{
+                transform:translateY(0);
+                box-shadow:0 3px 8px -1px rgba(0,0,0,.35);
+              }
+              /* מצב מושבת (אם יש צורך עתידי) */
+              .arrival-btn[disabled]{
+                opacity:.45;
+                cursor:not-allowed;
+                transform:none;
+                box-shadow:none;
+              }
+              /* פריסה רספונסיבית תואמת heat */
+              .cs-grid-3min{
+                display:grid;
+                gap:14px;
+                grid-template-columns:repeat(auto-fill,minmax(min(30%,110px),1fr));
+              }
+              @media (min-width:640px){
+                .cs-grid-3min{
+                  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+                }
+              }
+            `;
+            document.head.appendChild(s);
+        }
+
         const headerNav = `
             <div class="heat-bar heat-bar-sprint">
                 <div class="heat-bar-row top">
@@ -174,15 +231,70 @@
                 <h3 class="text-base md:text-lg font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
                 <div class="cs-grid-3min">
                     ${activeRunners.map(r => `
-                        <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg text-xl"
-                                data-shoulder-number="${r.shoulderNumber}">
-                            ${r.shoulderNumber}
-                        </button>`).join('')}
+                        <button
+                          class="arrival-btn runner-btn heat-arrival-btn"
+                          data-shoulder-number="${r.shoulderNumber}"
+                          aria-label="הגעה של רץ מספר כתף ${r.shoulderNumber}"
+                        >${r.shoulderNumber}</button>`).join('')}
                 </div>
             </div>
 
             ${arrivalsBlockHtml}
         `;
+
+        // --- ADDED: Comment buttons state helpers (דומה לעמוד heat) ---
+        function getCommentMeta(sn){
+            const raw = state.generalComments?.[sn];
+            const arr = Array.isArray(raw)
+                ? raw.filter(c=>c && c.trim())
+                : (raw && String(raw).trim() ? [String(raw).trim()] : []);
+            const count = arr.length;
+            const level = Math.min(count,5); // גם 0 יקבל level-0 (אדום)
+            let summary = 'כתוב הערה...';
+            if (count){
+                const joined = arr.join(' | ').replace(/\s+/g,' ');
+                summary = joined.length > 20 ? joined.slice(0,20)+'…' : joined;
+            }
+            return {summary,count,level,empty:count===0};
+        }
+        function refreshSingleCommentButton(btn){
+            const sn = btn.getAttribute('data-comment-btn');
+            if (!sn) return;
+            const {summary,count,level,empty} = getCommentMeta(sn);
+            for (let i=0;i<=5;i++) btn.classList.remove(`comment-level-${i}`);
+            btn.classList.add(`comment-level-${level}`);
+            btn.classList.toggle('comment-btn-empty', empty);
+            btn.dataset.commentCount = count;
+            // עדכון טקסט רק אם צריךכפתורים
+            const desired = `${summary} ✎`;
+            if (btn.innerHTML !== desired) btn.innerHTML = desired;
+        }
+        function refreshAllCommentButtons(root=contentDiv){
+            root.querySelectorAll('#arrival-list button[data-comment-btn]').forEach(refreshSingleCommentButton);
+        }
+
+        // חשיפה גלובלית אופציונלית
+        window.CrawlingSprintCommentButtons = window.CrawlingSprintCommentButtons || {};
+        window.CrawlingSprintCommentButtons.refresh = refreshAllCommentButtons;
+
+        // רענון ראשוני
+        refreshAllCommentButtons();
+
+        // מעקב DOM למניעת "איפוס" אחרי הוספת שורה / שינוי
+        const arrivalList = contentDiv.querySelector('#arrival-list');
+        if (arrivalList){
+            if (window._crawlingSprintCommentObserver) window._crawlingSprintCommentObserver.disconnect();
+            window._crawlingSprintCommentObserver = new MutationObserver(muts=>{
+                let need = false;
+                for (const m of muts){
+                    if (m.type === 'childList' && (m.addedNodes.length || m.removedNodes.length)){
+                        need = true; break;
+                    }
+                }
+                if (need) requestAnimationFrame(()=>refreshAllCommentButtons(arrivalList));
+            });
+            window._crawlingSprintCommentObserver.observe(arrivalList,{childList:true,subtree:true});
+        }
 
         // החזרת האייקון (גודל נשלט ב-CSS)
         if (window.ensureTimerIcon) window.ensureTimerIcon();
@@ -244,15 +356,24 @@
         // Listeners
         document.getElementById('start-btn')?.addEventListener('click', () => {
             handleStart(sprint);
-            setTimeout(adjustActionButtons,0);
+            setTimeout(()=>{
+                adjustActionButtons();
+                refreshAllCommentButtons();
+            },0);
         });
         document.getElementById('stop-btn')?.addEventListener('click', () => {
             confirmStopAndAdvance(sprint, 'crawling');
-            setTimeout(adjustActionButtons,0);
+            setTimeout(()=>{
+                adjustActionButtons();
+                refreshAllCommentButtons();
+            },0);
         });
         document.getElementById('undo-btn')?.addEventListener('click', () => {
             handleUndoArrival(sprint);
-            setTimeout(adjustActionButtons,0);
+            setTimeout(()=>{
+                adjustActionButtons();
+                refreshAllCommentButtons();
+            },0);
         });
         document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, sprint, -1));
 
@@ -285,14 +406,20 @@
                             state.generalComments = state.generalComments || {};
                             state.generalComments[sn] = val;
                             saveState();
-                            btn.querySelector('.comment-text').textContent = truncateCommentsSummary(val);
-                            btn.classList.toggle('comment-btn-empty', !val || !String(val).trim());
+                            refreshSingleCommentButton(btn); // במקום רק שינוי טקסט
                         }
                     });
                 } catch(e){
                     console.error(e);
                 }
             }
+        });
+
+        // עדכון אחרי פעולות שמשנות את הרשימה
+        ['start-btn','stop-btn','undo-btn'].forEach(id=>{
+            contentDiv.getElementById?.(id)?.addEventListener('click', ()=>{
+                setTimeout(()=>refreshAllCommentButtons(),0);
+            });
         });
 
         // fallback: אם המודול מפעיל אירוע מותאם אישית
@@ -309,6 +436,7 @@
             if (btn){
                 btn.innerHTML = `${truncateCommentsSummary(value)} ✎`;
             }
+            refreshAllCommentButtons();
         });
     };
 })();

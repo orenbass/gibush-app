@@ -1,7 +1,7 @@
 (function () {
     window.Pages = window.Pages || {};
     window.Pages.renderCrawlingDrillsCommentsPage = function renderCrawlingDrillsCommentsPage() {
-        headerTitle.textContent = 'תרגילי זחילה - הערות כלליות';
+        headerTitle.textContent = 'זחילה קבוצתית';
 
         if (!document.getElementById('crawling-comments-style')) {
             const s = document.createElement('style');
@@ -452,6 +452,8 @@ ${carriersListHtml}
             else state.generalComments[currentGcSn] = val;
             saveState();
             updateMiniCommentIndicator(currentGcSn);
+            // ADDED: רענון כללי כדי לעדכן רמות צבע אם משתנה האורך הכולל
+            if (typeof refreshAllMiniIndicators === 'function') refreshAllMiniIndicators();
             const btn = contentDiv.querySelector(`.gc-open-btn[data-open-gc="${currentGcSn}"]`);
             if (btn){
                 btn.textContent = val || 'הוסף הערה';
@@ -550,10 +552,71 @@ ${carriersListHtml}
         // ריענון כאשר נלחץ כפתור שליחת "תגובה מהירה" (מהבר הגלובלי)
         document.addEventListener('click', e=>{
             if(e.target && e.target.id === 'quick-comment-send'){
-                // השהייה קצרה כדי לאפשר ל-state להתעדכן ולהישמר
                 setTimeout(refreshAllMiniIndicators, 120);
             }
         });
+
+        // ADDED: תמיכה באירועי Custom אפשריים של מודול ההערות / תגובה מהירה
+        if (!window._crawlingCommentsEventsPatched){
+            window._crawlingCommentsEventsPatched = true;
+
+            // אירוע מודאל הערות גלובלי (אם נשלח ממקום אחר)
+            window.addEventListener('commentsModal:saved', e=>{
+                const sn = e.detail?.shoulderNumber;
+                if (sn != null){
+                    updateMiniCommentIndicator(sn);
+                    refreshAllMiniIndicators();
+                } else {
+                    refreshAllMiniIndicators();
+                }
+            });
+
+            // וריאציות נפוצות לשמות אירועים אפשריים של "הערה מהירה"
+            ['quickComment:sent','quickComment:applied','quick-comment-sent'].forEach(evtName=>{
+                window.addEventListener(evtName, ()=>{
+                    // השהייה קצרה לאפשר ל-state להתעדכן
+                    setTimeout(()=>refreshAllMiniIndicators(), 80);
+                });
+            });
+
+            // אם פקודת שליחה גלובלית נחשפת כפונקציה – עוטפים פעם אחת
+            if (window.sendQuickComment && !window.sendQuickComment._wrappedForCounters){
+                const originalSend = window.sendQuickComment;
+                window.sendQuickComment = function wrappedQuickComment(){
+                    const r = originalSend.apply(this, arguments);
+                    setTimeout(refreshAllMiniIndicators, 100);
+                    return r;
+                };
+                window.sendQuickComment._wrappedForCounters = true;
+            }
+        }
+
+        // ADDED: Watcher גיבוי – מזהה שינוי במספר ההערות (חתימה קלה בלבד)
+        if (!window._generalCommentsWatcher){
+            let lastSig = '';
+            window._generalCommentsWatcher = setInterval(()=>{
+                try{
+                    const gc = state.generalComments || {};
+                    // חתימה: key:lengthFiltered
+                    const sig = Object.keys(gc).sort().map(k=>{
+                        const v = gc[k];
+                        const len = Array.isArray(v)
+                            ? v.filter(x=>x && String(x).trim()).length
+                            : (v && String(v).trim() ? 1 : 0);
+                        return k+':'+len;
+                    }).join('|');
+                    if (sig !== lastSig){
+                        lastSig = sig;
+                        if (typeof refreshAllMiniIndicators === 'function') refreshAllMiniIndicators();
+                    }
+                }catch{}
+            }, 1500);
+        }
+
+        // חשיפה – אם מודולים אחרים רוצים לדרוש רענון מפורש
+        window.forceCrawlingCommentsCountersRefresh = function(){
+            refreshAllMiniIndicators();
+        };
 
         // אפשר גם לחשוף החוצה לשימוש עתידי
         window.refreshAllMiniCommentIndicators = refreshAllMiniIndicators;
