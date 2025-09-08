@@ -3,6 +3,72 @@
     window.Pages.renderStatusManagementPage = function renderStatusManagementPage() {
         headerTitle.textContent = 'סטטוס מועמדים';
 
+        // NEW: inject uniform square button flex layout (once)
+        if (!document.getElementById('status-actions-flex-styles')) {
+            const st = document.createElement('style');
+            st.id = 'status-actions-flex-styles';
+            st.textContent = `
+            .status-actions-flex{
+                display:flex;
+                flex-wrap:nowrap;
+                justify-content:center;
+                gap:.40rem;
+                min-width:108px;          /* בסיס מינימלי - לא יתכווץ מתחת */
+                width:fit-content;
+                margin:0 auto;
+            }
+            .status-actions-flex .status-btn-square{
+                flex:0 0 48px;
+                width:48px;
+                height:48px;
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                gap:.25rem;
+                padding:.28rem .2rem;
+                text-align:center;
+                line-height:1.05;
+                font-size:.55rem;
+            }
+            .status-actions-flex .status-btn-square span:first-child{
+                font-size:.95rem;
+                line-height:1;
+            }
+            /* Slight upscale on hover without affecting layout */
+            .status-actions-flex .status-btn-square:hover{
+                transform:translateY(-2px);
+            }
+            /* NEW: fixed size comment button matching square buttons */
+            .comment-btn{
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                flex:0 0 48px;
+                width:48px;
+                height:48px;
+                box-sizing:border-box;
+                overflow:visible; /* ensure inner elements not clipped */
+            }
+            @media (min-width:480px){
+                .status-actions-flex{
+                    min-width:120px;
+                }
+                .status-actions-flex .status-btn-square{
+                    flex:0 0 54px;
+                    width:54px;
+                    height:54px;
+                    font-size:.6rem;
+                }
+                .status-actions-flex .status-btn-square span:first-child{
+                    font-size:1.05rem;
+                }
+
+            }
+            `;
+            document.head.appendChild(st);
+        }
+
         const activeRunners = state.runners
             .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
             .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
@@ -16,27 +82,27 @@
             <div class="runner-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-between transition-all duration-300
                         bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60">
                 <div class="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">${runner.shoulderNumber}</div>
-                <div class="w-full grid grid-cols-2 gap-2">
+                <div class="w-full status-actions-flex">
                     <button 
-                        class="status-btn w-full py-2 px-2 text-sm font-semibold rounded-lg
+                        class="status-btn status-btn-square text-xs font-semibold rounded-lg
                                bg-amber-100/70 hover:bg-amber-200/70 border border-amber-300 text-amber-800
                                dark:bg-amber-900/20 dark:hover:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800
                                shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300/50 transition-all"
                         data-shoulder-number="${runner.shoulderNumber}" 
                         data-status="temp_removed"
                         title="יצא לבדיקה">
-                        <span class="ml-1">⚠️</span>
+                        <span>⚠️</span>
                         <span>בדיקה</span>
                     </button>
                     <button 
-                        class="status-btn w-full py-2 px-2 text-sm font-semibold rounded-lg
+                        class="status-btn status-btn-square text-xs font-semibold rounded-lg
                                bg-rose-100/70 hover:bg-rose-200/70 border border-rose-300 text-rose-800
                                dark:bg-rose-900/20 dark:hover:bg-rose-900/30 dark:text-rose-200 dark:border-rose-800
                                shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-300/50 transition-all"
                         data-shoulder-number="${runner.shoulderNumber}" 
                         data-status="retired"
                         title="פרש">
-                        <span class="ml-1">⛔</span>
+                        <span>⛔</span>
                         <span>פרש</span>
                     </button>
                 </div>

@@ -283,7 +283,7 @@
             ${runnerOptions}
           </select>
           <button id="group-comments-trigger" type="button" class="qc-group-trigger" aria-haspopup="dialog" aria-expanded="false">
-            <span>הערות מוכנות מראש</span><span style="font-size:13px;"></span>
+            <span>הערות מוכנות מראש</span><span style="font-size:15px;"></span>
           </button>
         </div>
         <div class="qc-row qc-row-input">
