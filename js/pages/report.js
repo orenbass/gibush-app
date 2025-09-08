@@ -491,13 +491,13 @@
     btn.textContent = 'מכין...';
     try{
       const { blob, filename } = await window.__ReportExport.buildReportBlobSmart();
-      btn.textContent = 'מעלה...';
+      btn.textContent = 'שולח...';
       const r = await window.__ReportExport.tryDriveUpload(blob, filename);
       if (!r.ok) {
         btn.textContent = 'אין Drive - מוריד קובץ';
         window.__ReportExport.triggerDownload(blob, filename);
       } else {
-        btn.textContent = 'הועלה ✔';
+        btn.textContent = 'נשלח בהצלחה ✔';
       }
     } catch(e){
       console.error(e);
@@ -555,3 +555,4 @@
   };
 
 })(); // סוף ה-IIFE
+
