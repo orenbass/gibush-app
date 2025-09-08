@@ -41,14 +41,18 @@
             }
             /* NEW: fixed size comment button matching square buttons */
             .comment-btn{
-                display:flex;
+                display:inline-flex;
                 align-items:center;
                 justify-content:center;
-                flex:0 0 48px;
-                width:48px;
-                height:48px;
+                min-height:48px;
+                min-width:84px;
+                padding:0 12px;
+                width:auto;
+                flex:0 0 auto;
                 box-sizing:border-box;
-                overflow:visible; /* ensure inner elements not clipped */
+                white-space:nowrap;
+                overflow:visible;
+                border-radius:10px;
             }
             @media (min-width:480px){
                 .status-actions-flex{
@@ -63,7 +67,9 @@
                 .status-actions-flex .status-btn-square span:first-child{
                     font-size:1.05rem;
                 }
-
+                .comment-btn{
+                    min-height:54px;
+                }
             }
             `;
             document.head.appendChild(st);
