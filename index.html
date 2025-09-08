@@ -56,22 +56,35 @@
         :root { --safe-area-top: env(safe-area-inset-top, 0px); }
         @media (display-mode: standalone) {
             body { padding-top: max(calc(var(--safe-area-top) + 6px), 6px); }
-        }
-        .app-top{
-            position:sticky;
-            top:var(--safe-area-top);
-            z-index:120;
-            backdrop-filter:blur(6px);
-            background:rgba(255,255,255,0.82);
-        }
-        .dark .app-top{background:rgba(30,41,59,0.82);}
-        .app-top-shadow{
-            box-shadow:0 2px 4px -2px rgba(0,0,0,.18),0 4px 18px -6px rgba(0,0,0,.12);
+            header.sticky { top: var(--safe-area-top); }
         }
         /* iOS חלק מהגרסאות לא מדווחות display-mode בזמן טעינה ראשונה */
         @supports(padding:max(0px)) {
             body.pwa-safe { padding-top: max(calc(var(--safe-area-top) + 6px), 6px); }
             body.pwa-safe header.sticky { top: var(--safe-area-top); }
+        }
+    </style>
+    <style id="safe-area-support">
+        :root {
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-pad: calc(var(--safe-area-top) + 12px); /* גובה השורה העליונה */
+        }
+        /* שורת ריווח קבועה מעל הכל */
+        #top-safe-spacer{
+            position:fixed;
+            top:0;left:0;right:0;
+            height:var(--safe-pad);
+            z-index:999;
+            pointer-events:none;
+            background:transparent; /* אפשר לשנות לצבע אם רוצים פס גלוי */
+        }
+        body.has-safe-spacer .app-offset{
+            margin-top:var(--safe-pad);
+        }
+        @media (display-mode: standalone){
+            body.has-safe-spacer .app-offset{
+                margin-top:var(--safe-pad);
+            }
         }
     </style>
     <script>
@@ -83,15 +96,30 @@
                 if (isStandalone) document.body.classList.add('pwa-safe');
             });
         })();
-        // שמירה על הוספת מחלקת pwa-safe לאייפון מותקן
+    </script>
+    <script>
+        // זיהוי מצב התקנה והפעלת ה-spacer
         (function(){
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-            if (isStandalone) document.addEventListener('DOMContentLoaded', ()=>document.body.classList.add('pwa-safe'));
+            function enableSpacer(){
+                document.body.classList.add('has-safe-spacer');
+            }
+            if (isStandalone) {
+                window.addEventListener('DOMContentLoaded', enableSpacer);
+            } else {
+                window.addEventListener('DOMContentLoaded', enableSpacer);
+            }
+            // עדכון בגודל (לשינוי אוריינטציה)
+            window.addEventListener('resize', ()=> {
+                document.documentElement.style.setProperty('--safe-area-top', getComputedStyle(document.documentElement).getPropertyValue('--safe-area-top'));
+            });
         })();
     </script>
 </head>
 
 <body>
+    <!-- Spacer קבוע -->
+    <div id="top-safe-spacer"></div>
     <!-- Loading overlay (single instance) -->
     <div id="loading-overlay" class="hidden">
         <div class="loading-box">
@@ -100,62 +128,76 @@
         </div>
     </div>
 
-    <!-- TOP STICKY AREA (חדש) -->
-    <header class="app-top app-top-shadow">
-        <div class="max-w-6xl mx-auto px-4 pt-3 pb-2">
-            <div class="p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm mb-3 text-center relative">
+    <header class="sticky z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm app-offset">
+        <div id="app" class="min-h-screen flex flex-col items-center p-4 bg-gray-100 text-gray-800">
+            <header class="w-full max-w-6xl p-4 bg-white rounded-lg shadow-md mb-4 text-center relative">
                 <h1 id="header-title" class="text-2xl md:text-3xl font-bold text-blue-600">מערכת גיבוש חת"מ</h1>
                 <p class="text-sm text-gray-500 mt-1" id="version-text">V1.11 (10/8/2025)</p>
                 <button id="theme-toggle-btn" type="button"
                     style="position:absolute;top:14px;left:12px; background:none; border:none; font-size:2em; cursor:pointer;">
                     <span id="theme-icon">🌓</span>
                 </button>
-            </div>
-            <nav class="w-full bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-x-auto mb-3">
-                <ul class="flex justify-start md:justify-center text-sm font-semibold text-gray-600 divide-x divide-x-reverse divide-gray-200 dark:divide-slate-600">
-                    <li class="flex-shrink-0"><button class="nav-tab flex items-center py-1 px-2 border-b-2 border-transparent" data-page="runners"><span>👨‍👦</span><span class="text-xs mt-1">קבוצה</span></button></li>
-                    <li class="flex-shrink-0"><button class="nav-tab flex items-center py-1 px-2 border-b-2 border-transparent" data-page="status-management"><span>🩺</span><span class="text-xs mt-1">סטטוס</span></button></li>
-                    <li class="flex-shrink-0"><button class="nav-tab flex items-center py-1 px-2 border-b-2 border-transparent" data-page="heats"><span>🏃</span><span class="text-xs mt-1">ספרינטים</span></button></li>
-                    <li class="flex-shrink-0"><button class="nav-tab flex items-center py-1 px-2 border-b-2 border-transparent" data-page="crawling-drills-comments"><span>💰</span><span class="text-xs mt-1">זחילה קב'</span></button></li>
-                    <li class="flex-shrink-0"><button class="nav-tab flex items-center py-1 px-2 border-b-2 border-transparent" data-page="crawling-sprint"><span>🐛</span><span class="text-xs mt-1">ספרינט זחילות</span></button></li>
-                    <li class="flex-shrink-0"><button class="nav-tab flex items-center py-1 px-2 border-b-2 border-transparent" data-page="sociometric-stretcher-heat"><span>🚁</span><span class="text-xs mt-1">אלונקות</span></button></li>
-                    <li class="flex-shrink-0"><button class="nav-tab flex items-center py-1 px-2 border-b-2 border-transparent" data-page="report"><span>📄</span><span class="text-xs mt-1">דוחות</span></button></li>
+            </header>
+            <nav class="w-full max-w-6xl bg-white rounded-lg shadow-md overflow-x-auto mb-4">
+                <ul
+                    class="flex justify-start md:justify-center text-sm font-semibold text-gray-600 divide-x divide-x-reverse divide-gray-200">
+                    <li class="flex-shrink-0"><button
+                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
+                            data-page="runners"><span>👨‍👦</span><span class="text-xs mt-1">קבוצה</span></button></li>
+                    <li class="flex-shrink-0"><button
+                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
+                            data-page="status-management"><span>🩺</span><span
+                                class="text-xs mt-1">סטטוס</span></button></li>
+                    <li class="flex-shrink-0"><button
+                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
+                            data-page="heats"><span>🏃</span><span class="text-xs mt-1">ספרינטים</span></button></li>
+                    <li class="flex-shrink-0"><button
+                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
+                            data-page="crawling-drills-comments"><span>💰</span><span class="text-xs mt-1">זחילה
+                                קב'</span></button></li>
+                    <li class="flex-shrink-0"><button
+                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
+                            data-page="crawling-sprint"><span>🐛</span><span class="text-xs mt-1">ספרינט
+                                זחילות</span></button></li>
+                    <li class="flex-shrink-0"><button
+                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
+                            data-page="sociometric-stretcher-heat"><span>🚁</span><span
+                                class="text-xs mt-1">אלונקות</span></button></li>
+                    <li class="flex-shrink-0"><button
+                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
+                            data-page="report"><span>📄</span><span class="text-xs mt-1">דוחות</span></button></li>
                 </ul>
             </nav>
-            <div id="quick-comment-bar-container" class="max-w-6xl mx-auto mb-2"></div>
+            <div id="quick-comment-bar-container" class="w-full max-w-6xl mb-4"></div>
+            <main id="content" class="w-full max-w-6xl bg-white p-4 md:p-6 rounded-lg shadow-md flex-grow">
+                <div id="runner-list" class="space-y-2"></div>
+            </main>
+            <footer id="footer-navigation" class="w-full max-w-6xl p-4 mt-4"></footer>
+            <!-- סטטוס שמירה אוטומטית -->
+            <div id="autosave-status"
+                class="fixed bottom-4 left-4 bg-gray-800 text-white text-xs py-1 px-3 rounded-full opacity-0 transition-opacity duration-300">
+                שמירה אוטומטית...
+            </div>
+            <!-- שכבת טעינה -->
+            <div id="loading-overlay"
+                class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden"></div>
         </div>
+        <!-- תבנית שורה לרשימת רצים (לשכפול דינאמי) -->
+        <template id="runner-row-template">
+            <div class="flex items-center space-x-2 space-x-reverse flex-wrap">
+                <span class="runner-index w-6 md:w-8 text-center text-gray-500 flex-shrink-0"></span>
+                <input type="number"
+                    class="runner-input flex-grow p-2 border border-gray-300 rounded-lg text-lg text-right" min="1"
+                    max="999">
+                <button
+                    class="remove-runner-btn bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors duration-200 text-sm">הסר</button>
+            </div>
+        </template>
+        <button id="install-btn" style="display:none; position:fixed; bottom:24px; right:24px; z-index:1000;">
+            📲 התקן כאפליקציה
+        </button>
     </header>
-
-    <!-- MAIN SCROLLABLE AREA -->
-    <div id="app" class="max-w-6xl mx-auto px-4 pb-8 flex flex-col">
-        <main id="content" class="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-lg shadow-md flex-grow">
-            <div id="runner-list" class="space-y-2"></div>
-        </main>
-        <footer id="footer-navigation" class="p-4 mt-4"></footer>
-        <!-- סטטוס שמירה אוטומטית -->
-        <div id="autosave-status"
-            class="fixed bottom-4 left-4 bg-gray-800 text-white text-xs py-1 px-3 rounded-full opacity-0 transition-opacity duration-300">
-            שמירה אוטומטית...
-        </div>
-        <!-- שכבת טעינה -->
-        <div id="loading-overlay"
-            class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden"></div>
     </div>
-
-    <!-- תבנית שורה לרשימת רצים (לשכפול דינאמי) -->
-    <template id="runner-row-template">
-        <div class="flex items-center space-x-2 space-x-reverse flex-wrap">
-            <span class="runner-index w-6 md:w-8 text-center text-gray-500 flex-shrink-0"></span>
-            <input type="number"
-                class="runner-input flex-grow p-2 border border-gray-300 rounded-lg text-lg text-right" min="1"
-                max="999">
-            <button
-                class="remove-runner-btn bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors duration-200 text-sm">הסר</button>
-        </div>
-    </template>
-    <button id="install-btn" style="display:none; position:fixed; bottom:24px; right:24px; z-index:1000;">
-        📲 התקן כאפליקציה
-    </button>
 </body>
 
 </html>
