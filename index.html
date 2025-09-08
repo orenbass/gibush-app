@@ -64,6 +64,23 @@
             body.pwa-safe header.sticky { top: var(--safe-area-top); }
         }
     </style>
+    <!-- NEW: quick comment sticky styles -->
+    <style>
+        #quick-comment-bar-container.quick-comment-sticky {
+            position: sticky;
+            top: calc(var(--safe-area-top, 0px));
+            z-index: 60;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border-radius: 0.5rem;
+            padding: .5rem .75rem;
+        }
+        .dark #quick-comment-bar-container.quick-comment-sticky {
+            background: rgba(74,85,104,0);
+        }
+        body.hide-quick-comments #quick-comment-bar-container { display: none; }
+    </style>
     <script>
         // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
         (function(){
@@ -85,7 +102,7 @@
         </div>
     </div>
 
-    <header class="sticky z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm">
+    <header class="z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm">
         <div id="app" class="min-h-screen flex flex-col items-center p-4 bg-gray-100 text-gray-800">
             <header class="w-full max-w-6xl p-4 bg-white rounded-lg shadow-md mb-4 text-center relative">
                 <h1 id="header-title" class="text-2xl md:text-3xl font-bold text-blue-600">מערכת גיבוש חת"מ</h1>
@@ -125,7 +142,7 @@
                             data-page="report"><span>📄</span><span class="text-xs mt-1">דוחות</span></button></li>
                 </ul>
             </nav>
-            <div id="quick-comment-bar-container" class="w-full max-w-6xl mb-4"></div>
+            <div id="quick-comment-bar-container" class="quick-comment-sticky w-full max-w-6xl mb-4"></div>
             <main id="content" class="w-full max-w-6xl bg-white p-4 md:p-6 rounded-lg shadow-md flex-grow">
                 <div id="runner-list" class="space-y-2"></div>
             </main>
@@ -155,6 +172,22 @@
         </button>
     </header>
     </div>
+    <!-- NEW: script to toggle quick comment visibility -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const qc = document.getElementById('quick-comment-bar-container');
+            if(!qc) return;
+            function setQC(page){
+                if(page === 'runners'){ document.body.classList.add('hide-quick-comments'); }
+                else { document.body.classList.remove('hide-quick-comments'); }
+            }
+            // initial (assuming default page = runners)
+            setQC('runners');
+            document.querySelectorAll('.nav-tab').forEach(btn=>{
+                btn.addEventListener('click', () => setQC(btn.dataset.page));
+            });
+        });
+    </script>
 </body>
 
 </html>
