@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <title>מערכת גיבוש חת"מ</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="./manifest.webmanifest">
@@ -90,6 +90,24 @@
                 if (isStandalone) document.body.classList.add('pwa-safe');
             });
         })();
+        // ביטול pinch-zoom ב-iOS
+        ['gesturestart','gesturechange','gestureend'].forEach(ev =>
+            document.addEventListener(ev, e => e.preventDefault(), { passive:false })
+        );
+        // מניעת double-tap zoom
+        let lastTouch = 0;
+        document.addEventListener('touchend', e => {
+            const now = Date.now();
+            if (now - lastTouch < 350) e.preventDefault();
+            lastTouch = now;
+        }, { passive:false });
+        // מניעת זום מקלדת (Ctrl + גלגל / +/-)
+        document.addEventListener('wheel', e => {
+            if (e.ctrlKey) e.preventDefault();
+        }, { passive:false });
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey && ['+','-','=', '0'].includes(e.key)) e.preventDefault();
+        });
     </script>
 </head>
 
