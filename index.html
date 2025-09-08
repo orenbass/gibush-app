@@ -80,6 +80,8 @@
             background: rgba(74,85,104,0);
         }
         body.hide-quick-comments #quick-comment-bar-container { display: none; }
+        /* Enable rapid taps (prevents browser double-tap zoom naturally) */
+        html, body { touch-action: manipulation; }
     </style>
     <script>
         // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
@@ -94,13 +96,6 @@
         ['gesturestart','gesturechange','gestureend'].forEach(ev =>
             document.addEventListener(ev, e => e.preventDefault(), { passive:false })
         );
-        // מניעת double-tap zoom
-        let lastTouch = 0;
-        document.addEventListener('touchend', e => {
-            const now = Date.now();
-            if (now - lastTouch < 350) e.preventDefault();
-            lastTouch = now;
-        }, { passive:false });
         // מניעת זום מקלדת (Ctrl + גלגל / +/-)
         document.addEventListener('wheel', e => {
             if (e.ctrlKey) e.preventDefault();
@@ -108,6 +103,23 @@
         document.addEventListener('keydown', e => {
             if (e.ctrlKey && ['+','-','=', '0'].includes(e.key)) e.preventDefault();
         });
+        /* REPLACED: old double-tap block that swallowed fast clicks
+           New version only prevents Safari double-tap zoom, allows fast UI taps */
+        (function(){
+            let lastTouchStart = 0;
+            document.addEventListener('touchstart', e => {
+                if (e.touches.length !== 1) return;            // ignore multi-touch
+                const now = performance.now();
+                const delta = now - lastTouchStart;
+                if (delta > 0 && delta < 260) {
+                    const t = e.target;
+                    if (!(/^(INPUT|TEXTAREA|BUTTON|SELECT)$/.test(t.tagName)) && !t.isContentEditable) {
+                        e.preventDefault(); // block only the zoom, not normal control taps
+                    }
+                }
+                lastTouchStart = now;
+            }, { passive:false });
+        })();
     </script>
 </head>
 
