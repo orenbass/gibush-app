@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <title>מערכת גיבוש חת"מ</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="./manifest.webmanifest">
@@ -51,6 +51,29 @@
     <!-- Main App -->
     <script src="quick-comments.js"></script>
     <script src="app.js"></script>
+
+    <style id="safe-area-support">
+        :root { --safe-area-top: env(safe-area-inset-top, 0px); }
+        @media (display-mode: standalone) {
+            body { padding-top: max(calc(var(--safe-area-top) + 6px), 6px); }
+            header.sticky { top: var(--safe-area-top); }
+        }
+        /* iOS חלק מהגרסאות לא מדווחות display-mode בזמן טעינה ראשונה */
+        @supports(padding:max(0px)) {
+            body.pwa-safe { padding-top: max(calc(var(--safe-area-top) + 6px), 6px); }
+            body.pwa-safe header.sticky { top: var(--safe-area-top); }
+        }
+    </style>
+    <script>
+        // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
+        (function(){
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            if (isStandalone) document.documentElement.classList.add('standalone'), document.body?.classList.add('pwa-safe');
+            window.addEventListener('DOMContentLoaded', ()=> {
+                if (isStandalone) document.body.classList.add('pwa-safe');
+            });
+        })();
+    </script>
 </head>
 
 <body>
@@ -62,7 +85,7 @@
         </div>
     </div>
 
-    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm">
+    <header class="sticky z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm">
         <div id="app" class="min-h-screen flex flex-col items-center p-4 bg-gray-100 text-gray-800">
             <header class="w-full max-w-6xl p-4 bg-white rounded-lg shadow-md mb-4 text-center relative">
                 <h1 id="header-title" class="text-2xl md:text-3xl font-bold text-blue-600">מערכת גיבוש חת"מ</h1>
