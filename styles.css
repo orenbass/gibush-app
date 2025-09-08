@@ -744,7 +744,10 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   font-size: 13px;
   line-height: 1;
   padding: 6px 16px;
-  border-radius: 999px;
+  border-radius: 12px; /* was 999px (pill) -> keep rectangular */
+  min-height: 40px;
+  min-width: 88px;
+  white-space: nowrap;
   cursor: pointer;
   transition: all .25s;
   position: relative;
@@ -936,3 +939,12 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   opacity:1;
 }
 /* === END OVERRIDE === */
+
+/* === OVERRIDE (must stay rectangular on all pages) === */
+.comment-btn,
+.comment-btn.sprint-comment-btn {
+  border-radius: 12px !important;
+  min-height: 40px !important;
+  min-width: 88px !important; /* ensures width > height -> not circle */
+  white-space: nowrap !important;
+}
