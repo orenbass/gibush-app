@@ -127,6 +127,9 @@
         /* NEW: sprint icon */
         .nav-icon-sprint { width:22px; height:22px; display:block; }
         .nav-tab.is-active .nav-icon-sprint { filter: brightness(1.15); }
+        /* NEW: crawl group icon */
+        .nav-icon-crawl { width:22px; height:22px; display:block; }
+        .nav-tab.is-active .nav-icon-crawl { filter: brightness(1.15); }
     </style>
     <script>
         // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
@@ -220,8 +223,12 @@
                     </li>
                     <li class="flex-shrink-0"><button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="crawling-drills-comments"><span>💰</span><span class="text-xs mt-1">זחילה
-                                קב'</span></button></li>
+                            data-page="crawling-drills-comments">
+                            <span>
+                                <img src="./icons/crawl_group_icon.svg" alt="זחילה קבוצתית" class="nav-icon-crawl" aria-hidden="true">
+                            </span>
+                            <span class="text-xs mt-1">זחילה קב'</span>
+                    </button></li>
                     <li class="flex-shrink-0"><button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
                             data-page="crawling-sprint"><span>🐛</span><span class="text-xs mt-1">ספרינט
@@ -288,4 +295,3 @@
 </body>
 
 </html>
-``` 
