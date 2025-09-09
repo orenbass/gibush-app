@@ -112,24 +112,23 @@
         @media (min-width: 480px){
             .nav-tab > span:last-child { font-size: .75rem; }
         }
-        .nav-icon-team {
-            width:22px;
-            height:22px;
+        .nav-icon-team,
+        .nav-icon-status,
+        .nav-icon-stretcher,
+        .nav-icon-sprint,
+        .nav-icon-crawl {
+            width:30px;
+            height:30px;
             display:block;
+            transform:translateY(1px); /* slight optical alignment */
         }
-        .nav-tab.is-active .nav-icon-team {
-            filter: brightness(1.15);
+        .nav-tab.is-active .nav-icon-team,
+        .nav-tab.is-active .nav-icon-status,
+        .nav-tab.is-active .nav-icon-stretcher,
+        .nav-tab.is-active .nav-icon-sprint,
+        .nav-tab.is-active .nav-icon-crawl {
+            filter:brightness(1.15);
         }
-        .nav-icon-status { width:22px; height:22px; display:block; }
-        .nav-tab.is-active .nav-icon-status { filter: brightness(1.15); }
-        .nav-icon-stretcher { width:22px; height:22px; display:block; }
-        .nav-tab.is-active .nav-icon-stretcher { filter: brightness(1.15); }
-        /* NEW: sprint icon */
-        .nav-icon-sprint { width:22px; height:22px; display:block; }
-        .nav-tab.is-active .nav-icon-sprint { filter: brightness(1.15); }
-        /* NEW: crawl group icon */
-        .nav-icon-crawl { width:22px; height:22px; display:block; }
-        .nav-tab.is-active .nav-icon-crawl { filter: brightness(1.15); }
     </style>
     <script>
         // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
