@@ -124,6 +124,9 @@
         .nav-tab.is-active .nav-icon-status { filter: brightness(1.15); }
         .nav-icon-stretcher { width:22px; height:22px; display:block; }
         .nav-tab.is-active .nav-icon-stretcher { filter: brightness(1.15); }
+        /* NEW: sprint icon */
+        .nav-icon-sprint { width:22px; height:22px; display:block; }
+        .nav-tab.is-active .nav-icon-sprint { filter: brightness(1.15); }
     </style>
     <script>
         // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
@@ -205,9 +208,16 @@
                             <span class="text-xs mt-1">סטטוס</span>
                         </button>
                     </li>
-                    <li class="flex-shrink-0"><button
+                    <li class="flex-shrink-0">
+                        <button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="heats"><span>🏃</span><span class="text-xs mt-1">ספרינטים</span></button></li>
+                            data-page="heats">
+                            <span>
+                                <img src="./icons/sprint_icon.svg" alt="ספרינטים" class="nav-icon-sprint" aria-hidden="true">
+                            </span>
+                            <span class="text-xs mt-1">ספרינטים</span>
+                        </button>
+                    </li>
                     <li class="flex-shrink-0"><button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
                             data-page="crawling-drills-comments"><span>💰</span><span class="text-xs mt-1">זחילה
@@ -278,3 +288,4 @@
 </body>
 
 </html>
+``` 
