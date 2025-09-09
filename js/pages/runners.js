@@ -96,6 +96,56 @@
         });
     }
 
+    // NEW: עטיפה להבטחת מקלדת מספרים רק עבור מספר קבוצה (גם בעריכת פרטים)
+    if (!window.__groupNumberNumericPatch){
+        window.__groupNumberNumericPatch = true;
+
+        function enforceGroupNumberNumeric(){
+            const selectors = [
+                '#group-number-input',
+                'input[name="groupNumber"]',
+                'input[id*="group-number"]',
+                'input[id*="groupNum"]',
+                'input[name*="groupNum"]',
+                'input[name*="group-number"]'
+            ];
+            selectors.forEach(sel=>{
+                document.querySelectorAll(sel).forEach(inp=>{
+                    inp.dataset.numeric = '1';   // כדי שייכלל בסלקטור המקורי
+                });
+            });
+            applyNumericEnhancements(document);
+        }
+
+        // עטיפת המודאל אם קיים
+        const originalShowEdit = window.showEditBasicDetailsModal;
+        if (typeof originalShowEdit === 'function'){
+            window.showEditBasicDetailsModal = function(){
+                const r = originalShowEdit.apply(this, arguments);
+                // ניסיונות מאוחרים כדי לוודא שה-DOM נטען
+                requestAnimationFrame(()=>{
+                    enforceGroupNumberNumeric();
+                    setTimeout(enforceGroupNumberNumeric, 40);
+                    setTimeout(enforceGroupNumberNumeric, 150);
+                });
+                return r;
+            };
+        }
+
+        // גיבוי: לחיצה על כפתור "ערוך פרטים"
+        document.addEventListener('click', e=>{
+            if (e.target && e.target.id === 'edit-details-btn'){
+                setTimeout(enforceGroupNumberNumeric, 30);
+                setTimeout(enforceGroupNumberNumeric, 140);
+            }
+        });
+
+        // גיבוי נוסף: בעת פתיחת המודאל הראשוני (כבר מטופל ע"י ה-MutationObserver, אך מחזקים)
+        document.addEventListener('DOMContentLoaded', () => {
+            enforceGroupNumberNumeric();
+        });
+    }
+
     // NEW: צופה לפתיחת מודאל ההגדרות הראשוני ומחיל מקלדת מספרים
     if (!window.__initModalNumericObserver){
         window.__initModalNumericObserver = true;
