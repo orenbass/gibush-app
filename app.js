@@ -45,6 +45,8 @@ const state = {
 
     generalComments: {}, // הוספת שדה להערות כלליות
 
+    quickComments: {},    // { shoulderNumber: [ 'tag1', 'tag2', ... ] }
+
     sociometricStretcher: {},    // אובייקט לנתוני אלונקה סוציומטרית (מקצים, נושאים, הערות)
 
     themeMode: 'auto', // אפשרויות: 'auto', 'light', 'dark'
@@ -1547,6 +1549,13 @@ function render() {
     state.isTimerRunning = false;
 
     if (state.currentPage !== PAGES.CRAWLING_COMMENTS) stopAllSackTimers();
+
+    // Handle quick comments visibility based on current page
+    if (state.currentPage === 'runners') {
+        document.body.classList.add('hide-quick-comments');
+    } else {
+        document.body.classList.remove('hide-quick-comments');
+    }
 
     const shouldShowQuickBar =
     state.runners && state.runners.length > 0 &&

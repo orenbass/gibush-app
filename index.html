@@ -116,17 +116,25 @@
         .nav-icon-status,
         .nav-icon-stretcher,
         .nav-icon-sprint,
-        .nav-icon-crawl {
+        .nav-icon-crawl,
+        .nav-icon-crawl-sprint,
+        .nav-icon-socio-stretcher,
+        /* NEW: reports icon */
+        .nav-icon-report {
             width:30px;
             height:30px;
             display:block;
-            transform:translateY(1px); /* slight optical alignment */
+            transform:translateY(1px);
         }
         .nav-tab.is-active .nav-icon-team,
         .nav-tab.is-active .nav-icon-status,
         .nav-tab.is-active .nav-icon-stretcher,
         .nav-tab.is-active .nav-icon-sprint,
-        .nav-tab.is-active .nav-icon-crawl {
+        .nav-tab.is-active .nav-icon-crawl,
+        .nav-tab.is-active .nav-icon-crawl-sprint,
+        .nav-tab.is-active .nav-icon-socio-stretcher,
+        /* NEW: reports icon active */
+        .nav-tab.is-active .nav-icon-report {
             filter:brightness(1.15);
         }
     </style>
@@ -230,19 +238,31 @@
                     </button></li>
                     <li class="flex-shrink-0"><button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="crawling-sprint"><span>🐛</span><span class="text-xs mt-1">ספרינט
-                                זחילות</span></button></li>
+                            data-page="crawling-sprint">
+                            <span>
+                                <!-- NEW: crawl sprint icon -->
+                                <img src="./icons/crawl_sprint_icon.svg" alt="זחילות" class="nav-icon-crawl-sprint" aria-hidden="true">
+                            </span>
+                            <span class="text-xs mt-1">זחילות</span>
+                    </button></li>
                     <li class="flex-shrink-0"><button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
                             data-page="sociometric-stretcher-heat">
                             <span>
-                                <img src="./icons/stretcher_icon.svg" alt="אלונקות" class="nav-icon-stretcher" aria-hidden="true">
+                                <!-- NEW: sociometric stretcher icon -->
+                                <img src="./icons/sociometric_stretcher_icon.svg" alt="אלונקה סוציומטרית" class="nav-icon-socio-stretcher" aria-hidden="true">
                             </span>
                             <span class="text-xs mt-1">אלונקות</span>
                     </button></li>
                     <li class="flex-shrink-0"><button
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="report"><span>📄</span><span class="text-xs mt-1">דוחות</span></button></li>
+                            data-page="report">
+                            <span>
+                                <!-- NEW: reports icon -->
+                                <img src="./icons/report_page_icon.svg" alt="סיכום" class="nav-icon-report" aria-hidden="true">
+                            </span>
+                            <span class="text-xs mt-1">סיכום</span>
+                    </button></li>
                 </ul>
             </nav>
             <div id="quick-comment-bar-container" class="quick-comment-sticky w-full max-w-6xl mb-2"></div>
@@ -275,17 +295,94 @@
         </button>
     </header>
     </div>
+    <!-- UPDATED: script to toggle quick comment visibility dynamically -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const qc = document.getElementById('quick-comment-bar-container');
+            if(!qc) return;
+
+            function setQC(page){
+                if(page === 'runners'){
+                    document.body.classList.add('hide-quick-comments');
+                } else {
+                    document.body.classList.remove('hide-quick-comments');
+                }
+            }
+
+            function detectCurrentPage(){
+                // 1. Try live state first
+                if (window.state && window.state.currentPage) {
+                    return window.state.currentPage;
+                }
+                // 2. Fallback to reading from localStorage
+                try {
+                    const key = (window.CONFIG && window.CONFIG.APP_STATE_KEY) || 'sprintAppState_v1.11'; // Use known key as fallback
+                    const rawState = localStorage.getItem(key);
+                    if (rawState) {
+                        const parsed = JSON.parse(rawState);
+                        // Handle both state structures {appState: ...} and older flat structure
+                        return parsed.appState?.currentPage || parsed.currentPage || 'runners';
+                    }
+                } catch (e) {
+                    // Ignore parsing errors
+                }
+                // 3. Default to 'runners' if nothing found
+                return 'runners';
+            }
+
+            // Set initial visibility based on actual current page
+            setQC(detectCurrentPage());
+
+            // Update visibility on navigation clicks
+            document.querySelectorAll('.nav-tab').forEach(btn=>{
+                btn.addEventListener('click', () => setQC(btn.dataset.page));
+            });
+
+            // Also hook into the main render function to catch programmatic page changes
+            if (window.render && !window.__qcRenderPatched) {
+                const originalRender = window.render;
+                window.render = function() {
+                    const result = originalRender.apply(this, arguments);
+                    try {
+                        setQC(window.state?.currentPage);
+                    } catch(e) { /* ignore */ }
+                    return result;
+                };
+                window.__qcRenderPatched = true;
+            }
+        });
+    </script>
     <!-- NEW: script to toggle quick comment visibility -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const qc = document.getElementById('quick-comment-bar-container');
             if(!qc) return;
+            
             function setQC(page){
                 if(page === 'runners'){ document.body.classList.add('hide-quick-comments'); }
                 else { document.body.classList.remove('hide-quick-comments'); }
             }
-            // initial (assuming default page = runners)
-            setQC('runners');
+            
+            // Check current page from state instead of assuming
+            const getCurrentPage = () => {
+                if (window.state && window.state.currentPage) {
+                    return window.state.currentPage;
+                }
+                // Fallback: check which nav tab is active
+                const activeTab = document.querySelector('.nav-tab.is-active');
+                return activeTab ? activeTab.dataset.page : 'runners';
+            };
+            
+            // Wait for app state to be loaded, then set correct visibility
+            const checkAndSetQC = () => {
+                const currentPage = getCurrentPage();
+                setQC(currentPage);
+            };
+            
+            // Try immediately and also after a short delay for app initialization
+            checkAndSetQC();
+            setTimeout(checkAndSetQC, 100);
+            
             document.querySelectorAll('.nav-tab').forEach(btn=>{
                 btn.addEventListener('click', () => setQC(btn.dataset.page));
             });

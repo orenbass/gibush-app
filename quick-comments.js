@@ -657,4 +657,5 @@
     const host = document.getElementById('quick-comment-bar-container');
     if (host) window.QuickComments.renderBar(true);
   };
+
 })();

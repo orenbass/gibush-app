@@ -572,12 +572,7 @@ ${carriersListHtml}
             });
 
             // וריאציות נפוצות לשמות אירועים אפשריים של "הערה מהירה"
-            ['quickComment:sent','quickComment:applied','quick-comment-sent'].forEach(evtName=>{
-                window.addEventListener(evtName, ()=>{
-                    // השהייה קצרה לאפשר ל-state להתעדכן
-                    setTimeout(()=>refreshAllMiniIndicators(), 80);
-                });
-            });
+
 
             // אם פקודת שליחה גלובלית נחשפת כפונקציה – עוטפים פעם אחת
             if (window.sendQuickComment && !window.sendQuickComment._wrappedForCounters){

@@ -94,6 +94,11 @@
       .runner-card-r.gold .shoulder-badge{border-color:#fbbf24}
       .runner-card-r.silver .shoulder-badge{border-color:#9ca3af}
       .runner-card-r.bronze .shoulder-badge{border-color:#cd7c0f}
+      .runner-card-r.gold .rank-badge,
+      .runner-card-r.silver .rank-badge,
+      .runner-card-r.bronze .rank-badge{
+        font-size:34px;
+      }
       @media (max-width:750px){
         .runner-card-r{padding-right:50px;gap:10px}
         .scores-inline{gap:8px}
@@ -102,6 +107,11 @@
         .rank-badge{width:40px}
         .runner-number-big{font-size:14px}
         .report-header-bar{flex-direction:column;align-items:flex-start}
+        .runner-card-r.gold .rank-badge,
+        .runner-card-r.silver .rank-badge,
+        .runner-card-r.bronze .rank-badge{
+          font-size:28px;
+        }
       }
       @media (max-width:400px){
         .runner-card-r{padding-right:45px}
@@ -110,6 +120,11 @@
         .score-label{font-size:9px}
         .rank-badge{width:35px}
         .runner-number-big{font-size:13px}
+        .runner-card-r.gold .rank-badge,
+        .runner-card-r.silver .rank-badge,
+        .runner-card-r.bronze .rank-badge{
+          font-size:24px;
+        }
       }
     `;
   }

@@ -412,6 +412,53 @@ ${hasRunners ? `
                     // אם לא נמצא - יצירת אובייקט בסיסי
                     return { shoulderNumber: input.value.trim() };
                 });
+
+                // NEW: detect changed numbers & migrate keyed data (comments / scores / statuses)
+                (function migrateShoulderKeyedData() {
+                    const oldNums = inputs.map(i => i.dataset.original);
+                    const newNums = inputs.map(i => i.value.trim());
+                    let hasChange = false;
+                    const mapChanges = {};
+                    for (let i = 0; i < oldNums.length; i++) {
+                        const o = oldNums[i];
+                        const n = newNums[i];
+                        if (o && n && o !== n) {
+                            hasChange = true;
+                            mapChanges[o] = n;
+                        }
+                    }
+                    if (!hasChange) return;
+
+                    // Helper to remap a flat object keyed by shoulderNumber
+                    function remapObject(obj) {
+                        if (!obj || typeof obj !== 'object') return obj;
+                        const out = {};
+                        Object.keys(obj).forEach(k => {
+                            const newK = mapChanges[k] || k;
+                            // If collision: last one wins (can be enhanced if needed)
+                            out[newK] = obj[k];
+                        });
+                        return out;
+                    }
+
+                    // generalComments
+                    if (state.generalComments) {
+                        state.generalComments = remapObject(state.generalComments);
+                    }
+                    // manualScores
+                    if (state.manualScores) {
+                        state.manualScores = remapObject(state.manualScores);
+                    }
+                    // optional quickComments (if component uses separate store)
+                    if (state.quickComments) {
+                        state.quickComments = remapObject(state.quickComments);
+                    }
+                    // crawlingDrills.runnerStatuses
+                    if (state.crawlingDrills && state.crawlingDrills.runnerStatuses) {
+                        state.crawlingDrills.runnerStatuses = remapObject(state.crawlingDrills.runnerStatuses);
+                    }
+                })();
+
                 state.runners = mapped;
                 saveState?.();
                 window.updateActiveRunners();
