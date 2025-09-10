@@ -109,6 +109,76 @@
         border-color:#7f1d1d;
       }
       .dark .comment-modal .btn-danger:hover{background:#2a3647}
+
+      .comment-mic-btn{
+        position:relative;
+        border:1px solid #cbd5e1;
+        background:#ffffff;
+        width:38px;
+        height:38px;
+        border-radius:10px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        color:#334155;
+        font-size:18px;
+        transition:.18s;
+      }
+      .dark .comment-mic-btn{
+        background:#1f2937;
+        border-color:#475569;
+        color:#cbd5e1;
+      }
+      .comment-mic-btn:hover{background:#f1f5f9}
+      .dark .comment-mic-btn:hover{background:#273549}
+      .comment-mic-btn.listening{
+        background:#dc2626;
+        border-color:#dc2626;
+        color:#fff;
+        animation:pulseMic 1.1s infinite ease-in-out;
+      }
+      @keyframes pulseMic{
+        0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}
+        50%{box-shadow:0 0 0 6px rgba(220,38,38,0)}
+      }
+      .comment-mic-btn[disabled]{opacity:.4;cursor:not-allowed;animation:none}
+      .comment-mic-status{
+        font-size:11px;
+        margin-top:4px;
+        min-height:14px;
+        opacity:.75;
+      }
+      .comment-mic-btn .mic-dot{
+        position:absolute;
+        inset:auto 6px 6px auto;
+        width:8px;
+        height:8px;
+        background:#22c55e;
+        border-radius:50%;
+        box-shadow:0 0 0 2px #fff;
+        display:none;
+      }
+      .comment-mic-btn.listening .mic-dot{display:block}
+      .dark .comment-mic-btn.listening .mic-dot{box-shadow:0 0 0 2px #1f2937}
+      .comment-modal .add-row{gap:6px}
+      .comment-modal .add-row input{
+        padding:6px 8px !important;
+        font-size:13px !important;
+      }
+      .comment-mic-btn{
+        width:34px;
+        height:34px;
+        font-size:16px;
+      }
+      .comment-mic-btn.listening{
+        /* שמירה – רק הקטנה קלה של ה-radius */
+        border-radius:10px;
+      }
+      .comment-mic-status{
+        margin-top:2px;
+        font-size:10px;
+      }
     `;
     document.head.appendChild(st);
   }
@@ -166,11 +236,15 @@
 
         <div class="note-muted">הוסף כמה הערות. ניתן לערוך ולמחוק כל שורה.</div>
 
-        <div class="add-row" style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-          <input id="new-comment-input" type="text" placeholder="כתוב הערה חדשה..." style="flex:1;padding:8px 10px;font-size:14px" />
-          <button class="btn btn-primary" data-add>הוסף</button>
+        <div class="add-row" style="display:flex;align-items:center;margin-bottom:4px">
+          <input id="new-comment-input" type="text" placeholder="כתוב הערה חדשה..." style="flex:1;min-width:0" />
+          <button class="comment-mic-btn" type="button" data-mic title="הקלטה בלחיצה ארוכה (Android)">
+            🎤
+            <span class="mic-dot"></span>
+          </button>
+          <button class="btn btn-primary" data-add style="padding:6px 10px;font-size:12px">הוסף</button>
         </div>
-
+        <div class="comment-mic-status" data-mic-status></div>
         <div id="comments-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto;padding-right:2px">
           ${comments.map((c,i)=>rowTpl(i,c)).join('')}
         </div>
@@ -330,6 +404,125 @@
         inputNew.value='';
       }
     });
+
+    // ===== Voice (Android only, long press) =====
+    const micBtn = backdrop.querySelector('[data-mic]');
+    const micStatus = backdrop.querySelector('[data-mic-status]');
+    const recInput = inputNew;
+
+    function isAndroid(){ return /Android/i.test(navigator.userAgent||''); }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let listening = false;
+    let partialBuffer = '';
+    let pressTimer = null;
+    let pressed = false;
+    const PRESS_DELAY = 220; // ms threshold for long press
+
+    if (!isAndroid() || !SR){
+      micBtn.style.display='none';
+    } else {
+      recognition = new SR();
+      recognition.lang = 'he-IL';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      function startMic(){
+        if (listening) return;
+        try{
+          partialBuffer='';
+          recInput.value='';
+          listening = true;
+          recognition.start();
+          micBtn.classList.add('listening');
+          micStatus.textContent = 'האזנה...';
+        }catch(err){
+          console.warn('speech start error', err);
+          micStatus.textContent='שגיאה בהתחלה';
+          listening = false;
+        }
+      }
+      function finalizeVoice(){
+        const t = (recInput.value||'').trim();
+        if (t){
+          add(t);
+          recInput.value='';
+          micStatus.textContent='הערה נוספה';
+        } else {
+          micStatus.textContent='לא זוהה דיבור';
+        }
+        setTimeout(()=>{ if(micStatus.textContent) micStatus.textContent=''; },1300);
+      }
+      function stopMic(forceEnd){
+        if (!listening) return;
+        try{ recognition.stop(); }catch(_) {}
+        listening = false;
+        micBtn.classList.remove('listening');
+        if (forceEnd) finalizeVoice();
+      }
+
+      recognition.onresult = (e)=>{
+        let finalText = '';
+        partialBuffer='';
+        for(let i=0;i<e.results.length;i++){
+          const r = e.results[i];
+          if (r.isFinal) finalText += r[0].transcript;
+          else partialBuffer += r[0].transcript;
+        }
+        const merged = (finalText + ' ' + partialBuffer).trim();
+        if (merged) recInput.value = merged;
+      };
+      recognition.onerror = (e)=>{
+        micStatus.textContent = 'שגיאה: ' + (e.error||'');
+        stopMic(false);
+      };
+      recognition.onend = ()=>{
+        if (listening){ // אם הסתיים ללא שחרור ידני (timeout)
+          stopMic(true);
+        }
+      };
+
+      function clearPressTimer(){
+        if (pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
+      }
+
+      function pointerDown(ev){
+        pressed = true;
+        micStatus.textContent='...';
+        clearPressTimer();
+        pressTimer = setTimeout(()=>{
+          if (pressed){
+            startMic();
+          }
+        }, PRESS_DELAY);
+      }
+      function pointerUp(){
+        if (!pressed) return;
+        pressed = false;
+        if (!listening){
+          // היה קצר מדי – ביטול
+          micStatus.textContent='';
+        } else {
+          stopMic(true);
+        }
+        clearPressTimer();
+      }
+      function pointerLeave(){
+        if (!pressed) return;
+        pressed = false;
+        if (listening){
+          stopMic(true);
+        } else {
+          micStatus.textContent='';
+        }
+        clearPressTimer();
+      }
+
+      ['pointerdown','touchstart','mousedown'].forEach(ev=> micBtn.addEventListener(ev, pointerDown));
+      ['pointerup','touchend','mouseup'].forEach(ev=> document.addEventListener(ev, pointerUp));
+      ['pointercancel','touchcancel','mouseleave'].forEach(ev=> micBtn.addEventListener(ev, pointerLeave));
+    }
   }
 
   window.CommentsModal = { open };
