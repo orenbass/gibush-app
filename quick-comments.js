@@ -395,6 +395,18 @@
     }
     sendBtn.addEventListener('click', send);
 
+    // מאזין ישיר לעדכון בועות האינדיקציה
+    sendBtn.addEventListener('click', () => {
+      setTimeout(() => {
+        if (window.updateMiniCommentIndicator && runnerSel && runnerSel.value) {
+          window.updateMiniCommentIndicator(runnerSel.value);
+        }
+        if (window.refreshAllMiniCommentIndicators) {
+          window.refreshAllMiniCommentIndicators();
+        }
+      }, 50);
+    });
+
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null, isRecording = false;
     const isApple = /iP(hone|ad|od)|Mac/i.test(navigator.userAgent);
