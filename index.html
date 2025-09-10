@@ -8,15 +8,19 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="./manifest.webmanifest">
     <meta name="theme-color" content="#0f172a">
+    <meta name="application-name" content="Gibush">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/thumbnail_gibush_192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="./icons/thumbnail_gibush_12.png">
+    <link rel="apple-touch-icon" href="./icons/thumbnail_gibush_192.png">
 
     <!-- iOS PWA metadata (no Android effect, but recommended) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Gibush">
-    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/thumbnail_gibush_192.png">
     <meta name="mobile-web-app-capable" content="yes">
-    <link rel="icon" href="./icons/icon-192.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="icon" href="./icons/thumbnail_gibush_192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/thumbnail_gibush_192.png">
     <!-- ודא שהתיקייה /icons מכילה icon-192.png -->
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -393,30 +397,32 @@
             let deferredInstallEvent = null;
             const btn = document.getElementById('install-btn');
 
-            // אם כבר מותקן / רץ כ-stanalone – אל תציג
+            function hide(){ btn.style.display='none'; }
+
+            // כבר מותקן?
             if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
-                btn.style.display='none';
-                return;
+                hide(); return;
             }
 
-            window.addEventListener('beforeinstallprompt', (e) => {
-                // למנוע prompt אוטומטי
+            window.addEventListener('beforeinstallprompt', (e)=>{
+                console.log('[PWA] beforeinstallprompt fired');
                 e.preventDefault();
                 deferredInstallEvent = e;
-                btn.style.display = 'block';
+                btn.style.display='block';
+                btn.disabled = false;
                 btn.textContent = '📲 התקן כאפליקציה';
+            });
+
+            window.addEventListener('appinstalled', () => {
+                console.log('[PWA] appinstalled');
+                btn.textContent = 'הותקן ✅';
+                setTimeout(hide, 1500);
             });
 
             btn.addEventListener('click', async () => {
                 if (!deferredInstallEvent) {
-                    // גיבוי: נבדוק שוב אחרי שניה
-                    btn.textContent = 'בודק...';
-                    setTimeout(()=> {
-                        if (!deferredInstallEvent) {
-                            btn.textContent = 'לא זמין כעת';
-                            setTimeout(()=> btn.style.display='none', 1800);
-                        }
-                    }, 1000);
+                    btn.textContent = 'לא זמין כעת';
+                    setTimeout(hide, 1800);
                     return;
                 }
                 btn.disabled = true;
@@ -424,14 +430,15 @@
                 deferredInstallEvent.prompt();
                 try {
                     const choice = await deferredInstallEvent.userChoice;
+                    console.log('[PWA] userChoice', choice);
                     if (choice.outcome === 'accepted') {
                         btn.textContent = 'הותקן ✅';
-                        setTimeout(()=> btn.style.display='none', 1800);
+                        setTimeout(hide, 1500);
                     } else {
                         btn.textContent = 'נדחה – נסה שוב';
                         btn.disabled = false;
                     }
-                } catch (err) {
+                } catch(err){
                     console.warn('Install prompt error', err);
                     btn.textContent = 'שגיאה';
                     btn.disabled = false;
@@ -439,10 +446,8 @@
                 deferredInstallEvent = null;
             });
 
-            // fallback: אם אחרי 6 שניות לא הגיע אירוע – החבא
-            setTimeout(()=> {
-                if (!deferredInstallEvent) btn.style.display='none';
-            }, 6000);
+            // אם אחרי 8ש׳ אין אירוע – הסתר
+            setTimeout(()=> { if(!deferredInstallEvent) hide(); }, 8000);
         })();
     </script>
 </body>
