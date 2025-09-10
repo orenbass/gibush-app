@@ -377,6 +377,16 @@
           window.CommentButtonUpdater.update(shoulderNumber);
         }
 
+        // עדכון בועת האינדיקציה
+        if (window.updateMiniCommentIndicator) {
+          window.updateMiniCommentIndicator(shoulderNumber);
+        }
+
+        // רענון כללי של כל הבועות אם קיים
+        if (window.refreshAllMiniCommentIndicators) {
+          window.refreshAllMiniCommentIndicators();
+        }
+
         attemptClose('save');
         return;
       }
@@ -554,7 +564,7 @@
       // 2. עדכן את הטקסט
       const textEl = btn.querySelector('.comment-text');
       if (textEl) {
-        let text = 'כתוב הערה...';
+        let text = 'כככככככככככככתוב הערה...';
         if (count > 0) {
           const joined = arr.join(' | ').replace(/\s+/g, ' ');
           text = joined.length > 20 ? joined.slice(0, 17) + '...' : joined;
