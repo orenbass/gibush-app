@@ -106,10 +106,10 @@
                 .dark .gc-btn-mic.recording{background:#b91c1c}
 
                 /* === בועת אינדיקציית הערות – אייקון בועה ממולא עם מספר בפנים === */
-                .runner-sack-btn{position:relative;padding-left:38px;} /* מקום לאייקון החדש */
+                .runner-sack-btn{position:relative;padding-left:45px;} /* מקום לאייקון החדש - הוגדל מ-38px */
                 .runner-sack-btn .comment-mini-indicator{
                   position:absolute;top:4px;left:4px;
-                  width:30px;height:28px;
+                  width:37px;height:35px; /* הוגדל מ-30px × 28px */
                   display:flex;align-items:center;justify-content:center;
                   font-weight:700;line-height:1;
                   user-select:none;
@@ -128,18 +128,18 @@
                 .runner-sack-btn .comment-mini-indicator .cm-count{
                   position:absolute;
                   top:50%;left:50%;
-                  transform:translate(-50%,-62%); /* הרמנו עוד קצת (-60% היה קודם) */
-                  font-size:11px;
+                  transform:translate(-50%,-70%); /* הועלה מ--62% ל--70% */
+                  font-size:13px;
                   pointer-events:none;
                   text-shadow:0 1px 2px rgba(0,0,0,.35);
-                  color:#fff; /* תמיד לבן */
+                  color:#fff;
                 }
                 .runner-sack-btn .comment-mini-indicator.count-0 .cm-count{display:none;}
                 .runner-sack-btn .comment-mini-indicator.count-0::after{
                   content:'+';position:absolute;
                   top:50%;left:50%;
-                  transform:translate(-50%,-70%); /* היה -60% – הועלה מעט */
-                  font-size:16px;font-weight:400;
+                  transform:translate(-50%,-78%); /* הועלה מ--70% ל--78% */
+                  font-size:18px;font-weight:400; /* הוגדל מ-16px */
                   text-shadow:0 1px 2px rgba(0,0,0,.35);
                   color:#fff;
                 }
@@ -518,6 +518,34 @@ ${carriersListHtml}
                 } catch(e){
                     console.error(e);
                     alert('שגיאה בטעינת מודול ההערות');
+                }
+            });
+        });
+
+        // מאזינים לחיצה על בועת האינדיקציה לפתיחת commentModal
+        document.querySelectorAll('.comment-mini-indicator').forEach(indicator => {
+            indicator.addEventListener('click', async (e) => {
+                e.stopPropagation(); // מונע פעולה על הכפתור עצמו
+                const shoulderNumber = indicator.getAttribute('data-mini-comment');
+                if (shoulderNumber) {
+                    try {
+                        await ensureCommentsModalLoaded();
+                        const btn = document.querySelector(`[data-comment-btn="${shoulderNumber}"]`);
+                        window.CommentsModal.open(shoulderNumber, {
+                            originBtn: btn,
+                            truncateFn: truncateCrawlCommentSummary,
+                            onSave: (val) => {
+                                state.generalComments = state.generalComments || {};
+                                state.generalComments[shoulderNumber] = val;
+                                saveState();
+                                if (window.CommentButtonUpdater) CommentButtonUpdater.update(shoulderNumber);
+                                updateMiniCommentIndicator(shoulderNumber);
+                            }
+                        });
+                    } catch(e) {
+                        console.error(e);
+                        alert('שגיאה בטעינת מודול ההערות');
+                    }
                 }
             });
         });
