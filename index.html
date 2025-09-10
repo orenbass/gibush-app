@@ -290,7 +290,7 @@
                     class="remove-runner-btn bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors duration-200 text-sm">הסר</button>
             </div>
         </template>
-        <button id="install-btn" style="display:none; position:fixed; bottom:24px; right:24px; z-index:1000;">
+        <button id="install-btn" style="display:none; position:fixed; bottom:24px; right:24px; z-index:1000;" aria-label="התקן כאפליקציה">
             📲 התקן כאפליקציה
         </button>
     </header>
@@ -387,6 +387,63 @@
                 btn.addEventListener('click', () => setQC(btn.dataset.page));
             });
         });
+    </script>
+    <script>
+        (function(){
+            let deferredInstallEvent = null;
+            const btn = document.getElementById('install-btn');
+
+            // אם כבר מותקן / רץ כ-stanalone – אל תציג
+            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+                btn.style.display='none';
+                return;
+            }
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                // למנוע prompt אוטומטי
+                e.preventDefault();
+                deferredInstallEvent = e;
+                btn.style.display = 'block';
+                btn.textContent = '📲 התקן כאפליקציה';
+            });
+
+            btn.addEventListener('click', async () => {
+                if (!deferredInstallEvent) {
+                    // גיבוי: נבדוק שוב אחרי שניה
+                    btn.textContent = 'בודק...';
+                    setTimeout(()=> {
+                        if (!deferredInstallEvent) {
+                            btn.textContent = 'לא זמין כעת';
+                            setTimeout(()=> btn.style.display='none', 1800);
+                        }
+                    }, 1000);
+                    return;
+                }
+                btn.disabled = true;
+                btn.textContent = 'מבצע...';
+                deferredInstallEvent.prompt();
+                try {
+                    const choice = await deferredInstallEvent.userChoice;
+                    if (choice.outcome === 'accepted') {
+                        btn.textContent = 'הותקן ✅';
+                        setTimeout(()=> btn.style.display='none', 1800);
+                    } else {
+                        btn.textContent = 'נדחה – נסה שוב';
+                        btn.disabled = false;
+                    }
+                } catch (err) {
+                    console.warn('Install prompt error', err);
+                    btn.textContent = 'שגיאה';
+                    btn.disabled = false;
+                }
+                deferredInstallEvent = null;
+            });
+
+            // fallback: אם אחרי 6 שניות לא הגיע אירוע – החבא
+            setTimeout(()=> {
+                if (!deferredInstallEvent) btn.style.display='none';
+            }, 6000);
+        })();
     </script>
 </body>
 
