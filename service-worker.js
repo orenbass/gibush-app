@@ -34,3 +34,18 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
+
+self.addEventListener('install', e => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  clients.claim();
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(console.warn);
+  });
+}
+// (אפשר להרחיב קאשינג מאוחר יותר)
