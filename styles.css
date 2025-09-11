@@ -1182,25 +1182,23 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
 
 /* Modal window */
 .qc-group-modal {
-  position: fixed;
   top: calc(10px + env(safe-area-inset-top));
   left: calc(10px + env(safe-area-inset-left));
   right: calc(10px + env(safe-area-inset-right));
   bottom: calc(10px + env(safe-area-inset-bottom));
 
-  width: auto;
-  height: auto;
-  max-width: none;
-  max-height: none;
-  transform: none;
-  background: #ffffff;
+  /* חשוב – מוסיף ריווח פנימי */
+  padding-top: calc(16px + env(safe-area-inset-top));
+
   border-radius: 12px;
-  padding: 16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: 16px;
   overflow-y: auto;
   direction: rtl;
   text-align: right;
   z-index: 100000;
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, .5);
+  box-shadow: 0 20px 50px -10px rgba(0,0,0,.5);
   font-size: 16px;
   line-height: 1.4;
   display: flex;
