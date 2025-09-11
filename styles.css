@@ -635,7 +635,7 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   height: 44px;
   font-size: 16px;           /* ללא זום באייפון */
   padding: 8px 12px;
-  padding-inline-start: 44px; /* מקום לכפתור בפנים (RTL/LTR תלוי כיוון) */
+  padding-inline-start: 10px; /* מקום לכפתור בפנים (RTL/LTR תלוי כיוון) */
   border-radius: calc(var(--radius) - 8px);
   background: rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.10);
