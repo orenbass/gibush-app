@@ -158,14 +158,14 @@
   }
 
   function defaultTruncate(raw, max = 20){
-    if (raw == null) return 'כתוב הערה...';
+    if (raw == null) return 'כתוב הגגגגגערה...';
     let str;
     if (Array.isArray(raw)){
       str = raw.filter(c=>c && c.trim()).join(' | ');
     } else {
       str = String(raw||'').trim();
     }
-    if (!str) return 'כתוב הערה...';
+    if (!str) return 'כתוב העגגגגגרה...';
     const single = str.replace(/\s+/g,' ');
     return single.length > max ? single.slice(0, max-3) + '...' : single;
   }

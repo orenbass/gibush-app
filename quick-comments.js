@@ -5,151 +5,11 @@
   NS.renderBar = function renderQuickCommentBar(show) {
     const quickBarDiv = document.getElementById('quick-comment-bar-container');
     if (!quickBarDiv) return;
-    if (!show) { quickBarDiv.innerHTML = ''; return; }
-
-    if (!document.getElementById('qc-style')) {
-      const style = document.createElement('style');
-      style.id = 'qc-style';
-      style.textContent = `
-.quickbar{display:grid;grid-template-columns:1fr;gap:10px;padding:12px;background:rgba(0,0,0,.08);border-radius:12px;margin:8px 0;}
-@media (min-width:640px){.quickbar{grid-template-columns:auto 1fr auto;align-items:center;gap:12px;}}
-.qc-row{display:flex;align-items:center;gap:8px;min-width:0;}
-.qc-label{display:none;} /* הוסר תווית מספר כתף */
-.qc-input-row{display:flex;align-items:center;gap:6px;flex:1;min-width:0;}
-/* NEW runner select */
-.qc-runner-select{
-  width:64px;min-width:54px;max-width:72px;height:34px;
-  font-size:13px;font-weight:600;
-  border:1px solid rgba(0,0,0,.15);border-radius:8px;
-  background:#fff;color:#111827;box-sizing:border-box;
-  text-align:center;text-align-last:center;direction:rtl;flex:0 0 auto;
-}
-.dark .qc-runner-select{background:#374151;color:#f9fafb;border-color:rgba(255,255,255,.2);}
-.qc-runner-select option{background:#fff;color:#111827;}
-.dark .qc-runner-select option{background:#374151;color:#f9fafb;}
-.qc-input{flex:1;height:40px;
-  padding:8px 4px 8px 12px; /* יישור הדוק לימין: צמצום padding-right מ-12px ל-4px */
-  border-radius:8px;border:1px solid rgba(0,0,0,.15);
-  background:rgba(255,255,255,.9);color:#111827;font-size:16px;
-  text-align:right;min-width:0;}
-.dark .qc-input{background:rgba(255,255,255,.06);color:inherit;border-color:rgba(255,255,255,.14);}
-/* יישור placeholder לימין */
-.qc-input::placeholder,
-.qc-input::-webkit-input-placeholder,
-.qc-input::-moz-placeholder,
-.qc-input:-ms-input-placeholder,
-.qc-input::-ms-input-placeholder{ text-align:left; direction:rtl; }
-.qc-micBtn{width:40px;height:40px;border-radius:8px;border:1px solid rgba(0,0,0,.15);background:#374151;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
-.qc-micBtn:hover{background:#4b5563;}
-.qc-micBtn.recording{background:#ef4444;border-color:#dc2626;}
-.qc-sendBtn{
-  height:32px;padding:0 12px;font-size:12px;line-height:1;
-  display:inline-flex;align-items:center;justify-content:center;
-  border-radius:8px;
-}
-.qc-sendBtn:disabled{opacity:.5;cursor:not-allowed;}
-.qc-sendBtn:not(:disabled):hover{background:#059669;}
-.qc-group-select{flex:1 1 auto;min-width:120px;max-width:220px;height:34px;font-size:13px;padding:0 6px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:#fff;color:#111827;box-sizing:border-box;direction:rtl;text-align:center;text-align-last:center;}
-.dark .qc-group-select{background:#374151;color:#f9fafb;border-color:rgba(255,255,255,.2);}
-/* כפתור פתיחת חלון ההערות */
-.qc-group-trigger{
-  flex:0 0 auto;min-width:auto;max-width:200px;
-  height:30px;padding:0 10px;
-  border:1px solid rgba(0,0,0,.25);border-radius:8px;
-  background:#ffffff;font-size:12px;font-weight:600;cursor:pointer;
-  direction:rtl;text-align:right;display:inline-flex;align-items:center;
-  gap:6px;line-height:1;white-space:nowrap;
-}
-.qc-group-trigger span[style]{font-size:9px!important;}
-.dark .qc-group-trigger{background:#374151;color:#f9fafb;border-color:rgba(255,255,255,.25);}
-.qc-group-trigger:hover{background:#f3f4f6;}
-.dark .qc-group-trigger:hover{background:#4b5563;}
-/* חלון קבוצות */
-.qc-group-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:9998;display:none;}
-/* UPDATED: ממורכז למעלה */
-.qc-group-modal{
-  position:fixed;
-  top:16px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#ffffff;
-  border-radius:18px;
-  padding:16px 18px;
-  width:min(520px,92%);
-  max-height:78vh;
-  overflow-y:auto;
-  direction:rtl;
-  text-align:right;
-  z-index:9999;
-  box-shadow:0 10px 30px -6px rgba(0,0,0,.32);
-  font-size:13px;
-  line-height:1.35;
-}
-.dark .qc-group-modal{background:#1f2937;color:#f9fafb;}
-.qc-group-modal h2{margin:0 0 10px;font-size:15px;font-weight:800;letter-spacing:.3px;}
-.qc-group-box{
-  border:2px solid;border-radius:14px;padding:10px 12px;margin:0 0 10px;
-  background:#f9fafb;
-}
-.dark .qc-group-box{background:#374151;}
-.qc-group-box.good{border-color:#10b981;background:#ecfdf5;}
-.dark .qc-group-box.good{background:#065f46;}
-.qc-group-box.neutral{border-color:#6b7280;background:#f3f4f6;}
-.dark .qc-group-box.neutral{background:#4b5563;}
-.qc-group-box.bad{border-color:#dc2626;background:#fef2f2;}
-.dark .qc-group-box.bad{background:#7f1d1d;}
-.qc-group-title{
-  display:block;font-size:13px;font-weight:800;margin:0 0 6px;
-  padding:2px 10px;border-radius:999px;letter-spacing:.25px;
-  background:rgba(0,0,0,.06);
-}
-.dark .qc-group-title{background:rgba(255,255,255,.12);}
-/* רשימת פריטים אנכית */
-.qc-group-items{
-  display:flex;flex-direction:column;gap:4px;
-}
-.qc-group-item{
-  position:relative;display:block;width:100%;
-  cursor:pointer;padding:4px 34px 4px 10px;
-  border-radius:8px;font-size:12px;font-weight:500;
-  background:#ffffff;border:1px solid rgba(0,0,0,.10);
-  line-height:1.25;transition:background .15s,border-color .15s;
-  text-align:right;
-}
-.qc-group-item::before{
-  content:'•';position:absolute;right:12px;top:50%;transform:translateY(-50%);
-  font-size:14px;color:#6b7280;line-height:1;
-}
-.qc-group-item:hover{background:#eef2f7;border-color:rgba(0,0,0,.18);}
-.dark .qc-group-item{
-  background:#4b5563;border-color:rgba(255,255,255,.18);
-}
-.dark .qc-group-item:hover{
-  background:#6b7280;border-color:rgba(255,255,255,.30);
-}
-.dark .qc-group-item::before{color:#d1d5db;}
-.qc-group-close{
-  position:static;
-  top:auto;left:auto;
-  margin:0 0 10px 0;
-  background:#ef4444;color:#fff;border:none;font-weight:600;
-  padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;
-}
-.qc-group-close:hover{background:#dc2626;}
-@media (max-width:430px){.quickbar{grid-template-columns:1fr!important;}}
-@media (max-width:640px){
-  .qc-row{flex-wrap:wrap;}
-  .qc-group-trigger{flex:1;}
-  .qc-runner-select{flex:0 0 auto;}
-  .qc-input-row{flex:1 1 100%;}
-}
-.qc-row-input{justify-content:flex-end;} 
-.qc-row-input .qc-input-row{flex:0 1 auto; width:100%; justify-content:flex-end;}
-.qc-row-input .qc-input{width:100%; max-width:100%;} 
-@media (max-width:640px){
-  .qc-row-input .qc-input-row{width:100%;}
-}`;
-      document.head.appendChild(style);
+    if (!show) { 
+      quickBarDiv.innerHTML = ''; 
+      // Remove floating bubble if exists
+      document.getElementById('qc-floating-bubble')?.remove();
+      return; 
     }
 
     const GROUP = (window.CONFIG && window.CONFIG.CRAWLING_GROUP_COMMON_COMMENTS) || {};
@@ -283,7 +143,7 @@
             ${runnerOptions}
           </select>
           <button id="group-comments-trigger" type="button" class="qc-group-trigger" aria-haspopup="dialog" aria-expanded="false">
-            <span>הערות מוכנות מראש</span><span style="font-size:15px;"></span>
+            <span>הערות מוכנות מראש</span><span style="font-size:15px;">📝</span>
           </button>
         </div>
         <div class="qc-row qc-row-input">
@@ -295,17 +155,37 @@
             </button>
           </div>
         </div>
-      </div>
-      <div id="qc-group-backdrop" class="qc-group-modal-backdrop" aria-hidden="true"></div>
-      <div id="qc-group-modal" class="qc-group-modal" role="dialog" aria-modal="true" aria-label="בחירת הערה מקוטלגת" style="display:none;"></div>`;
+      </div>`;
+
+    // Create modal elements outside of quickbar - directly in body
+    let backdrop = document.getElementById('qc-group-backdrop');
+    let modal = document.getElementById('qc-group-modal');
+    
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'qc-group-backdrop';
+      backdrop.className = 'qc-group-modal-backdrop';
+      backdrop.setAttribute('aria-hidden', 'true');
+      backdrop.style.display = 'none';
+      document.body.appendChild(backdrop);
+    }
+    
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'qc-group-modal';
+      modal.className = 'qc-group-modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-label', 'בחירת הערה מקוטלגת');
+      modal.style.display = 'none';
+      document.body.appendChild(modal);
+    }
 
     const inputEl  = document.getElementById('quick-comment-input');
     const micBtn   = document.getElementById('quick-comment-mic');
     const sendBtn  = document.getElementById('quick-comment-send');
     const runnerSel= document.getElementById('quick-runner-select');
     const trigger  = document.getElementById('group-comments-trigger');
-    const modal    = document.getElementById('qc-group-modal');
-    const backdrop = document.getElementById('qc-group-backdrop');
 
     // UPDATED: ננעל עד שיש גם טקסט וגם מספר כתף נבחר
     const updateSendEnabled = () => {
@@ -342,9 +222,10 @@
       modal.style.display='block';
       trigger.setAttribute('aria-expanded','true');
       backdrop.setAttribute('aria-hidden','false');
-      // SCROLL TO TOP כך שהמודאל יופיע מיד לנגד העיניים
-      try { window.scrollTo({top:0,behavior:'smooth'}); } catch { window.scrollTo(0,0); }
-      modal.querySelector('.qc-group-item')?.focus();
+      // פוקוס על הפריט הראשון אחרי קצת השהיה
+      setTimeout(() => {
+        modal.querySelector('.qc-group-item')?.focus();
+      }, 50);
       document.addEventListener('keydown', escHandler);
     }
 
@@ -441,6 +322,9 @@
       micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
     }
   };
+
+  // Removed createFloatingBubble function entirely
+  // Removed initScrollBehavior function entirely
 
   NS.renderFAB = function renderQuickCommentFAB(show){
     if (!show) {

@@ -2,11 +2,11 @@
 // שים לב: var מייצר משתנה גלובלי (window.*), כדי שהקוד הקיים ימשיך לעבוד.
 
 var CONFIG = {
-    NUM_HEATS: 25,                 // מספר מקצי ספרינט
-    MAX_CRAWLING_SPRINTS: 6,       // מספר מקסימלי של מקצי ספרינט זחילות
-    MAX_RUNNERS: 16,               // מספר מקסימלי של רצים מותר
+    NUM_HEATS: 14,                 // מספר מקצי ספרינט
+    MAX_CRAWLING_SPRINTS: 4,       // מספר מקסימלי של מקצי ספרינט זחילות
+    MAX_RUNNERS: 20,               // מספר מקסימלי של רצים מותר
     MAX_SACK_CARRIERS: 3,          // מספר מקסימלי של נושאי שק בתרגילי זחילה
-    NUM_STRETCHER_HEATS: 10,        // מספר מקצי אלונקה סוציומטרית
+    NUM_STRETCHER_HEATS: 8,        // מספר מקצי אלונקה סוציומטרית
     MAX_STRETCHER_CARRIERS: 4,     // מספר נושאי אלונקה מקסימלי למקצה
     MAX_JERRICAN_CARRIERS: 3,      // ברירת מחדל 3
     STRETCHER_PAGE_LABEL: 'אלונקות',                     // תווית הלשונית/כותרת
