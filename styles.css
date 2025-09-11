@@ -1183,10 +1183,11 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
 /* Modal window */
 .qc-group-modal {
   position: fixed;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(10px + env(safe-area-inset-left));
+  right: calc(10px + env(safe-area-inset-right));
+  bottom: calc(10px + env(safe-area-inset-bottom));
+
   width: auto;
   height: auto;
   max-width: none;
