@@ -1181,7 +1181,7 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
 }
 
 /* Modal window */
-                      ‏.qc-group-modal {.qc-group-modal {
+  .qc-group-modal {
 
   position: fixed;
 
@@ -1228,6 +1228,8 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   flex-direction: column;
 
 }
+
+
 
 
 .dark .qc-group-modal {
