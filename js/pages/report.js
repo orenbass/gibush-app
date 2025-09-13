@@ -165,7 +165,7 @@
     let arr = Array.isArray(raw) ? raw.filter(c=>c && c.trim()) : (raw ? [String(raw).trim()] : []);
     const count = arr.length;
     const level = Math.min(count, 5);
-    let text = 'כתוב  ..';
+    let text = 'כתוב הערה...';
     if (count > 0){
       const joined = arr.join(' | ');
       text = joined.length > 20 ? joined.slice(0,17)+'...' : joined;

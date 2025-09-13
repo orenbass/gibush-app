@@ -87,6 +87,21 @@
         return single.length > max ? single.slice(0, max) + '…' : single;
     }
 
+    // הוספה: מאזינים גלובליים לרענון העמוד כאשר רשימת הרצים משתנה (מחיקה/עריכה)
+    if (!window.__crawlingSprintRunnerEventsBound) {
+        window.__crawlingSprintRunnerEventsBound = true;
+        ['runnersChanged', 'activeRunnersChanged'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                try {
+                    if (state.currentPage === PAGES.CRAWLING_SPRINT && state?.crawlingDrills?.currentSprintIndex != null) {
+                        // רינדור מחדש כדי שכפתורי הרצים יתעדכנו (הכפתורים הכחולים ייעלמו למי שנמחק)
+                        window.Pages.renderCrawlingSprintPage(state.crawlingDrills.currentSprintIndex);
+                    }
+                } catch (e) { /* silent */ }
+            });
+        });
+    }
+
     window.Pages.renderCrawlingSprintPage = async function renderCrawlingSprintPage(sprintIndex) {
         await ensureSharedStylesLoaded();
         await ensureArrivalRowsLoaded(); // חשוב: לפני ArrivalRows.render
@@ -94,97 +109,31 @@
         const headerTitle = document.getElementById('header-title');
         const sprint = state.crawlingDrills.sprints[sprintIndex];
 
+        // NEW: רענון רשימת פעילים לפני חישוב כפתורים
+        if (typeof window.updateActiveRunners === 'function') { try { window.updateActiveRunners(); } catch(e) { /* silent */ } }
+
+        // REPLACED: חישוב רצים פעילים עם נרמול + activeShoulders
+        function getActiveRunners() {
+            const activeSet = new Set((state.activeShoulders || []).map(sn => String(sn).trim()));
+            const seen = new Set();
+            return (state.runners || [])
+                .filter(r => {
+                    if (!r) return false;
+                    const sn = String(r.shoulderNumber || '').trim();
+                    if (!sn) return false;
+                    if (activeSet.size && !activeSet.has(sn)) return false; // הסתמך על רשימת פעילים מחושבת
+                    if (state.crawlingDrills?.runnerStatuses?.[sn]) return false; // פרש / מושעה זמנית
+                    if (sprint.arrivals.some(a => String(a.shoulderNumber) === sn)) return false; // כבר הגיע
+                    if (seen.has(sn)) return false; // כפול
+                    seen.add(sn);
+                    return true;
+                })
+                .sort((a,b) => Number(a.shoulderNumber) - Number(b.shoulderNumber));
+        }
+
+        const activeRunners = getActiveRunners();
+
         headerTitle.textContent = `מקצה זחילה ${sprint?.heatNumber || sprintIndex + 1}`;
-
-        const activeRunners = state.runners
-            .filter(r => r.shoulderNumber
-                && !state.crawlingDrills.runnerStatuses[r.shoulderNumber]
-                && !sprint.arrivals.some(a => a.shoulderNumber === r.shoulderNumber))
-            .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-        // הזרקת סטייל כמו בעמוד heat (אם עדיין לא נטען שם)
-
-
-        if (!document.getElementById('heat-actions-layout-style')) {
-            const la = document.createElement('style');
-            la.id = 'heat-actions-layout-style';
-            la.textContent = `
-              .heat-actions{
-                display:flex;
-                width:100%;
-                direction:rtl;
-                gap:10px;
-                flex-wrap:nowrap;
-              }
-              .heat-actions .heat-btn{flex:0 0 auto;min-width:110px;text-align:center}
-              .heat-actions.single .heat-btn:not(.hidden){
-                flex:1 1 0;
-                min-width:0;
-              }
-              .heat-actions.double .heat-btn:not(.hidden){
-                flex:1 1 0;
-                min-width:0;
-              }
-            `;
-            document.head.appendChild(la);
-        }
-
-        // חדש: סגנון כפתורי הגעה זהה ל-heat (נטען פעם אחת)
-        if (!document.getElementById('heat-arrival-btn-style')) {
-            const s = document.createElement('style');
-            s.id = 'heat-arrival-btn-style';
-            s.textContent = `
-              /* כפתורי רץ – סגנון אחיד עם עמוד heat */
-              .arrival-btn{
-                position:relative;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                font-weight:700;
-                border-radius:14px;
-                font-size:clamp(1.4rem,4.2vw,2.4rem);
-                line-height:1;
-                padding:18px 8px;
-                background:linear-gradient(135deg,#2563eb,#1d4ed8);
-                color:#fff;
-                box-shadow:0 4px 10px -2px rgba(0,0,0,.35);
-                transition:.18s;
-                user-select:none;
-              }
-              .arrival-btn:focus-visible{
-                outline:3px solid #fff;
-                outline-offset:2px;
-              }
-              .arrival-btn:hover{
-                background:linear-gradient(135deg,#1d4ed8,#1e40af);
-                transform:translateY(-2px);
-                box-shadow:0 6px 14px -2px rgba(0,0,0,.45);
-              }
-              .arrival-btn:active{
-                transform:translateY(0);
-                box-shadow:0 3px 8px -1px rgba(0,0,0,.35);
-              }
-              /* מצב מושבת (אם יש צורך עתידי) */
-              .arrival-btn[disabled]{
-                opacity:.45;
-                cursor:not-allowed;
-                transform:none;
-                box-shadow:none;
-              }
-              /* פריסה רספונסיבית תואמת heat */
-              .cs-grid-3min{
-                display:grid;
-                gap:14px;
-                grid-template-columns:repeat(auto-fill,minmax(min(30%,110px),1fr));
-              }
-              @media (min-width:640px){
-                .cs-grid-3min{
-                  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
-                }
-              }
-            `;
-            document.head.appendChild(s);
-        }
 
         const headerNav = `
             <div class="heat-bar heat-bar-sprint">
@@ -229,13 +178,9 @@
 
             <div id="runner-buttons-container" class="my-4 ${!sprint.started || sprint.finished ? 'hidden' : ''}">
                 <h3 class="text-base md:text-lg font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
-                <div class="cs-grid-3min">
+                <div class="auto-grid">
                     ${activeRunners.map(r => `
-                        <button
-                          class="arrival-btn runner-btn heat-arrival-btn"
-                          data-shoulder-number="${r.shoulderNumber}"
-                          aria-label="הגעה של רץ מספר כתף ${r.shoulderNumber}"
-                        >${r.shoulderNumber}</button>`).join('')}
+                        <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md text-xl md:text-2xl" data-shoulder-number="${r.shoulderNumber}">${r.shoulderNumber}</button>`).join('')}
                 </div>
             </div>
 
@@ -375,7 +320,24 @@
                 refreshAllCommentButtons();
             },0);
         });
-        document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => handleAddRunnerToHeat(e, sprint, -1));
+        document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => {
+            handleAddRunnerToHeat(e, sprint, -1);
+            // REBUILD buttons like heat page so arrived runner disappears immediately
+            setTimeout(() => {
+                if (!sprint.finished) {
+                    const container = document.getElementById('runner-buttons-container');
+                    if (container) {
+                        const grid = container.querySelector('.auto-grid');
+                        if (grid) {
+                            const updated = getActiveRunners();
+                            grid.innerHTML = updated.map(r => `
+                                <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md text-xl md:text-2xl" data-shoulder-number="${r.shoulderNumber}">${r.shoulderNumber}</button>`).join('');
+                        }
+                    }
+                }
+                refreshAllCommentButtons();
+            }, 0);
+        });
 
         // Navigation
         document.getElementById('prev-crawling-sprint-btn-inline')?.addEventListener('click', () => {

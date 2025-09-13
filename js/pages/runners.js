@@ -31,6 +31,15 @@
             return true;
         });
         window.state.activeShoulders = window.state.activeRunners.map(r => String(r.shoulderNumber).trim());
+        // NEW: אירוע שינוי רשימת פעילים (רק אם השתנה)
+        try {
+            const prev = window.state.__lastActiveShoulders || [];
+            const now = window.state.activeShoulders;
+            if (JSON.stringify(prev) !== JSON.stringify(now)) {
+                window.state.__lastActiveShoulders = [...now];
+                window.dispatchEvent(new CustomEvent('activeRunnersChanged', { detail: { activeRunners: window.state.activeRunners, activeShoulders: now } }));
+            }
+        } catch (e) { /* silent */ }
     };
 
     // NEW: מצב עריכה אינלייני
@@ -393,89 +402,67 @@ ${hasRunners ? `
             if (save) {
                 const inputs = Array.from(document.querySelectorAll('.runner-inline-input'));
                 let values = inputs.map(i => i.value.trim()).filter(v => v !== '');
-                // ולידציה
                 const duplicates = values.filter((v, i) => values.indexOf(v) !== i);
-                if (values.length === 0) {
-                    showError('נדרש לפחות מספר אחד');
-                    return;
-                }
-                if (duplicates.length) {
-                    showError('יש כפילויות: ' + [...new Set(duplicates)].join(', '));
-                    return;
-                }
-                // עדכון ב- state.runners (רק שדה shoulderNumber נשמר, שאר התכונות נשמרות אם קיימות)
-                const mapped = inputs.map((input, idx) => {
+                if (values.length === 0) { showError('נדרש לפחות מספר אחד'); return; }
+                if (duplicates.length) { showError('יש כפילויות: ' + [...new Set(duplicates)].join(', ')); return; }
+                const mapped = inputs.map((input) => {
                     const originalObj = (runnerCardEdit.original || []).find(r => String(r.shoulderNumber) === input.dataset.original);
-                    if (originalObj) {
-                        return { ...originalObj, shoulderNumber: input.value.trim() };
-                    }
-                    // אם לא נמצא - יצירת אובייקט בסיסי
+                    if (originalObj) return { ...originalObj, shoulderNumber: input.value.trim() };
                     return { shoulderNumber: input.value.trim() };
                 });
-
-                // NEW: detect changed numbers & migrate keyed data (comments / scores / statuses)
+                // NEW: זיהוי מחוקים
+                const originalSet = new Set((runnerCardEdit.original || []).map(r => String(r.shoulderNumber)));
+                const newSet = new Set(mapped.map(r => String(r.shoulderNumber)));
+                const removed = [...originalSet].filter(x => !newSet.has(x));
+                // --- migrate changed numbers (קיים בקוד המקורי - שמור) ---
                 (function migrateShoulderKeyedData() {
                     const oldNums = inputs.map(i => i.dataset.original);
                     const newNums = inputs.map(i => i.value.trim());
-                    let hasChange = false;
-                    const mapChanges = {};
-                    for (let i = 0; i < oldNums.length; i++) {
-                        const o = oldNums[i];
-                        const n = newNums[i];
-                        if (o && n && o !== n) {
-                            hasChange = true;
-                            mapChanges[o] = n;
-                        }
-                    }
+                    let hasChange = false; const mapChanges = {};
+                    for (let i = 0; i < oldNums.length; i++) { const o = oldNums[i]; const n = newNums[i]; if (o && n && o !== n) { hasChange = true; mapChanges[o] = n; } }
                     if (!hasChange) return;
-
-                    // Helper to remap a flat object keyed by shoulderNumber
-                    function remapObject(obj) {
-                        if (!obj || typeof obj !== 'object') return obj;
-                        const out = {};
-                        Object.keys(obj).forEach(k => {
-                            const newK = mapChanges[k] || k;
-                            // If collision: last one wins (can be enhanced if needed)
-                            out[newK] = obj[k];
+                    function remapObject(obj) { if (!obj || typeof obj !== 'object') return obj; const out = {}; Object.keys(obj).forEach(k => { const newK = mapChanges[k] || k; out[newK] = obj[k]; }); return out; }
+                    if (state.generalComments) state.generalComments = remapObject(state.generalComments);
+                    if (state.manualScores) state.manualScores = remapObject(state.manualScores);
+                    if (state.quickComments) state.quickComments = remapObject(state.quickComments);
+                    if (state.crawlingDrills && state.crawlingDrills.runnerStatuses) state.crawlingDrills.runnerStatuses = remapObject(state.crawlingDrills.runnerStatuses);
+                })();
+                // NEW: ניקוי נתונים של רצים שנמחקו
+                (function cleanupRemoved() {
+                    if (!removed.length) return;
+                    const remSet = new Set(removed);
+                    function pruneKeys(obj) { if (!obj) return; for (const k of [...Object.keys(obj)]) { if (remSet.has(k)) delete obj[k]; } }
+                    pruneKeys(state.generalComments);
+                    pruneKeys(state.manualScores);
+                    pruneKeys(state.quickComments);
+                    if (state.crawlingDrills && state.crawlingDrills.runnerStatuses) pruneKeys(state.crawlingDrills.runnerStatuses);
+                    // גיבוי: אם יש מערך heats בפורמט של אובייקטים המכילים runners/participants
+                    if (Array.isArray(state.heats)) {
+                        state.heats.forEach(h => {
+                            if (Array.isArray(h.runners)) h.runners = h.runners.filter(sn => !remSet.has(String(sn)));
+                            if (Array.isArray(h.participants)) h.participants = h.participants.filter(sn => !remSet.has(String(sn)));
                         });
-                        return out;
                     }
-
-                    // generalComments
-                    if (state.generalComments) {
-                        state.generalComments = remapObject(state.generalComments);
-                    }
-                    // manualScores
-                    if (state.manualScores) {
-                        state.manualScores = remapObject(state.manualScores);
-                    }
-                    // optional quickComments (if component uses separate store)
-                    if (state.quickComments) {
-                        state.quickComments = remapObject(state.quickComments);
-                    }
-                    // crawlingDrills.runnerStatuses
-                    if (state.crawlingDrills && state.crawlingDrills.runnerStatuses) {
-                        state.crawlingDrills.runnerStatuses = remapObject(state.crawlingDrills.runnerStatuses);
+                    // עמודים אחרים (דוגמא כללית):
+                    if (state.crawlingDrills && Array.isArray(state.crawlingDrills.results)) {
+                        state.crawlingDrills.results = state.crawlingDrills.results.filter(r => !remSet.has(String(r.shoulderNumber)));
                     }
                 })();
-
                 state.runners = mapped;
                 saveState?.();
                 window.updateActiveRunners();
+                
+                // ADDED: רענון עמודים קשורים אחרי שמירה
+                refreshRelatedPages();
+                
+                try { window.dispatchEvent(new CustomEvent('runnersChanged', { detail: { runners: state.runners.map(r => ({ ...r })) } })); } catch (e) { /* silent */ }
             } else {
-                // שחזור
-                if (runnerCardEdit.original) {
-                    state.runners = JSON.parse(JSON.stringify(runnerCardEdit.original));
-                }
+                if (runnerCardEdit.original) { state.runners = JSON.parse(JSON.stringify(runnerCardEdit.original)); }
             }
-            // ניקוי שגיאה
-            if (errorEl) {
-                errorEl.classList.add('hidden');
-                errorEl.textContent = '';
-            }
+            if (errorEl) { errorEl.classList.add('hidden'); errorEl.textContent = ''; }
             runnerCardEdit.active = false;
             runnerCardEdit.original = null;
-            render(); // רענון מלא כדי לחזור לתצוגה רגילה
+            render();
         }
 
         function showError(msg) {
@@ -546,5 +533,25 @@ ${hasRunners ? `
 
         // לאחר רינדור ראשוני – החלה גם אם יש אינפוטים קיימים (למקרה של מודאל פתוח מראש)
         applyNumericEnhancements();
+
+        // ADDED: טיפול ברענון עמודים אחרים כשמעדכנים רץ (כמו שעשינו בספרינטים)
+        function refreshRelatedPages() {
+            // רענון עמוד זחילה קבוצתית
+            if (typeof window.Pages?.renderCrawlingDrillsCommentsPage === 'function') {
+                setTimeout(() => {
+                    if (state.currentPage === PAGES.CRAWLING_COMMENTS) {
+                        window.Pages.renderCrawlingDrillsCommentsPage();
+                    }
+                }, 100);
+            }
+            
+            // שליחת אירועים לעמודים אחרים
+            window.dispatchEvent(new CustomEvent('runnerUpdated', { 
+                detail: { timestamp: Date.now() } 
+            }));
+            window.dispatchEvent(new CustomEvent('runnersChanged', { 
+                detail: { timestamp: Date.now() } 
+            }));
+        }
     };
 })();

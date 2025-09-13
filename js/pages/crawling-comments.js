@@ -1,4 +1,49 @@
 (function () {
+    // UPDATED: שיפור האזנה לאירועי שינוי רצים
+    if (!window.__crawlingGroupCommentsRunnerEventsBound) {
+        window.__crawlingGroupCommentsRunnerEventsBound = true;
+        
+        // האזנה לאירועים של שינוי רצים
+        ['runnersChanged', 'activeRunnersChanged', 'runnerEdited', 'runnerUpdated'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                try {
+                    if (state.currentPage === PAGES.CRAWLING_COMMENTS) {
+                        // עיכוב קצר כדי לוודא שהנתונים התעדכנו
+                        setTimeout(() => {
+                            console.log('Refreshing crawling page due to:', evt);
+                            window.Pages.renderCrawlingDrillsCommentsPage();
+                        }, 150);
+                    }
+                } catch (e) { 
+                    console.warn('Error refreshing crawling page:', e);
+                }
+            });
+        });
+        
+        // האזנה נוספת לשינויים במידע הרצים דרך localStorage
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'gibushAppState' && state.currentPage === PAGES.CRAWLING_COMMENTS) {
+                setTimeout(() => {
+                    console.log('Refreshing crawling page due to storage change');
+                    window.Pages.renderCrawlingDrillsCommentsPage();
+                }, 200);
+            }
+        });
+        
+        // בדיקה מחזורית לשינויים (גיבוי)
+        let lastRunnersHash = '';
+        setInterval(() => {
+            if (state.currentPage === PAGES.CRAWLING_COMMENTS) {
+                const currentHash = JSON.stringify(state.runners || []);
+                if (currentHash !== lastRunnersHash) {
+                    lastRunnersHash = currentHash;
+                    console.log('Detected runners change via polling');
+                    window.Pages.renderCrawlingDrillsCommentsPage();
+                }
+            }
+        }, 2000);
+    }
+
     window.Pages = window.Pages || {};
     window.Pages.renderCrawlingDrillsCommentsPage = function renderCrawlingDrillsCommentsPage() {
         headerTitle.textContent = 'זחילה קבוצתית';
@@ -267,10 +312,44 @@
         }
         window.updateMiniCommentIndicator = updateMiniCommentIndicator;
 
-        // רצים פעילים (שטרם סומנו כסיימו)
-        const activeRunners = state.runners
-            .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
-            .sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
+        // UPDATED: שימוש ב-updateActiveRunners + activeShoulders לסינון עקבי עם רענון מחדש
+        // FIXED: שיפור לוגיקת זיהוי מתמודדים פעילים
+        if (typeof window.updateActiveRunners === 'function') {
+            try { 
+                window.updateActiveRunners(); 
+            } catch (e) { /* silent */ }
+        }
+        
+        // FIXED: הבטחה שיש מבנה נתונים תקין
+        if (!state.crawlingDrills) {
+            state.crawlingDrills = {
+                activeSackCarriers: [],
+                sackCarriers: {},
+                runnerStatuses: {}
+            };
+        }
+        
+        // FIXED: סינון מתמודדים פעילים עם בדיקה משופרת
+        const allRunners = Array.isArray(state.runners) ? state.runners : [];
+        const runnerStatuses = state.crawlingDrills.runnerStatuses || {};
+        
+        const activeRunners = allRunners
+            .filter(r => {
+                if (!r || r.shoulderNumber == null) return false;
+                const sn = String(r.shoulderNumber).trim();
+                if (!sn) return false;
+                
+                // בדיקה אם הרץ פרש או הוסר זמנית
+                if (runnerStatuses[sn] === 'retired' || runnerStatuses[sn] === 'temp_removed') return false;
+                
+                // בדיקות נוספות לסטטוס לא פעיל
+                if (r.active === false || r.isActive === false || r.retired || r.withdrawn) return false;
+                
+                return true;
+            })
+            .sort((a, b) => Number(a.shoulderNumber) - Number(b.shoulderNumber));
+
+        console.log('Active runners for crawling:', activeRunners.map(r => r.shoulderNumber));
 
         // אם היו טיימרים פעילים – ממשיכים אותם
         activeRunners.forEach(r => {
@@ -279,15 +358,19 @@
             }
         });
 
-        // כפתורי בחירת נושאי שק (נשאר כרגיל)
+        // FIXED: שיפור בניית כפתורי נושאי שק
         const sackCarrierHtml = `
 <div id="sack-carrier-container" class="my-6 p-4 rounded-lg">
     <h3 class="text-xl font-semibold mb-4 text-center">בחר את נושאי השק (עד ${CONFIG.MAX_SACK_CARRIERS})</h3>
     <div class="cs-grid-3min">
         ${activeRunners.map(r => {
-            const sn = r.shoulderNumber;
-            const isSelected = state.crawlingDrills.activeSackCarriers.includes(sn);
-            const canSelect = isSelected || state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
+            const sn = String(r.shoulderNumber);
+            const isSelected = Array.isArray(state.crawlingDrills.activeSackCarriers) && 
+                              state.crawlingDrills.activeSackCarriers.includes(sn);
+            const canSelect = isSelected || 
+                             (Array.isArray(state.crawlingDrills.activeSackCarriers) && 
+                              state.crawlingDrills.activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS);
+            
             const sackData = state.crawlingDrills.sackCarriers?.[sn];
             const hasTime = !!(sackData && (sackData.totalTime > 0 || sackData.startTime));
             const timeText = hasTime
@@ -300,6 +383,8 @@
                       (raw && String(raw).trim() ? [String(raw).trim()] : []);
             const cCount = arr.length;
             const level = Math.min(cCount,5);
+
+            console.log(`Button for ${sn}: selected=${isSelected}, canSelect=${canSelect}, hasTime=${hasTime}`);
 
             return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} ${hasTime ? 'has-sack-time' : ''}"
                         data-shoulder-number="${sn}" ${!canSelect ? 'disabled' : ''}>
@@ -317,18 +402,29 @@
 </div>`;
 
         // אוסף כל הנשאים הפעילים + כל מי שיש לו זמן שנשמר (כולל אם כבר לא אקטיבי)
-        const sackCarrierSet = new Set(state.crawlingDrills.activeSackCarriers || []);
+        // FIXED: שיפור בניית רשימת נושאי שק שהוצגו
+        const sackCarrierSet = new Set();
+        
+        // הוספת כל הנושאים הפעילים
+        if (Array.isArray(state.crawlingDrills.activeSackCarriers)) {
+            state.crawlingDrills.activeSackCarriers.forEach(sn => sackCarrierSet.add(String(sn)));
+        }
+        
+        // הוספת כל מי שיש לו זמן שמור (גם אם כבר לא פעיל)
         const sackCarriersState = state.crawlingDrills.sackCarriers || {};
         Object.entries(sackCarriersState).forEach(([sn, data]) => {
             if (data && (data.totalTime > 0 || data.startTime)) {
-                sackCarrierSet.add(parseInt(sn,10));
+                sackCarrierSet.add(String(sn));
             }
         });
 
-        // בניית המערך הסופי לתצוגה (גם אם הרץ לא בין activeRunners)
-        const displayedSackCarriers = state.runners
-            .filter(r => r.shoulderNumber && sackCarrierSet.has(r.shoulderNumber))
-            .sort((a,b)=>a.shoulderNumber - b.shoulderNumber);
+        // בניית המערך הסופי לתצוגה
+        const displayedSackCarriers = allRunners
+            .filter(r => r && r.shoulderNumber != null && sackCarrierSet.has(String(r.shoulderNumber)))
+            .sort((a,b) => Number(a.shoulderNumber) - Number(b.shoulderNumber));
+
+        console.log('Displayed sack carriers:', displayedSackCarriers.map(r => r.shoulderNumber));
+        console.log('Sack carrier set:', Array.from(sackCarrierSet));
 
         const carriersListHtml = `
 <div class="arrival-header">
@@ -481,10 +577,102 @@ ${carriersListHtml}
             }
         });
 
+        // UPDATED: פונקציה לטיפול בבחירת/ביטול נושאי שק עם רענון העמוד
+        function handleSackCarrierToggle(e) {
+            const btn = e.target.closest('.runner-sack-btn');
+            if (!btn || btn.disabled) return;
+            
+            const sn = btn.dataset.shoulderNumber;
+            if (!sn) return;
+            
+            const isCurrentlySelected = btn.classList.contains('selected');
+            const activeSackCarriers = state.crawlingDrills.activeSackCarriers || [];
+            
+            if (isCurrentlySelected) {
+                // הסרת בחירה - עצירת טיימר ושמירת זמן
+                stopSackTimer(sn);
+                state.crawlingDrills.activeSackCarriers = activeSackCarriers.filter(x => x !== sn);
+                console.log(`Stopped timer for ${sn}`);
+            } else {
+                // בדיקה אם יש מקום לעוד נושא שק
+                if (activeSackCarriers.length >= CONFIG.MAX_SACK_CARRIERS) {
+                    alert(`ניתן לבחור עד ${CONFIG.MAX_SACK_CARRIERS} נושאי שק בלבד`);
+                    return;
+                }
+                
+                // הוספת בחירה - התחלת טיימר
+                state.crawlingDrills.activeSackCarriers.push(sn);
+                startSackTimer(sn);
+                console.log(`Started timer for ${sn}`);
+            }
+            
+            saveState();
+            
+            // ADDED: רענון העמוד כדי שהמתמודד יופיע ברשימה התחתונה
+            setTimeout(() => {
+                window.Pages.renderCrawlingDrillsCommentsPage();
+            }, 100);
+        }
+
+        // ADDED: פונקציה לעדכון מצב הכפתורים
+        function updateSackCarrierButtonStates() {
+            const activeSackCarriers = state.crawlingDrills.activeSackCarriers || [];
+            const hasSpace = activeSackCarriers.length < CONFIG.MAX_SACK_CARRIERS;
+            
+            document.querySelectorAll('.runner-sack-btn').forEach(btn => {
+                const isSelected = btn.classList.contains('selected');
+                btn.disabled = !isSelected && !hasSpace;
+                
+                if (btn.disabled) {
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                } else {
+                    btn.style.opacity = '';
+                    btn.style.cursor = 'pointer';
+                }
+            });
+        }
+
+        // ADDED: פונקציה להתחלת טיימר שק
+        function startSackTimer(shoulderNumber) {
+            if (!state.crawlingDrills.sackCarriers) {
+                state.crawlingDrills.sackCarriers = {};
+            }
+            
+            if (!state.crawlingDrills.sackCarriers[shoulderNumber]) {
+                state.crawlingDrills.sackCarriers[shoulderNumber] = {
+                    totalTime: 0,
+                    startTime: null
+                };
+            }
+            
+            const data = state.crawlingDrills.sackCarriers[shoulderNumber];
+            if (!data.startTime) {
+                data.startTime = Date.now();
+                saveState();
+            }
+        }
+
+        // ADDED: פונקציה לעצירת טיימר שק
+        function stopSackTimer(shoulderNumber) {
+            const data = state.crawlingDrills.sackCarriers?.[shoulderNumber];
+            if (!data || !data.startTime) return;
+            
+            const elapsed = Date.now() - data.startTime;
+            data.totalTime += elapsed;
+            data.startTime = null;
+            saveState();
+            
+            console.log(`Timer stopped for ${shoulderNumber}, total time: ${formatTime_no_ms(data.totalTime)}`);
+        }
+
         // מאזינים לבחירת נשאי שק
         document.querySelectorAll('.runner-sack-btn').forEach(btn =>
             btn.addEventListener('click', handleSackCarrierToggle)
         );
+
+        // ADDED: עדכון מצב כפתורים ראשוני
+        updateSackCarrierButtonStates();
 
         // מאזינים להערות
         contentDiv.querySelectorAll('.gc-input').forEach(inp=>{
@@ -559,11 +747,22 @@ ${carriersListHtml}
             (state.crawlingDrills.activeSackCarriers || []).forEach(sn=>{
                 const data = state.crawlingDrills.sackCarriers?.[sn];
                 if(!data) return;
-                const el = document.getElementById('mini-sack-timer-'+sn);
-                if(!el) return;
-                el.textContent = formatTime_no_ms(
-                    data.totalTime + (data.startTime ? Date.now()-data.startTime : 0)
-                );
+                
+                // עדכון הטיימר הקטן בכפתור
+                const miniEl = document.getElementById('mini-sack-timer-'+sn);
+                if(miniEl) {
+                    miniEl.textContent = formatTime_no_ms(
+                        data.totalTime + (data.startTime ? Date.now()-data.startTime : 0)
+                    );
+                }
+                
+                // ADDED: עדכון הטיימר הגדול ברשימה התחתונה
+                const bigEl = document.getElementById('sack-timer-'+sn);
+                if(bigEl) {
+                    bigEl.textContent = formatTime_no_ms(
+                        data.totalTime + (data.startTime ? Date.now()-data.startTime : 0)
+                    );
+                }
             });
         }
         clearInterval(window._miniSackTimersInterval);

@@ -12,6 +12,35 @@
       return; 
     }
 
+    // NEW: הזרקת סטייל חד-פעמית לפיצוי אזור בטוח ב-PWA באייפד/אייפון
+    (function ensureSafeOffsetStyle(){
+      if (document.getElementById('qc-safe-offset-style')) return;
+      const style = document.createElement('style');
+      style.id = 'qc-safe-offset-style';
+      style.textContent = `
+        /* פיצוי למצב PWA (standalone) במכשירי iOS - מרחיק את בר ההערות מהסטטוס בר / דינמיק איילנד */
+        .qc-safe-offset { 
+          margin-top: calc(env(safe-area-inset-top, 0px) + 52px);
+        }
+        @supports not (margin-top: env(safe-area-inset-top)) {
+          .qc-safe-offset { margin-top: 52px; }
+        }
+      `;
+      document.head.appendChild(style);
+    })();
+
+    // NEW: זיהוי מצב PWA עצמאי ב-iOS והוספת המחלקה
+    (function applySafeOffsetIfNeeded(){
+      const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+      const ua = navigator.userAgent || navigator.vendor || '';
+      const isIOS = /iPad|iPhone|iPod/i.test(ua);
+      if (isStandalone && isIOS) {
+        quickBarDiv.classList.add('qc-safe-offset');
+      } else {
+        quickBarDiv.classList.remove('qc-safe-offset');
+      }
+    })();
+
     const GROUP = (window.CONFIG && window.CONFIG.CRAWLING_GROUP_COMMON_COMMENTS) || {};
     const buildGroupOptions = () => {
       const mk = (label, arr) => Array.isArray(arr) && arr.length
@@ -101,9 +130,38 @@
       return list;
     }
 
-    const rawRunners = Array.isArray(state?.runners) ? state.runners : [];
+    function refreshRunnerOptions() {
+      const rawRunners = Array.isArray(state?.runners) ? state.runners : [];
+      const active = buildActiveList(rawRunners);
+      state.activeRunners = active;
 
-    // תמיד בונה מחדש רשימת פעילים כדי לא "להיתקע" אחרי החזרה מפסילה/הסרה
+      const selectable = active
+        .map(r => ({ sn: String(r.shoulderNumber).trim(), r }))
+        .filter((o,i,arr)=> arr.findIndex(x => x.sn === o.sn) === i)
+        .sort((a,b)=> {
+          const na = Number(a.sn), nb = Number(b.sn);
+          if(!isNaN(na) && !isNaN(nb)) return na - nb;
+          return a.sn.localeCompare(b.sn,'he');
+        })
+        .map(o => o.r);
+
+      const runnerOptions = selectable.length
+        ? ['<option value="" disabled selected>מספר כתף</option>',
+           ...selectable.map(r=>`<option value="${r.shoulderNumber}">${r.shoulderNumber}</option>`)].join('')
+        : '<option value="" disabled selected>אין פעילים</option>';
+
+      const runnerSelect = document.getElementById('quick-runner-select');
+      if (runnerSelect) {
+        const currentValue = runnerSelect.value;   
+        runnerSelect.innerHTML = runnerOptions;
+        // שחזור הערך הנבחר אם עדיין קיים ברשימה
+        if (currentValue && selectable.some(r => r.shoulderNumber == currentValue)) {
+          runnerSelect.value = currentValue;
+        }
+      }
+    }
+
+    const rawRunners = Array.isArray(state?.runners) ? state.runners : [];
     const active = buildActiveList(rawRunners);
     state.activeRunners = active;
 
@@ -320,6 +378,27 @@
       micBtn.addEventListener('touchend', stopRec);
     } else if (micBtn) {
       micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
+    }
+
+    // מעקב אחר שינויים ברשימת הרצים
+    if (window._quickCommentsObserver) {
+      window._quickCommentsObserver.disconnect();
+    }
+    
+    window._quickCommentsObserver = new MutationObserver(() => {
+      // רענון הרשימה כאשר יש שינויים ברצים
+      setTimeout(refreshRunnerOptions, 100);
+    });
+
+    // האזנה לשינויים בסטייט
+    const originalSaveState = window.saveState;
+    if (originalSaveState && !window._quickCommentsSaveStatePatched) {
+      window.saveState = function(...args) {
+        const result = originalSaveState.apply(this, args);
+        setTimeout(refreshRunnerOptions, 50);
+        return result;
+      };
+      window._quickCommentsSaveStatePatched = true;
     }
   };
 

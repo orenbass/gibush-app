@@ -1,6 +1,21 @@
 (function () {
     window.Pages = window.Pages || {};
 
+    // ADDED: רענון עמוד מקצה ספרינט כשיש שינוי ברצים (עריכה / מחיקה)
+    if (!window.__heatRunnerEventsBound) {
+        window.__heatRunnerEventsBound = true;
+        ['runnersChanged', 'activeRunnersChanged'].forEach(evt => {
+            window.addEventListener(evt, () => {
+                try {
+                    if (state.currentPage === PAGES.HEATS && typeof state.currentHeatIndex === 'number') {
+                        // רינדור מחדש לעדכון כפתורי הרצים (הכפתור הכחול נעלם למי שנמחק)
+                        window.Pages.renderHeatPage(state.currentHeatIndex);
+                    }
+                } catch (e) { /* silent */ }
+            });
+        });
+    }
+
     function ensureCommentsModalLoaded() {
         return new Promise((resolve, reject) => {
             if (window.CommentsModal?.open) return resolve();
@@ -144,13 +159,31 @@
             return `${m}:${s}`;
         }
 
-        const activeRunners = state.runners
-          .filter(r =>
-             r.shoulderNumber &&
-             !heat.arrivals.some(a => a.shoulderNumber === r.shoulderNumber) &&
-             !state.crawlingDrills.runnerStatuses[r.shoulderNumber]
-          )
-          .sort((a,b)=>a.shoulderNumber - b.shoulderNumber);
+        // NEW: ודא חישוב רשימת פעילים מעודכנת לפני שימוש
+        if (typeof window.updateActiveRunners === 'function') {
+            try { window.updateActiveRunners(); } catch(e) { /* silent */ }
+        }
+
+        function getActiveRunners() {
+            const activeSet = new Set((state.activeShoulders || []).map(sn => String(sn).trim()));
+            const seen = new Set();
+            return (state.runners || [])
+                .filter(r => {
+                    if (!r) return false;
+                    const sn = String(r.shoulderNumber || '').trim();
+                    if (!sn) return false;
+                    // אם קיימת רשימת activeShoulders השתמש בה כסינון קשיח
+                    if (activeSet.size && !activeSet.has(sn)) return false;
+                    if (state.crawlingDrills?.runnerStatuses?.[sn]) return false;
+                    if (heat.arrivals.some(a => String(a.shoulderNumber) === sn)) return false;
+                    if (seen.has(sn)) return false;
+                    seen.add(sn);
+                    return true;
+                })
+                .sort((a, b) => Number(a.shoulderNumber) - Number(b.shoulderNumber));
+        }
+
+        const activeRunners = getActiveRunners();
 
         const headerNav = `
           <div class="heat-bar">
@@ -276,8 +309,23 @@
 
         document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => {
             handleAddRunnerToHeat(e, heat, state.currentHeatIndex);
-            // אחרי הוספת רץ (ייתכן רנדר) נעדכן שוב
-            setTimeout(()=>refreshAllHeatCommentButtons(contentDiv),0);
+            
+            // עדכון הרשימה של הכפתורים אחרי הוספת רץ
+            setTimeout(() => {
+                const container = document.getElementById('runner-buttons-container');
+                if (container && !heat.finished) {
+                    const updatedActiveRunners = getActiveRunners();
+                    const grid = container.querySelector('.auto-grid');
+                    if (grid) {
+                        grid.innerHTML = updatedActiveRunners.map(r => `
+                            <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md text-xl md:text-2xl"
+                                    data-shoulder-number="${r.shoulderNumber}">
+                              ${r.shoulderNumber}
+                            </button>`).join('');
+                    }
+                }
+                refreshAllHeatCommentButtons(contentDiv);
+            }, 0);
         });
 
         document.getElementById('next-heat-btn-inline')?.addEventListener('click', () => {
