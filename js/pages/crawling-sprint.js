@@ -443,10 +443,16 @@
                 dragHandle.title = 'גרור לשינוי מיקום';
                 row.appendChild(dragHandle);
                 
+                // Desktop drag events
                 row.addEventListener('dragstart', handleDragStart);
                 row.addEventListener('dragover', handleDragOver);
                 row.addEventListener('drop', handleDrop);
                 row.addEventListener('dragend', handleDragEnd);
+                
+                // NEW: Mobile touch events
+                row.addEventListener('touchstart', handleTouchStart, { passive: false });
+                row.addEventListener('touchmove', handleTouchMove, { passive: false });
+                row.addEventListener('touchend', handleTouchEnd);
             });
         }
 
@@ -467,6 +473,13 @@
                 row.removeEventListener('dragstart', handleDragStart);
                 row.removeEventListener('dragover', handleDragOver);
                 row.removeEventListener('drop', handleDrop);
+                row.removeEventListener('dragend', handleDragEnd);
+                
+                // NEW: Remove mobile touch events
+                row.removeEventListener('touchstart', handleTouchStart);
+                row.removeEventListener('touchmove', handleTouchMove);
+                row.removeEventListener('touchend', handleTouchEnd);
+                
                 // הסרת אייקון הגרירה
                 row.querySelector('.drag-handle')?.remove();
             });
@@ -569,6 +582,88 @@
                 draggedElement = null;
             }
             document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        // NEW: Touch event handlers for mobile
+        let touchStartY = 0;
+        let touchStartRow = null;
+        let isDraggingTouch = false;
+
+        function handleTouchStart(e) {
+            const touch = e.touches[0];
+            touchStartY = touch.clientY;
+            touchStartRow = e.target.closest('.arrival-row');
+            isDraggingTouch = false;
+        }
+
+        function handleTouchMove(e) {
+            if (!touchStartRow) return;
+            
+            e.preventDefault(); // Prevent scrolling
+            const touch = e.touches[0];
+            const currentY = touch.clientY;
+            const deltaY = Math.abs(currentY - touchStartY);
+            
+            // Start dragging if moved more than 10px
+            if (deltaY > 10 && !isDraggingTouch) {
+                isDraggingTouch = true;
+                draggedElement = touchStartRow;
+                draggedElement.classList.add('dragging');
+            }
+            
+            if (isDraggingTouch) {
+                // Find target element under touch
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const targetRow = elementBelow?.closest('.arrival-row');
+                
+                // Clear previous highlights
+                document.querySelectorAll('.drag-over-before, .drag-over-after').forEach(el => {
+                    el.classList.remove('drag-over-before', 'drag-over-after');
+                });
+                
+                if (targetRow && targetRow !== draggedElement) {
+                    const rect = targetRow.getBoundingClientRect();
+                    const midpoint = rect.top + rect.height / 2;
+                    
+                    if (touch.clientY < midpoint) {
+                        targetRow.classList.add('drag-over-before');
+                    } else {
+                        targetRow.classList.add('drag-over-after');
+                    }
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!isDraggingTouch || !draggedElement) {
+                touchStartRow = null;
+                return;
+            }
+            
+            const touch = e.changedTouches[0];
+            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const targetRow = elementBelow?.closest('.arrival-row');
+            
+            if (targetRow && targetRow !== draggedElement) {
+                // Simulate drop event
+                const fakeDropEvent = {
+                    preventDefault: () => {},
+                    target: targetRow
+                };
+                handleDrop(fakeDropEvent);
+            }
+            
+            // Cleanup
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement = null;
+            }
+            document.querySelectorAll('.drag-over-before, .drag-over-after').forEach(el => {
+                el.classList.remove('drag-over-before', 'drag-over-after');
+            });
+            
+            isDraggingTouch = false;
+            touchStartRow = null;
         }
 
         document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => {
