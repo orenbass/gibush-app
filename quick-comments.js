@@ -25,6 +25,54 @@
         @supports not (margin-top: env(safe-area-inset-top)) {
           .qc-safe-offset { margin-top: 52px; }
         }
+        
+        /* FIXED: מיקום ההערות המוכנות מתחת לשורת המשימות במצב PWA */
+        @media (display-mode: standalone) {
+          .qc-group-modal {
+            top: calc(env(safe-area-inset-top, 0px) + 80px) !important;
+            left: 8px !important;
+            right: 8px !important;
+            bottom: 8px !important;
+            max-height: calc(100vh - env(safe-area-inset-top, 0px) - 90px) !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+          }
+          
+          /* כפתור הסגירה יישאר בראש המודאל ויהיה נגיש */
+          .qc-group-close {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 10 !important;
+            margin-bottom: 16px !important;
+            background: #ef4444 !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+          }
+        }
+        
+        /* שיפור כללי לגלילה במכשירי iOS */
+        .qc-group-modal {
+          -webkit-overflow-scrolling: touch;
+          transform: translateZ(0);
+          -webkit-transform: translateZ(0);
+        }
+        
+        /* למסכים קטנים - הקטנת המודאל */
+        @media (max-height: 700px) and (display-mode: standalone) {
+          .qc-group-modal {
+            top: calc(env(safe-area-inset-top, 0px) + 70px) !important;
+            max-height: calc(100vh - env(safe-area-inset-top, 0px) - 80px) !important;
+          }
+        }
+        
+        /* למסכים מאוד קטנים */
+        @media (max-height: 600px) and (display-mode: standalone) {
+          .qc-group-modal {
+            top: calc(env(safe-area-inset-top, 0px) + 60px) !important;
+            max-height: calc(100vh - env(safe-area-inset-top, 0px) - 70px) !important;
+          }
+        }
       `;
       document.head.appendChild(style);
     })();

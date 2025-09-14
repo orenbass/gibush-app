@@ -307,7 +307,6 @@
     if (!contentDiv) return console.error("renderReportPage: לא נמצא האלמנט #content");
     
     ensureReportCss();
-    if (window.headerTitle) window.headerTitle.textContent = 'דוח מסכם';
 
     state.manualScores = state.manualScores || {};
     state.generalComments = state.generalComments || {};
@@ -334,7 +333,7 @@
 
     contentDiv.innerHTML = `
       <div class="report-header-bar">
-        <h2>סיכום ציונים – רצים פעילים</h2>
+        <h2>דוח סיכום</h2>
       </div>
       <div class="report-cards-grid">
         ${active.map((r,i) => `

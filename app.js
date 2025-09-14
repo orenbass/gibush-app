@@ -786,7 +786,7 @@ function validateAndStartHeats() {
 
     state.currentPage = PAGES.HEATS;
     saveState();
-    render();
+    renderPage(); // FIXED: שימוש ב-renderPage במקום render
 }
 /**
 
@@ -889,9 +889,7 @@ function importBackup(event) {
                 state.isTimerRunning = false;
 
                 saveState(); // Save the newly imported state
-
-                render(); // Re-render the UI
-
+                renderPage(); // FIXED: Re-render the UI
                 showModal('ייבוא הצלחה', 'הנתונים יובאו בהצלחה!');
 
             });
@@ -1053,9 +1051,7 @@ function handleGlobalStatusChange(event, heatIndexContext) {
     }
 
     saveState();
-
-    render();
-
+    renderPage(); // FIXED: שימוש ב-renderPage במקום render
 }
 
 
@@ -1521,7 +1517,8 @@ function startSackTimer(shoulderNumber) {
 
 // --- Page Rendering ---
 
-
+// ADDED: מגדיר את render כפונקציה גלובלית
+window.render = renderPage;
 
 /**
 
@@ -1533,13 +1530,12 @@ function startSackTimer(shoulderNumber) {
 
  */
 
-function render() {
-
+function renderPage() {
     ensureDomRefs();
-    if (!contentDiv) { setTimeout(render, 50); return; }
+    if (!contentDiv) { setTimeout(renderPage, 50); return; }
 
     const content = document.getElementById('content');
-    if (!content) { setTimeout(render, 50); return; }
+    if (!content) { setTimeout(renderPage, 50); return; }
 
     content.innerHTML = '';
     const footer = document.getElementById('footer-navigation');
@@ -1618,24 +1614,51 @@ function render() {
     }
 
     switch (state.currentPage) {
-        case PAGES.RUNNERS: window.Pages.renderRunnersPage?.(); break;
+        case PAGES.RUNNERS: 
+            setPageTitle('ניהול קבוצה');
+            window.Pages.renderRunnersPage?.(); 
+            break;
         case PAGES.ADMIN_SETTINGS: 
+            setPageTitle('הגדרות מנהל');
             if (window.Pages?.renderAdminSettingsPage) {
                 window.Pages.renderAdminSettingsPage();
             } else {
                 console.warn('Admin settings page not ready');
             }
             break;
-        case PAGES.STATUS_MANAGEMENT: window.Pages.renderStatusManagementPage?.(); break;
-        case PAGES.HEATS: window.Pages.renderHeatPage?.(state.currentHeatIndex); break;
-        case PAGES.CRAWLING_COMMENTS: window.Pages.renderCrawlingDrillsCommentsPage?.(); break;
-        case PAGES.CRAWLING_SPRINT: window.Pages.renderCrawlingSprintPage?.(state.crawlingDrills.currentSprintIndex); break;
-        case PAGES.STRETCHER_HEAT: window.Pages.renderSociometricStretcherHeatPage?.(state.sociometricStretcher.currentHeatIndex); break;
-        case PAGES.REPORT: window.Pages.renderReportPage?.(); break;
+        case PAGES.STATUS_MANAGEMENT: 
+            setPageTitle('ניהול סטטוס');
+            window.Pages.renderStatusManagementPage?.(); 
+            break;
+        case PAGES.HEATS: 
+            setPageTitle('ספרינטים');
+            window.Pages.renderHeatPage?.(state.currentHeatIndex); 
+            break;
+        case PAGES.CRAWLING_COMMENTS: 
+            setPageTitle('זחילה קבוצתית');
+            window.Pages.renderCrawlingDrillsCommentsPage?.(); 
+            break;
+        case PAGES.CRAWLING_SPRINT: 
+            setPageTitle('תחרות זחילות');
+            window.Pages.renderCrawlingSprintPage?.(state.crawlingDrills.currentSprintIndex); 
+            break;
+        case PAGES.STRETCHER_HEAT: 
+            setPageTitle('אלונקה סוציומטרית');
+            window.Pages.renderSociometricStretcherHeatPage?.(state.sociometricStretcher?.currentHeatIndex || 0); 
+            break;
+        case PAGES.REPORT: 
+            setPageTitle('דוח סיכום');
+            window.Pages.renderReportPage?.(); 
+            break;
     }
 }
 
-
+// ADDED: פונקציה פשוטה לקביעת כותרת
+function setPageTitle(title) {
+    if (headerTitle) {
+        headerTitle.textContent = title;
+    }
+}
 
 /**
 
@@ -1707,7 +1730,7 @@ function showEditBasicDetailsModal() {
         saveState();
 
         document.body.removeChild(backdrop);
-        render();
+        renderPage();
     });
 
     document.getElementById('cancel-basic-details').addEventListener('click', () => {
@@ -1871,12 +1894,31 @@ async function init() {
             if (tab.classList.contains('is-disabled') || tab.getAttribute('aria-disabled') === 'true') return;
 
             const nextPage = tab.dataset.page;
+            
+            // NEW: בדיקה אם יש מקצה פעיל שלא הסתיים
+            if (state.currentPage === PAGES.HEATS && nextPage !== PAGES.HEATS) {
+                const currentHeat = state.heats[state.currentHeatIndex];
+                if (currentHeat && currentHeat.started && !currentHeat.finished) {
+                    showModal('מקצה פעיל', 'יש לסיים את המקצה הנוכחי לפני המעבר לעמוד אחר. לחץ על "סיים" כדי לסיים את המקצה.');
+                    return;
+                }
+            }
+            
+            // NEW: בדיקה לספרינטי זחילה
+            if (state.currentPage === PAGES.CRAWLING_SPRINT && nextPage !== PAGES.CRAWLING_SPRINT) {
+                const currentSprint = state.crawlingDrills?.sprints?.[state.crawlingDrills.currentSprintIndex];
+                if (currentSprint && currentSprint.started && !currentSprint.finished) {
+                    showModal('ספרינט זחילה פעיל', 'יש לסיים את ספרינט הזחילה הנוכחי לפני המעבר לעמוד אחר. לחץ על "סיים" כדי לסיים את הספרינט.');
+                    return;
+                }
+            }
+            
             const noRunners = !state.runners || state.runners.length === 0;
             // הגנה כפולה: לא לעבור למסכים הדורשים רצים
             const needsRunners = new Set([PAGES.HEATS, PAGES.CRAWLING_COMMENTS, PAGES.CRAWLING_SPRINT, PAGES.STRETCHER_HEAT, PAGES.REPORT]);
             if (noRunners && needsRunners.has(nextPage)) return;
 
-            const go = () => { state.currentPage = nextPage; saveState(); render(); };
+            const go = () => { state.currentPage = nextPage; saveState(); renderPage(); };
             const intercepted = window.confirmLeaveCrawlingComments?.(go);
             if (!intercepted) go();
         });
@@ -1889,7 +1931,7 @@ async function init() {
         state.themeMode = modes[(i + 1) % modes.length];
         applyTheme();
         saveState();
-        render();
+        renderPage();
     });
 
     window.PWA?.setup();
@@ -1897,7 +1939,7 @@ async function init() {
     loadState();
     applyTheme();
     setupPWAInstallUI(); // FIX: was never called
-    render();
+    renderPage();
     setInterval(saveState, 60000);
 }
 

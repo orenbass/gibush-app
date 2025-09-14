@@ -1608,3 +1608,164 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
+
+/* PWA optimizations */
+@media (display-mode: standalone) {
+    body {
+        /* ...existing code... */
+    }
+
+    /* צמצום הרווח הגדול בין הניווט לתגובה מהירה */
+    #quick-comment-bar-container {
+        margin-top: 0.5rem !important; /* הקטנה משמעותית של הרווח העליון */
+    }
+
+    /* וידוא שאין רווח מיותר מתחת לניווט */
+    nav {
+        margin-bottom: 0.5rem;
+    }
+
+    .container {
+        padding-top: 1rem; /* הקטנה של padding כללי */
+    }
+
+    /* מניעת רווחים כפולים */
+    main {
+        margin-top: 0;
+        padding-top: 0.5rem;
+    }
+}
+
+/* Visual feedback for drag operation */
+.editing-order .arrival-row {
+  position: relative;
+  padding-right: 50px !important; /* NEW: מקום לאייקון הגרירה */
+  transition: all 0.2s ease;
+}
+
+/* NEW: Drag handle icon on the right side */
+.drag-handle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: bold;
+  cursor: grab;
+  padding: 4px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  user-select: none;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.drag-handle:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* NEW: Visual feedback during drag */
+.arrival-row.dragging {
+  opacity: 0.7;
+  transform: rotate(3deg) scale(1.02);
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3) !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  border: 2px solid var(--accent) !important;
+}
+
+/* NEW: Drop zone indicator */
+.arrival-row.drag-over {
+  border-top: 4px solid var(--accent) !important;
+  border-bottom: 4px solid var(--accent) !important;
+  background: rgba(59, 130, 246, 0.05) !important;
+  transform: translateY(2px);
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+/* NEW: Ghost placeholder for dragged item */
+.arrival-row.drag-placeholder {
+  opacity: 0.3;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(59, 130, 246, 0.1) 10px,
+    rgba(59, 130, 246, 0.1) 20px
+  ) !important;
+  border: 2px dashed var(--accent) !important;
+}
+
+/* NEW: Smooth animations for all rows during reorder */
+.editing-order .arrival-row:not(.dragging) {
+  transition: transform 0.3s ease, margin 0.3s ease, box-shadow 0.2s ease;
+}
+
+.heat-btn.edit {
+  background: var(--accent-2);
+  color: #1f2937;
+}
+
+.heat-btn.edit.editing {
+  background: var(--success);
+  color: white;
+}
+
+.heat-btn.cancel {
+  background: var(--danger);
+  color: white;
+}
+
+.heat-btn.cancel:hover {
+  background: #dc2626;
+}
+
+.dark .heat-btn.edit {
+  background: var(--accent-2);
+  color: #111827;
+}
+
+.dark .heat-btn.edit.editing {
+  background: var(--success);
+  color: white;
+}
+
+.dark .heat-btn.cancel {
+  background: var(--danger);
+  color: white;
+}
+
+.dark .heat-btn.cancel:hover {
+  background: #dc2626;
+}
+
+/* Remove the old ::before pseudo-element */
+.editing-order .arrival-row::before {
+  display: none;
+}
+
+/* NEW: Drop zone indicator - precise line highlighting */
+.arrival-row.drag-over-before {
+  border-top: 4px solid var(--accent) !important;
+  margin-top: 4px;
+}
+
+.arrival-row.drag-over-after {
+  border-bottom: 4px solid var(--accent) !important;
+  margin-bottom: 4px;
+}
+
+/* Remove old drag-over class that highlighted entire row */
+.arrival-row.drag-over {
+  /* This class is now unused - we use drag-over-before/after instead */
+}
