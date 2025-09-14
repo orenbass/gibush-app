@@ -314,6 +314,23 @@
             ${arr.map(t=>`<span class="qc-group-item" data-value="${t}" role="button" tabindex="0">${t}</span>`).join('')}
           </div>
         </div>`:'';
+      
+      // NEW: בדיקה שיש תוכן להציג
+      const hasContent = (Array.isArray(GROUP.good) && GROUP.good.length > 0) ||
+                        (Array.isArray(GROUP.neutral) && GROUP.neutral.length > 0) ||
+                        (Array.isArray(GROUP.bad) && GROUP.bad.length > 0);
+      
+      if (!hasContent) {
+        modal.innerHTML = `
+          <button class="qc-group-close" type="button" id="qc-group-close">סגור ✕</button>
+          <h2>הערות מוכנות מראש</h2>
+          <div style="padding: 20px; text-align: center; color: #666;">
+            <p>אין הערות מוכנות מראש זמינות כרגע</p>
+            <p>ניתן להוסיף הערות בקובץ הקונפיגורציה</p>
+          </div>`;
+        return;
+      }
+      
       modal.innerHTML = `
         <button class="qc-group-close" type="button" id="qc-group-close">סגור ✕</button>
         <h2>בחרו הערה</h2>
@@ -323,6 +340,21 @@
     }
 
     function openGroupModal(){
+      // NEW: בדיקה מוקדמת שיש תוכן להציג
+      const hasContent = (Array.isArray(GROUP.good) && GROUP.good.length > 0) ||
+                        (Array.isArray(GROUP.neutral) && GROUP.neutral.length > 0) ||
+                        (Array.isArray(GROUP.bad) && GROUP.bad.length > 0);
+      
+      if (!hasContent) {
+        // הצגת הודעה קצרה במקום פתיחת מודאל ריק
+        if (window.showModal) {
+          window.showModal('אין הערות זמינות', 'לא הוגדרו הערות מוכנות מראש. ניתן להוסיף הערות ידנית בשדה הטקסט למטה.');
+        } else {
+          alert('אין הערות מוכנות מראש זמינות כרגע');
+        }
+        return;
+      }
+      
       buildGroupModalContent();
       backdrop.style.display='block';
       modal.style.display='block';

@@ -1,0 +1,463 @@
+/* ==================================================
+   עיצוב רכיב רשימת הגעות (Arrival Rows Component)
+   ================================================== */
+
+/* איפוס בסיסי */
+.arrival-section,
+.arrival-header,
+.arrival-row,
+.arrival-section *,
+.arrival-header *,
+.arrival-row * {
+  box-sizing: border-box;
+}
+
+/* מכולה ראשית */
+.arrival-section {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  overflow: hidden;
+  direction: rtl;
+  margin: 20px 0;
+  width: 100%;
+  display: block;
+  font-family: inherit;
+}
+
+/* כותרת הטבלה */
+.arrival-header {
+  background: #0f172a;
+  color: #94a3b8;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-weight: 600;
+  font-size: 13px;
+  border-bottom: 1px solid #334155;
+  direction: rtl;
+}
+
+/* הסרת העמודה השמאלית */
+.arrival-header .arrival-header-position {
+  display: none;
+}
+
+.arrival-header .h-cell.shoulder {
+  width: 80px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-left: 0; /* הסרת המרווח */
+}
+
+.arrival-header .h-cell.center {
+  flex: 1;
+  text-align: center;
+}
+
+.arrival-header .h-cell.time {
+  width: 100px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* עמודת מיקום סטטית - עיצוב מינימלי */
+.arrival-header .h-cell.static-position {
+  width: 50px;
+  text-align: center;
+  flex-shrink: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  color: #94a3b8; /* Same color as other header text */
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* שורות התוכן */
+.arrival-row {
+  background: #1e293b;
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #334155;
+  min-height: 60px;
+  direction: rtl;
+  transition: background-color 0.2s ease;
+}
+
+.arrival-row:hover {
+  background: #334155;
+}
+
+.arrival-row:last-child {
+  border-bottom: none;
+}
+
+/* הסרת העמודה השמאלית */
+.arrival-position {
+  display: none;
+}
+
+.shoulder-cell {
+  width: 80px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+  margin-left: 0; /* הסרת המרווח */
+}
+
+.comment-cell {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.time-cell {
+  width: 100px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+/* תא מיקום סטטי - עיצוב מינימלי */
+.static-position {
+  width: 50px;
+  height: 24px;
+  background: #64748b;
+  color: white;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+  border: none;
+  box-shadow: none;
+  position: static;
+}
+
+.static-position::before {
+  display: none;
+}
+
+/* ==================================================
+   מצב עריכת סדר
+   ================================================== */
+
+.editing-order .arrival-section {
+  background: #1e293b; /* Changed from #451a03 to match normal mode */
+  border-color: #334155; /* Changed from #92400e to match normal mode */
+}
+
+.editing-order .arrival-header {
+  background: #0f172a; /* Changed from #78350f to match normal mode */
+  color: #94a3b8; /* Changed from #fed7aa to match normal mode */
+}
+
+/* הסתרת כותרת ההערות במצב עריכה - תיקון לעמודי heat ו-crawling-sprint */
+.editing-order .arrival-header .h-cell.center,
+.editing-order .h-cell.center,
+.editing-order .arrival-header span:nth-child(3),
+.editing-order .arrival-header span:contains("הערות"),
+body.editing-order .arrival-header .h-cell.center,
+body.editing-order .h-cell.center {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* הסתרת עמודת ההערות במצב עריכה */
+.editing-order .arrival-row .comment-cell,
+.editing-order .comment-cell,
+body.editing-order .arrival-row .comment-cell,
+body.editing-order .comment-cell {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* הסתרת עמודת ההערות במצב עריכה - חיזוק הכלל */
+.editing-order .arrival-header .h-cell.center,
+.editing-order .h-cell.center,
+.editing-order .arrival-header [class*="comment"],
+.editing-order .arrival-header [class*="center"] {
+  display: none !important;
+}
+
+.editing-order .arrival-row .comment-cell,
+.editing-order .comment-cell {
+  display: none !important;
+}
+
+.editing-order .arrival-row {
+  background: #1e293b; /* Changed from #451a03 to match normal mode */
+}
+
+.editing-order .arrival-row:hover {
+  background: #334155; /* Changed from #78350f to match normal mode */
+}
+
+.editing-order .arrival-header::after {
+  content: "";
+  width: 50px;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* עמודת המיקום הסטטי במצב עריכה */
+.editing-order .arrival-header .h-cell.static-position {
+  background: transparent;
+  border: none;
+}
+
+.editing-order .arrival-row .static-position {
+  background: #64748b; /* Changed from #78716c to match normal mode */
+  border: none;
+  animation: none;
+}
+
+@keyframes staticPositionPulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+  }
+  50% { 
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(245, 158, 11, 0.5);
+  }
+}
+
+/* כפתור גרירה */
+.drag-handle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #0891b2 !important;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: grab;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    background: transparent !important;
+    border: none !important;
+    width: auto !important;
+    height: auto !important;
+    box-shadow: none !important;
+}
+
+.drag-handle:hover {
+    background: transparent !important;
+    color: #0e7490 !important;
+    box-shadow: none !important;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.drag-handle:focus {
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Edit mode styling improvements */
+.arrival-list.editing-order .arrival-row {
+    background: #1e293b !important; /* Changed from white to match normal mode */
+    border: 1px solid #334155; /* Changed from #e5e7eb to match normal mode */
+    margin-bottom: 2px;
+    transition: all 0.2s ease;
+}
+
+.arrival-list.editing-order .arrival-row:hover {
+    background: #334155 !important; /* Changed from #f8fafc to match normal mode */
+    border-color: #0891b2;
+    box-shadow: 0 2px 4px rgba(8, 145, 178, 0.1);
+}
+
+.arrival-list.editing-order .arrival-row.dragging {
+    background: #f0f9ff !important;
+    border-color: #0891b2;
+    box-shadow: 0 4px 12px rgba(8, 145, 178, 0.2);
+    transform: scale(1.02);
+}
+
+/* Drag handle styling */
+.drag-handle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #0891b2 !important;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: grab;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    background: transparent !important;
+    border: none !important;
+    width: auto !important;
+    height: auto !important;
+    box-shadow: none !important;
+}
+
+.drag-handle:hover {
+    background: transparent !important;
+    color: #0e7490 !important;
+    box-shadow: none !important;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.drag-handle:focus {
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Drag over indicators */
+.arrival-row.drag-over-before {
+    border-top: 3px solid #0891b2 !important;
+}
+    
+.arrival-row.drag-over-after {
+    border-bottom: 3px solid #0891b2 !important;
+}
+
+/* ==================================================
+   אנימציות גרירה
+   ================================================== */
+
+.arrival-row.dragging {
+  opacity: 0.8;
+  transform: rotate(2deg) scale(1.02);
+  background: #1e40af !important;
+  border: 2px dashed #3b82f6;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  z-index: 1000;
+}
+
+.arrival-row.drag-target {
+  background: #1e40af !important;
+  border: 2px solid #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.arrival-row.drag-over-before {
+  border-top: 3px solid #3b82f6;
+}
+
+.arrival-row.drag-over-after {
+  border-bottom: 3px solid #3b82f6;
+}
+
+/* ==================================================
+   התאמות למובייל
+   ================================================== */
+
+@media (max-width: 768px) {
+  .arrival-header {
+    padding: 8px 12px;
+    font-size: 12px;
+    gap: 12px;
+  }
+  
+  .arrival-row {
+    padding: 8px 12px;
+    gap: 12px;
+    min-height: 50px;
+  }
+  
+  .arrival-position {
+    width: 50px;
+    height: 28px;
+    font-size: 13px;
+  }
+  
+  .shoulder-cell {
+    width: 70px;
+    font-size: 14px;
+    margin-left: 0;
+  }
+  
+  .time-cell {
+    width: 90px;
+    font-size: 13px;
+  }
+  
+  .arrival-row .comment-btn {
+    height: 32px;
+    font-size: 12px;
+    padding: 6px 12px;
+    max-width: 150px;
+  }
+  
+  .drag-handle {
+    width: 45px;
+    height: 32px;
+    font-size: 13px;
+  }
+  
+  .editing-order .arrival-header::after {
+    width: 45px;
+  }
+  
+  .arrival-header .h-cell.static-position {
+    width: 40px;
+    font-size: 11px;
+  }
+  
+  .static-position {
+    width: 40px;
+    height: 20px;
+    font-size: 11px;
+  }
+}
+
+/* הסתרת כותרת ההערות במצב עריכה - כלל עליון שעוקף הכל */
+.editing-order .arrival-header > *:nth-child(3),
+.editing-order .arrival-header > span:nth-child(3),
+body.editing-order .arrival-header > *:nth-child(3),
+html .editing-order .arrival-header > *:nth-child(3),
+.editing-order .arrival-header .h-cell:nth-of-type(3),
+.editing-order .arrival-header span:nth-of-type(3) {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+/* הסתרת עמודת ההערות במצב עריכה */
+.editing-order .arrival-row > *:nth-child(3),
+.editing-order .arrival-row > span:nth-child(3),
+body.editing-order .arrival-row > *:nth-child(3),
+html .editing-order .arrival-row > *:nth-child(3) {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
