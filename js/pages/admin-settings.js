@@ -1,9 +1,6 @@
 (function () {
   window.Pages = window.Pages || {};
   window.Pages.renderAdminSettingsPage = function renderAdminSettingsPage() {
-    const header = typeof headerTitle !== 'undefined' ? headerTitle : document.getElementById('header-title');
-    if (header) header.textContent = 'הגדרות מנהל';
-
     const root = document.getElementById('content') || (typeof contentDiv !== 'undefined' ? contentDiv : null);
     if (!root) return;
 

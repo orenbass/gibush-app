@@ -16,6 +16,16 @@
         });
     }
 
+    // --- NEW: גיבוי לרענון האפליקציה במקום render() שאינה מוגדרת כאן ---
+    function rerenderHeatAfterNav(){
+        if (typeof window.render === 'function') {
+            try { return window.render(); } catch(e) { /* silent */ }
+        }
+        if (window.Pages && typeof window.Pages.renderHeatPage === 'function' && state.currentPage === PAGES.HEATS && typeof state.currentHeatIndex === 'number') {
+            try { window.Pages.renderHeatPage(state.currentHeatIndex); } catch(e){ /* silent */ }
+        }
+    }
+
     function ensureCommentsModalLoaded() {
         return new Promise((resolve, reject) => {
             if (window.CommentsModal?.open) return resolve();
@@ -147,10 +157,9 @@
         await ensureSharedStylesLoaded();
 
         const contentDiv = document.getElementById('content');
-        const headerTitle = document.getElementById('header-title');
         const heat = state.heats[heatIndex];
 
-        headerTitle.textContent = `מקצה ספרינט ${heat?.heatNumber || heatIndex + 1}`;
+        // REMOVED: מחיקת כל הקוד שקובע כותרת headerTitle
 
         function formatNoMs(totalMs){
             const totalSec = Math.floor(totalMs / 1000);
@@ -215,17 +224,19 @@
             <button id="start-btn" class="heat-btn start ${heat.started ? 'hidden' : ''}">התחל</button>
             <button id="stop-btn" class="heat-btn stop ${!heat.started || heat.finished ? 'hidden' : ''}">סיים</button>
             <button id="undo-btn" class="heat-btn undo ${!heat.started || heat.finished || heat.arrivals.length === 0 ? 'hidden' : ''}">בטל הגעה אחרונה</button>
+            <button id="edit-order-btn" class="heat-btn edit ${!heat.finished || heat.arrivals.length === 0 ? 'hidden' : ''}">ערוך מיקומים</button>
+            <button id="cancel-edit-btn" class="heat-btn cancel hidden">ביטול</button>
           </div>
+          
+          <!-- ADDED: כפתורי המועמדים -->
           <div id="runner-buttons-container" class="my-4 ${!heat.started || heat.finished ? 'hidden' : ''}">
-            <h3 class="text-base md:text-lg font-semibold mb-2 text-center text-white">לחץ על מספר הכתף של הרץ שהגיע</h3>
+            <h3 class="text-base md:text-lg font-semibold mb-2 text-center">לחץ על מספר הכתף של הרץ שהגיע</h3>
             <div class="auto-grid">
-              ${activeRunners.map(r=>`
-                <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md text-xl md:text-2xl"
-                        data-shoulder-number="${r.shoulderNumber}">
-                  ${r.shoulderNumber}
-                </button>`).join('')}
+              ${activeRunners.map(r => `
+                <button class="runner-btn bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md text-xl md:text-2xl" data-shoulder-number="${r.shoulderNumber}">${r.shoulderNumber}</button>`).join('')}
             </div>
           </div>
+
           ${arrivalsBlockHtml}
         `;
         contentDiv.innerHTML = bodyHtml;
@@ -325,10 +336,38 @@
                     }
                 }
                 refreshAllHeatCommentButtons(contentDiv);
-            }, 0);
+                
+                // ADDED: רינדור מחדש של רשימת ההגעות
+                const arrivalList = document.getElementById('arrival-list');
+                if (arrivalList && window.ArrivalRows?.render) {
+                    const newArrivalsHtml = window.ArrivalRows.render({
+                        arrivals: heat.arrivals,
+                        getCommentButtonHtml: buildCommentButton,
+                        formatTime: formatNoMs,
+                        showHeader: true,
+                        labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן ריצה' },
+                        listId: 'arrival-list'
+                    });
+                    
+                    // עדכון התוכן בלבד
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newArrivalsHtml;
+                    const newList = tempDiv.querySelector('#arrival-list');
+                    if (newList) {
+                        arrivalList.innerHTML = newList.innerHTML;
+                        refreshAllHeatCommentButtons(contentDiv);
+                    }
+                }
+            }, 100);
         });
 
         document.getElementById('next-heat-btn-inline')?.addEventListener('click', () => {
+            // NEW: בדיקה שהמקצה הנוכחי הסתיים לפני מעבר למקצה הבא
+            if (!heat.finished) {
+                showModal('מקצה לא הושלם', 'יש לסיים את המקצה הנוכחי לפני המעבר למקצה הבא. לחץ על "סיים" כדי לסיים את המקצה.');
+                return;
+            }
+            
             if (state.currentHeatIndex < CONFIG.NUM_HEATS - 1) {
                 state.currentHeatIndex++;
                 state.currentPage = PAGES.HEATS;
@@ -336,15 +375,198 @@
                 state.currentPage = PAGES.CRAWLING_COMMENTS;
             }
             saveState();
-            render();
+            rerenderHeatAfterNav();
         });
         document.getElementById('prev-heat-btn-inline')?.addEventListener('click', () => {
+            // NEW: בדיקה שהמקצה הנוכחי הסתיים לפני מעבר למקצה הקודם - רק אם התחיל
+            if (heat.started && !heat.finished) {
+                showModal('מקצה לא הושלם', 'יש לסיים את המקצה הנוכחי לפני המעבר למקצה הקודם. לחץ על "סיים" כדי לסיים את המקצה.');
+                return;
+            }
+            
             if (state.currentHeatIndex > 0) {
                 state.currentHeatIndex--;
                 saveState();
-                render();
+                rerenderHeatAfterNav();
             }
         });
+
+        document.getElementById('edit-order-btn')?.addEventListener('click', () => {
+            toggleEditOrderMode();
+        });
+
+        document.getElementById('cancel-edit-btn')?.addEventListener('click', () => {
+            cancelEditOrder();
+        });
+
+        // NEW: גיבוי סדר מקורי לביטול
+        let originalOrder = null;
+
+        function toggleEditOrderMode() {
+            const editBtn = document.getElementById('edit-order-btn');
+            const cancelBtn = document.getElementById('cancel-edit-btn');
+            const arrivalList = document.getElementById('arrival-list');
+            const isEditing = editBtn.classList.contains('editing');
+            
+            if (isEditing) {
+                // יציאה ממצב עריכה
+                exitEditMode();
+            } else {
+                // כניסה למצב עריכה
+                originalOrder = JSON.parse(JSON.stringify(heat.arrivals)); // שמירת גיבוי
+                enterEditMode();
+            }
+        }
+
+        function enterEditMode() {
+            const editBtn = document.getElementById('edit-order-btn');
+            const cancelBtn = document.getElementById('cancel-edit-btn');
+            const arrivalList = document.getElementById('arrival-list');
+            
+            editBtn.textContent = 'סיים עריכה';
+            editBtn.classList.add('editing');
+            cancelBtn.classList.remove('hidden');
+            arrivalList.classList.add('editing-order');
+            
+            // הוספת drag handlers ואייקון גרירה
+            arrivalList.querySelectorAll('.arrival-row').forEach((row, index) => {
+                row.draggable = true;
+                row.dataset.originalIndex = index;
+                
+                // הוספת אייקון גרירה בצד ימין
+                const dragHandle = document.createElement('div');
+                dragHandle.className = 'drag-handle';
+                dragHandle.innerHTML = '⋮⋮⋮';
+                dragHandle.title = 'גרור לשינוי מיקום';
+                row.appendChild(dragHandle);
+                
+                row.addEventListener('dragstart', handleDragStart);
+                row.addEventListener('dragover', handleDragOver);
+                row.addEventListener('drop', handleDrop);
+                row.addEventListener('dragend', handleDragEnd);
+            });
+        }
+
+        function exitEditMode() {
+            const editBtn = document.getElementById('edit-order-btn');
+            const cancelBtn = document.getElementById('cancel-edit-btn');
+            const arrivalList = document.getElementById('arrival-list');
+            
+            editBtn.textContent = 'ערוך מיקומים';
+            editBtn.classList.remove('editing');
+            cancelBtn.classList.add('hidden');
+            arrivalList.classList.remove('editing-order');
+            originalOrder = null; // ניקוי הגיבוי
+            
+            // הסרת drag handlers
+            arrivalList.querySelectorAll('.arrival-row').forEach(row => {
+                row.draggable = false;
+                row.removeEventListener('dragstart', handleDragStart);
+                row.removeEventListener('dragover', handleDragOver);
+                row.removeEventListener('drop', handleDrop);
+                // הסרת אייקון הגרירה
+                row.querySelector('.drag-handle')?.remove();
+            });
+        }
+
+        function cancelEditOrder() {
+            if (originalOrder) {
+                // שחזור הסדר המקורי
+                heat.arrivals = JSON.parse(JSON.stringify(originalOrder));
+                saveState();
+                
+                // יציאה ממצב עריכה ורינדור מחדש
+                exitEditMode();
+                window.Pages.renderHeatPage(state.currentHeatIndex);
+            }
+        }
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = e.target.closest('.arrival-row');
+            draggedElement.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // ניקוי כל ההדגשות הקיימות
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            
+            const target = e.target.closest('.arrival-row');
+            if (target && target !== draggedElement) {
+                // הדגשת הקו היעד - לפני או אחרי התלוי במיקום העכבר
+                const rect = target.getBoundingClientRect();
+                const mouseY = e.clientY;
+                const midpoint = rect.top + rect.height / 2;
+                
+                // הסרת כל מחלקות הדרג מכל השורות
+                document.querySelectorAll('.drag-over-before, .drag-over-after').forEach(el => {
+                    el.classList.remove('drag-over-before', 'drag-over-after');
+                });
+                
+                if (mouseY < midpoint) {
+                    // העכבר במחצית העליונה - הדגש קו עליון
+                    target.classList.add('drag-over-before');
+                } else {
+                    // העכבר במחצית התחתונה - הדגש קו תחתון  
+                    target.classList.add('drag-over-after');
+                }
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const target = e.target.closest('.arrival-row');
+            if (target && target !== draggedElement) {
+                const container = target.parentNode;
+                const allRows = Array.from(container.children);
+                const draggedIndex = allRows.indexOf(draggedElement);
+                const targetIndex = allRows.indexOf(target);
+                
+                // NEW: שמירת זמני ההגעה לפי מיקום לפני השינוי
+                const times = heat.arrivals.map(arrival => arrival.finishTime);
+                
+                // עדכון מערך ההגעות - רק מספרי הכתף זזים, הזמנים נשארים במקום
+                const draggedArrival = heat.arrivals[draggedIndex];
+                heat.arrivals.splice(draggedIndex, 1);
+                heat.arrivals.splice(targetIndex, 0, draggedArrival);
+                
+                // NEW: החזרת הזמנים למיקומים המקוריים - הזמן קשור למיקום ולא למועמד
+                heat.arrivals.forEach((arrival, index) => {
+                    arrival.finishTime = times[index];
+                });
+                
+                // שמירה ורינדור מחדש אבל ללא יציאה ממצב עריכה
+                saveState();
+                refreshAllHeatCommentButtons(contentDiv);
+                
+                // רינדור מחדש של הרשימה תוך שמירת מצב עריכה
+                setTimeout(() => {
+                    const wasEditing = document.getElementById('edit-order-btn').classList.contains('editing');
+                    window.Pages.renderHeatPage(state.currentHeatIndex);
+                    if (wasEditing) {
+                        // חזרה למצב עריכה אחרי הרינדור
+                        setTimeout(() => {
+                            document.getElementById('edit-order-btn').click();
+                        }, 50);
+                    }
+                }, 100);
+            }
+            // ניקוי classes
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function handleDragEnd(e) {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement = null;
+            }
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
 
         // Attach modal handlers (ArrivalRows helper)
         ArrivalRows.attachCommentHandlers(contentDiv, {

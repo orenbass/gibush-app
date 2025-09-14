@@ -1,8 +1,6 @@
 (function () {
     window.Pages = window.Pages || {};
     window.Pages.renderStatusManagementPage = function renderStatusManagementPage() {
-        headerTitle.textContent = 'סטטוס מועמדים';
-
         // FIX: יצירת אלמנט <style> (היה חסר const st = ...)
         if (!document.getElementById('status-actions-flex-styles')) {
             const st = document.createElement('style');

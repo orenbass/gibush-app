@@ -68,6 +68,7 @@
                 actionable.id === 'save-inline-runners-btn' ||
                 actionable.id === 'cancel-inline-runners-btn' ||
                 actionable.id === 'edit-runners-btn' ||
+                actionable.id === 'add-runner-inline-btn' ||  // ADDED: מתיר לחיצה על הוספת מועמד
                 actionable.classList.contains('runner-delete-btn') ||
                 actionable.closest('#runner-list') ||
                 actionable.closest('#runner-inline-edit-bar')
@@ -177,7 +178,8 @@
     }
 
     window.Pages.renderRunnersPage = function renderRunnersPage() {
-        headerTitle.textContent = 'ניהול קבוצה';
+        // REMOVED: מחיקת קביעת כותרת
+        // headerTitle.textContent = 'ניהול קבוצה';
 
         // עדכון לפני רינדור (שיהיה זמין ל quick-comments)
         window.updateActiveRunners();
@@ -248,20 +250,12 @@ ${hasRunners ? `
             </button>
         </div>
         <div id="runner-list" class="space-y-2"></div>
-        <div id="runner-edit-area" class="hidden mt-4">
-            <div id="editable-runner-list" class="space-y-2"></div>
-            <div class="flex justify-center gap-4 mt-4">
-                <button id="add-runner-row" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">
-                    + הוסף מועמד
-                </button>
-                <button id="save-runners-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-                    שמור שינויים
-                </button>
-                <button id="cancel-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
-                    ביטול
-                </button>
-            </div>
-            <div id="runner-edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
+        
+        <!-- כפתור הוספת מועמד במצב עריכה - יוצג במקום כפתור התחל מקצים -->
+        <div class="flex justify-center mt-6">
+            <button id="add-runner-inline-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full" style="display: none;">
+                + הוסף מועמד
+            </button>
         </div>
     </div>
     
@@ -369,6 +363,17 @@ ${hasRunners ? `
                 editBtn.classList.add('opacity-60', 'cursor-not-allowed');
             }
 
+            // UPDATED: החלפת כפתור התחל מקצים בכפתור הוסף מועמד
+            const startHeatsBtn = document.getElementById('start-heats-btn');
+            if (startHeatsBtn) {
+                startHeatsBtn.style.display = 'none';
+            }
+            
+            const addRunnerBtn = document.getElementById('add-runner-inline-btn');
+            if (addRunnerBtn) {
+                addRunnerBtn.style.display = 'inline-block';
+            }
+
             grid.querySelectorAll('.runner-card').forEach(card => {
                 const numEl = card.querySelector('.text-xl');
                 if (!numEl) return;
@@ -462,6 +467,18 @@ ${hasRunners ? `
             if (errorEl) { errorEl.classList.add('hidden'); errorEl.textContent = ''; }
             runnerCardEdit.active = false;
             runnerCardEdit.original = null;
+
+            // UPDATED: החזרת כפתור התחל מקצים והסתרת כפתור הוסף מועמד
+            const startHeatsBtn = document.getElementById('start-heats-btn');
+            if (startHeatsBtn) {
+                startHeatsBtn.style.display = 'flex';
+            }
+            
+            const addRunnerBtn = document.getElementById('add-runner-inline-btn');
+            if (addRunnerBtn) {
+                addRunnerBtn.style.display = 'none';
+            }
+
             render();
         }
 
@@ -481,13 +498,52 @@ ${hasRunners ? `
             editBtn.addEventListener('click', enterInlineEditMode);
         }
 
+        // ADDED: מאזין לכפתור הוספת מתמודד במצב עריכה
+        document.getElementById('add-runner-inline-btn')?.addEventListener('click', () => {
+            if (!runnerCardEdit.active) return;
+            
+            const grid = document.querySelector('#runner-list .auto-grid');
+            if (!grid) return;
+            
+            // יצירת כרטיס חדש עם אינפוט ריק
+            const newCard = document.createElement('div');
+            newCard.className = 'runner-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-center transition-all duration-300 bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60';
+            newCard.innerHTML = `
+                <div class="text-xl font-bold text-gray-800 dark:text-gray-100 leading-none">
+                    <input data-shoulder-input
+                           type="tel"
+                           inputmode="numeric"
+                           pattern="[0-9]*"
+                           autocomplete="off"
+                           enterkeyhint="done"
+                           class="runner-inline-input w-16 text-center font-bold text-gray-800 dark:text-gray-100 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                           value="" data-original="" placeholder="מספר" />
+                </div>
+                <div class="mt-1 text-[0.55rem] font-medium text-emerald-600 dark:text-emerald-400 tracking-wide">חדש</div>
+                <button type="button" class="runner-delete-btn mt-2 text-[0.60rem] font-semibold px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md shadow focus:outline-none focus:ring-2 focus:ring-rose-300">
+                    מחק
+                </button>
+            `;
+            
+            grid.appendChild(newCard);
+            
+            // החלת מקלדת מספרים על האינפוט החדש
+            applyNumericEnhancements(newCard);
+            
+            // פוקוס על האינפוט החדש
+            const input = newCard.querySelector('.runner-inline-input');
+            if (input) {
+                input.focus();
+            }
+        });
+
         document.getElementById('save-inline-runners-btn')?.addEventListener('click', () => exitInlineEditMode(true));
         document.getElementById('cancel-inline-runners-btn')?.addEventListener('click', () => {
             if (!confirm('לבטל שינויים?')) return;
             exitInlineEditMode(false);
         });
 
-        // מחיקת מתמודד (delegation אחרי כניסה לעריכה) - UPDATED עם חלון אישור
+        // מחיקת מתמודד (delegation אחרי כניסה לעריכה) - UPDATED הסרת חלון אישור
         document.getElementById('runner-list')?.addEventListener('click', (e) => {
             if (!runnerCardEdit.active) return;
             const delBtn = e.target.closest('.runner-delete-btn');
@@ -495,9 +551,7 @@ ${hasRunners ? `
             const card = delBtn.closest('.runner-card');
             const input = card?.querySelector('.runner-inline-input');
             if (input) {
-                const sn = input.value.trim() || card.querySelector('.text-xl')?.textContent?.trim() || '';
-                if (!confirm(`למחוק מתמודד${sn ? ' מספר ' + sn : ''}? (המחיקה תתבצע סופית אחרי שמירה)`)) return;
-                card.remove(); // הסרה ויזואלית (דורש שמירה לאישור)
+                card.remove(); // הסרה ויזואלית מיידית (דורש שמירה לאישור סופי)
             }
         });
 
