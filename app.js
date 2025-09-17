@@ -206,30 +206,80 @@ function saveState() {
  */
 
 function loadState() {
-
     try {
+        console.log('🔍 מתחיל טעינת מצב...');
+        
+        // בדיקה בכל המקומות האפשריים לפרטי המעריך והקבוצה
+        let evaluatorName = '';
+        let groupNumber = '';
+        
+        // 1. בדיקה במפתח evaluatorDetails הייעודי
+        try {
+            const detailsData = localStorage.getItem('evaluatorDetails');
+            if (detailsData) {
+                const details = JSON.parse(detailsData);
+                console.log('🔍 נמצאו פרטים ב-evaluatorDetails:', details);
+                evaluatorName = details.evaluatorName || '';
+                groupNumber = details.groupNumber || '';
+            }
+        } catch (e) { console.warn('שגיאה בטעינת evaluatorDetails:', e); }
+        
+        // 2. בדיקה במצב אימות
+        const authSession = localStorage.getItem('gibushAuthState');
+        if (authSession) {
+            const session = JSON.parse(authSession);
+            console.log('🔍 נמצא מצב אימות:', session);
+            
+            if (session.authState && session.authState.isAuthenticated) {
+                if (session.authState.evaluatorName) {
+                    evaluatorName = session.authState.evaluatorName;
+                    console.log('✅ נטען שם מעריך מאימות:', evaluatorName);
+                }
+                if (session.authState.groupNumber) {
+                    groupNumber = session.authState.groupNumber;
+                    console.log('✅ נטען מספר קבוצה מאימות:', groupNumber);
+                }
+                
+                if (!state.authState) state.authState = {};
+                state.authState = { ...state.authState, ...session.authState };
+            }
+        } else {
+            console.log('⚠️ לא נמצא מצב אימות חדש');
+        }
+
+        // עדכון המצב עם הפרטים שנמצאו
+        if (evaluatorName) {
+            state.evaluatorName = evaluatorName;
+            console.log('🎯 עדכון שם מעריך:', state.evaluatorName);
+        }
+        if (groupNumber) {
+            state.groupNumber = groupNumber;
+            console.log('🎯 עדכון מספר קבוצה:', state.groupNumber);
+        }
 
         const savedData = localStorage.getItem(CONFIG.APP_STATE_KEY);
+        console.log('🔍 בודק נתונים קיימים:', savedData ? 'נמצאו' : 'לא נמצאו');
 
         if (savedData) {
-
             const fullLoadedState = JSON.parse(savedData);
-
+            
             // Restore CONFIG if present in saved data
-
             if (fullLoadedState.config) {
-
-                // Merge loaded config with defaults to ensure new settings are present
-
                 CONFIG = { ...CONFIG, ...fullLoadedState.config };
-
             }
-
+            
             // Merge loaded appState into the current state object
-
             Object.assign(state, fullLoadedState.appState || fullLoadedState);
 
-
+            // שמירה על הפרטים החדשים שנמצאו (עדיפות גבוהה)
+            if (evaluatorName) {
+                state.evaluatorName = evaluatorName;
+                console.log('🔄 כתיבה מחדש של שם מעריך:', state.evaluatorName);
+            }
+            if (groupNumber) {
+                state.groupNumber = groupNumber;
+                console.log('🔄 כתיבה מחדש של מספר קבוצה:', state.groupNumber);
+            }
 
             // Re-initialize specific data structures if their lengths don't match CONFIG
 
@@ -251,9 +301,18 @@ function loadState() {
 
         } else {
 
-            // If no saved data, initialize all data from scratch
-
+            // אם אין שמירת מצב קודמת – אל נדרוס פרטים שכבר נטענו מההתחברות
+            const preservedEvaluator = evaluatorName;
+            const preservedGroup = groupNumber;
             initializeAllData();
+            if (preservedEvaluator) {
+                state.evaluatorName = preservedEvaluator;
+                console.log('🛡️ שחזור שם מעריך לאחר initializeAllData:', preservedEvaluator);
+            }
+            if (preservedGroup) {
+                state.groupNumber = preservedGroup;
+                console.log('🛡️ שחזור מספר קבוצה לאחר initializeAllData:', preservedGroup);
+            }
 
         }
 
@@ -391,76 +450,6 @@ function initializeSociometricStretcherHeats() {
 }
 
 // --- Runner Management & Backup/Restore ---
-
-/**
- * הצגת חלון התחלתי להזנת פרטי מעריך וקבוצה
- */
-function renderInitialSetupModal() {
-    const backdrop = document.createElement('div');
-    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
-    backdrop.id = 'initial-setup-modal';
-
-    backdrop.innerHTML = `
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
-        <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">ברוכים הבאים לאפליקציית הגיבוש</h3>
-        <p class="text-gray-700 dark:text-gray-300 mb-6 text-center">אנא הזן את פרטי ההערכה להתחלה</p>
-        
-        <div class="space-y-4">
-            <div>
-                <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
-                <input type="text" id="initial-evaluator-name" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white" placeholder="הכנס שם מעריך">
-            </div>
-            <div>
-                <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
-                <input type="text" id="initial-group-number" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white" placeholder="הכנס מספר קבוצה">
-            </div>
-        </div>
-        
-        <div class="text-center mt-6">
-            <button id="save-initial-details" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
-                המשך
-            </button>
-        </div>
-        
-        <div id="initial-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
-    </div>`;
-
-    document.body.appendChild(backdrop);
-
-    const evaluatorInput = document.getElementById('initial-evaluator-name');
-    const groupInput = document.getElementById('initial-group-number');
-    const saveBtn = document.getElementById('save-initial-details');
-    const errorDiv = document.getElementById('initial-error');
-
-    const validateInputs = () => {
-        const hasEvaluator = evaluatorInput.value.trim().length > 0;
-        const hasGroup = groupInput.value.trim().length > 0;
-        saveBtn.disabled = !hasEvaluator || !hasGroup;
-    };
-
-    evaluatorInput.addEventListener('input', validateInputs);
-    groupInput.addEventListener('input', validateInputs);
-    evaluatorInput.focus();
-
-    saveBtn.addEventListener('click', () => {
-        const evaluatorName = evaluatorInput.value.trim();
-        const groupNumber = groupInput.value.trim();
-
-        if (!evaluatorName || !groupNumber) {
-            errorDiv.textContent = 'יש למלא את כל השדות';
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        state.evaluatorName = evaluatorName;
-        state.groupNumber = groupNumber;
-        saveState();
-        document.body.removeChild(backdrop);
-        render();
-    });
-
-    validateInputs();
-}
 
 /**
  * הצגת חלון הוספת רצים
@@ -1529,8 +1518,125 @@ window.render = renderPage;
  * Also manages global timer state and navigation tab highlighting.
 
  */
+function recoverEvaluatorDetailsIfMissing() {
+    if (state.evaluatorName && state.groupNumber) return;
+    console.log('🛠️ ניסיון התאוששות פרטי מעריך/קבוצה חסרים בזמן רינדור');
+    try {
+        const authSession = localStorage.getItem('gibushAuthState');
+        if (authSession) {
+            const session = JSON.parse(authSession);
+            if (!state.evaluatorName && session?.authState?.evaluatorName) {
+                state.evaluatorName = session.authState.evaluatorName;
+                console.log('✅ שוחזר שם מעריך מה-authState:', state.evaluatorName);
+            }
+            if (!state.groupNumber && session?.authState?.groupNumber) {
+                state.groupNumber = session.authState.groupNumber;
+                console.log('✅ שוחזר מספר קבוצה מה-authState:', state.groupNumber);
+            }
+        }
+        const savedData = localStorage.getItem(CONFIG.APP_STATE_KEY);
+        if (savedData) {
+            const parsed = JSON.parse(savedData);
+            const appState = parsed.appState || parsed;
+            if (!state.evaluatorName && appState.evaluatorName) {
+                state.evaluatorName = appState.evaluatorName;
+                console.log('✅ שוחזר שם מעריך מה-appState:', state.evaluatorName);
+            }
+            if (!state.groupNumber && appState.groupNumber) {
+                state.groupNumber = appState.groupNumber;
+                console.log('✅ שוחזר מספר קבוצה מה-appState:', state.groupNumber);
+            }
+        }
+        const detailsData = localStorage.getItem('evaluatorDetails');
+        if (detailsData) {
+            const details = JSON.parse(detailsData);
+            if (!state.evaluatorName && details.evaluatorName) {
+                state.evaluatorName = details.evaluatorName;
+                console.log('✅ שוחזר שם מעריך מ-evaluatorDetails:', state.evaluatorName);
+            }
+            if (!state.groupNumber && details.groupNumber) {
+                state.groupNumber = details.groupNumber;
+                console.log('✅ שוחזר מספר קבוצה מ-evaluatorDetails:', state.groupNumber);
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ שגיאה בהתאוששות פרטי מעריך:', e);
+    }
+}
+function ensureUserAvatar() {
+    try {
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        if (!themeBtn) return;
+        const headerBar = themeBtn.parentElement;
+        if (!headerBar) return;
+        let avatarBtn = document.getElementById('user-avatar-btn');
+        if (!avatarBtn) {
+            avatarBtn = document.createElement('button');
+            avatarBtn.id = 'user-avatar-btn';
+            avatarBtn.title = 'פרטי משתמש / יציאה';
+            avatarBtn.style.marginRight = '0.5rem';
+            avatarBtn.style.width = '40px';
+            avatarBtn.style.height = '40px';
+            avatarBtn.style.minWidth = '40px';
+            avatarBtn.style.borderRadius = '50%';
+            avatarBtn.style.overflow = 'hidden';
+            avatarBtn.style.border = '2px solid rgba(255,255,255,0.6)';
+            avatarBtn.style.display = 'flex';
+            avatarBtn.style.alignItems = 'center';
+            avatarBtn.style.justifyContent = 'center';
+            avatarBtn.style.background = 'linear-gradient(135deg,#2563eb,#1e3a8a)';
+            avatarBtn.style.cursor = 'pointer';
+            avatarBtn.style.position = 'relative';
+            avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
+            headerBar.insertBefore(avatarBtn, themeBtn); // right side (RTL)
+            avatarBtn.addEventListener('click', onAvatarClick);
+        }
+        // קביעת תמונה
+        let imgUrl = '';
+        const method = state?.authState?.authMethod;
+        if (method === 'google' && state.authState?.googleUserInfo?.picture) {
+            imgUrl = state.authState.googleUserInfo.picture;
+        }
+        if (imgUrl) {
+            if (!avatarBtn.querySelector('img')) {
+                avatarBtn.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = imgUrl;
+                img.alt = 'user';
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                avatarBtn.appendChild(img);
+            } else {
+                avatarBtn.querySelector('img').src = imgUrl;
+            }
+        } else {
+            // אורח
+            avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
+        }
+    } catch (e) {
+        console.warn('ensureUserAvatar failed', e);
+    }
+}
 
+function onAvatarClick() {
+    // תפריט קטן / אישור יציאה
+    showModal('יציאה מהמערכת', 'האם לצאת ולמחוק את כל נתוני הגיבוש?', () => {
+        try {
+            // ניקוי כל המפתחות הרלוונטיים
+            localStorage.removeItem('gibushAuthState');
+            localStorage.removeItem('gibushAppState');
+            localStorage.removeItem('evaluatorDetails');
+            localStorage.removeItem(CONFIG?.APP_STATE_KEY || 'gibushAppState');
+            // אפשר גם ניקוי כללי אם רוצים אפס מלא:
+            // localStorage.clear(); // (נמנע כדי לא למחוק דברים אחרים בטעות)
+        } catch(e) { console.warn('logout clear error', e); }
+        // הפניה לעמוד הנחיתה
+        window.location.href = 'landing.html';
+    });
+}
 function renderPage() {
+    recoverEvaluatorDetailsIfMissing();
     ensureDomRefs();
     if (!contentDiv) { setTimeout(renderPage, 50); return; }
 
@@ -1612,6 +1718,8 @@ function renderPage() {
     if (state.currentPage !== PAGES.STATUS_MANAGEMENT && state.currentPage !== PAGES.ADMIN_SETTINGS) {
         state.lastPage = state.currentPage;
     }
+
+    ensureUserAvatar();
 
     switch (state.currentPage) {
         case PAGES.RUNNERS: 
@@ -1940,6 +2048,7 @@ async function init() {
     applyTheme();
     setupPWAInstallUI(); // FIX: was never called
     renderPage();
+    ensureUserAvatar();
     setInterval(saveState, 60000);
 }
 

@@ -184,12 +184,6 @@
         // עדכון לפני רינדור (שיהיה זמין ל quick-comments)
         window.updateActiveRunners();
 
-        // אם אין פרטי הערכה - הצג חלון התחלתי
-        if (!state.evaluatorName || !state.groupNumber) {
-            renderInitialSetupModal();
-            return;
-        }
-
         const todayDate = new Date().toLocaleDateString('he-IL');
         const currentTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
@@ -211,7 +205,7 @@
             <span class="text-[0.55rem] tracking-wide text-gray-500 dark:text-gray-400">שם המעריך</span>
             <span class="mt-1 inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-gray-800 text-sm md:text-base font-extrabold
                          dark:bg-blue-900/40 dark:text-blue-200">
-                ${state.evaluatorName}
+                ${state.evaluatorName || 'לא הוזן'}
             </span>
         </div>
         <div class="w-px bg-blue-200 dark:bg-blue-800/50 mx-1"></div>
@@ -219,7 +213,7 @@
             <span class="text-[0.55rem] tracking-wide text-gray-500 dark:text-gray-400">מספר קבוצה</span>
             <span class="mt-1 inline-flex items-center px-2 py-1 rounded-md bg-indigo-100 text-gray-800 text-sm md:text-base font-extrabold
                          dark:bg-indigo-900/40 dark:text-indigo-200">
-                ${state.groupNumber}
+                ${state.groupNumber || 'לא הוזן'}
             </span>
         </div>
     </div>
