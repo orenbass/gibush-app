@@ -193,8 +193,10 @@
 <!-- פרטי הערכה (קומפקטי יותר) -->
 <div class="evaluation-info relative max-w-md mx-auto mb-4 rounded-lg border border-blue-200/80 dark:border-blue-800/60
             bg-white text-gray-800 dark:bg-slate-900/55 p-3 shadow">
+    <!-- NEW: נעילת כפתור עריכה אם התחרות התחילה -->
     <button id="edit-details-btn"
-            class="absolute top-2 left-2 bg-gray-600/85 hover:bg-gray-700 text-white font-medium py-0.5 px-2.5 rounded text-[0.65rem] shadow-sm">
+            class="absolute top-2 left-2 bg-gray-600/85 hover:bg-gray-700 text-white font-medium py-0.5 px-2.5 rounded text-[0.65rem] shadow-sm ${state.competitionStarted ? 'opacity-50 cursor-not-allowed' : ''}"
+            ${state.competitionStarted ? 'disabled' : ''}>
         ערוך
     </button>
     <h2 class="text-center text-base md:text-lg font-bold text-gray-800 dark:text-blue-300 mb-2 leading-snug">
@@ -224,9 +226,10 @@
 </div>
 
 ${!hasRunners ? `
-    <!-- כפתור הוספת מועמדים - רק כשאין מועמדים -->
+    <!-- כפתור הוספת מועמדים - רק כשאין מועמדים ולא התחילה התחרות -->
     <div class="mb-4 text-center">
-        <button id="add-runners-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md">
+        <button id="add-runners-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md ${state.competitionStarted ? 'opacity-50 cursor-not-allowed' : ''}"
+                ${state.competitionStarted ? 'disabled' : ''}>
             הוסף מועמדים לקבוצה
         </button>
     </div>
@@ -238,9 +241,10 @@ ${hasRunners ? `
         <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">מועמדי הקבוצה (${state.runners.length})</h2>
         <div class="mb-2 text-center relative">
             <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">מספרי כתף</span>
-            <!-- כפתור עריכת מועמדים בצד שמאל למעלה - עיצוב מעודן וקטן יותר -->
-            <button id="edit-runners-btn" class="absolute top-0 left-0 border border-orange-400 text-orange-600 hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-900/20 font-medium py-0.5 px-2 rounded text-xs transition-colors duration-200">
-                ערוך
+            <!-- NEW: נעילת כפתור עריכת מועמדים אם התחרות התחילה -->
+            <button id="edit-runners-btn" class="absolute top-0 left-0 border border-orange-400 text-orange-600 hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-900/20 font-medium py-0.5 px-2 rounded text-xs transition-colors duration-200 ${state.competitionStarted ? 'opacity-50 cursor-not-allowed border-gray-400 text-gray-400' : ''}"
+                    ${state.competitionStarted ? 'disabled' : ''}>
+                ${state.competitionStarted ? 'נעול' : 'ערוך'}
             </button>
         </div>
         <div id="runner-list" class="space-y-2"></div>
@@ -253,12 +257,22 @@ ${hasRunners ? `
         </div>
     </div>
     
-    <!-- כפתור התחלת מקצים -->
+    <!-- כפתור התחלת מקצים - מוסתר אם כבר התחילה התחרות -->
+    ${!state.competitionStarted ? `
     <div class="flex justify-center mt-6">
         <button id="start-heats-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full">
             התחל מקצים
         </button>
     </div>
+    ` : `
+    <!-- הודעה שהתחרות כבר התחילה -->
+    <div class="flex justify-center mt-6">
+        <div class="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg p-4 text-center">
+            <div class="text-blue-700 dark:text-blue-300 font-semibold mb-2">🏃‍♂️ התחרות פעילה</div>
+            <div class="text-sm text-blue-600 dark:text-blue-400">המקצים התחילו - לא ניתן לערוך מתמודדים</div>
+        </div>
+    </div>
+    `}
 ` : `
     <div class="text-center text-gray-500 dark:text-gray-400 py-8">
         <p class="text-lg mb-2">🏃‍♂️ אין עדיין מועמדים בקבוצה</p>
@@ -485,11 +499,18 @@ ${hasRunners ? `
 
         // --- מאזינים ---
 
-        // החלפת מאזין כפתור עריכה למצב אינלייני
+        // החלפת מאזין כפתור עריכה למצב אינלייני - NEW: בדיקת נעילה
         const editBtn = document.getElementById('edit-runners-btn');
         if (editBtn) {
             editBtn.removeEventListener('click', showRunnerEditMode); // אם היה קיים
-            editBtn.addEventListener('click', enterInlineEditMode);
+            editBtn.addEventListener('click', () => {
+                // NEW: מניעת עריכה אם התחרות התחילה
+                if (state.competitionStarted) {
+                    showModal('עריכה נעולה', 'לא ניתן לערוך מתמודדים לאחר התחלת המקצים. להתחיל מחדש יש לאפס את האפליקציה.');
+                    return;
+                }
+                enterInlineEditMode();
+            });
         }
 
         // ADDED: מאזין לכפתור הוספת מתמודד במצב עריכה
@@ -550,9 +571,24 @@ ${hasRunners ? `
         });
 
         // --- מאזינים קיימים (התאמות) ---
-        document.getElementById('add-runners-btn')?.addEventListener('click', showAddRunnersModal);
-        document.getElementById('edit-details-btn')?.addEventListener('click', showEditBasicDetailsModal);
-        // *** הוסר: showRunnerEditMode (עכשיו עריכה אינליינית) ***
+        document.getElementById('add-runners-btn')?.addEventListener('click', () => {
+            // NEW: מניעת הוספת מתמודדים אם התחרות התחילה
+            if (state.competitionStarted) {
+                showModal('הוספה נעולה', 'לא ניתן להוסיף מתמודדים לאחר התחלת המקצים. להתחיל מחדש יש לאפס את האפליקציה.');
+                return;
+            }
+            showAddRunnersModal();
+        });
+        
+        document.getElementById('edit-details-btn')?.addEventListener('click', () => {
+            // NEW: מניעת עריכת פרטים אם התחרות התחילה
+            if (state.competitionStarted) {
+                showModal('עריכה נעולה', 'לא ניתן לערוך פרטי ההערכה לאחר התחלת המקצים. להתחיל מחדש יש לאפס את האפליקציה.');
+                return;
+            }
+            showEditBasicDetailsModal();
+        });
+
         document.getElementById('start-heats-btn')?.addEventListener('click', () => {
             if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
             validateAndStartHeats();

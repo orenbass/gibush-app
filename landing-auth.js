@@ -98,7 +98,7 @@ class LandingAuthManager {
                             ux_mode: 'popup'
                         });
 
-                        // רינדור כפתור ההתחברות
+                        // רינדור כפתור ההתחברות - ללא שינויים נוספים
                         google.accounts.id.renderButton(
                             document.getElementById('googleSignInDiv'),
                             {
@@ -118,6 +118,7 @@ class LandingAuthManager {
                         
                     } catch (error) {
                         console.error('❌ שגיאה באתחול Google Sign-In:', error);
+                        console.log('🔧 עובר למצב פיתוח עקב שגיאת OAuth...');
                         this.showDevelopmentGoogleButton();
                         resolve(); // ממשיכים גם במקרה של שגיאה
                     }
@@ -192,18 +193,110 @@ class LandingAuthManager {
             const token = response.credential;
             const payload = JSON.parse(atob(token.split('.')[1]));
             
-            console.log('👤 פרטי משתמש מGoogle:', {
-                name: payload.name,
-                email: payload.email,
-                verified: payload.email_verified
+            // DEBUG: בדיקת הנתונים הגולמיים מגוגל
+            console.log('🔍 נתונים גולמיים מGoogle JWT:', payload);
+            console.log('🔍 שם כמו שמגיע:', payload.name);
+            console.log('🔍 bytes של השם:', Array.from(payload.name || '').map(c => c.charCodeAt(0)));
+            
+            // תיקון קידוד UTF-8 אם נדרש
+            const fixedName = this.fixUTF8Encoding(payload.name);
+            const fixedEmail = this.fixUTF8Encoding(payload.email);
+            
+            console.log('✅ שם לאחר תיקון:', fixedName);
+            
+            const userInfo = {
+                ...payload,
+                name: fixedName,
+                email: fixedEmail
+            };
+            
+            console.log('👤 פרטי משתמש מGoogle אחרי תיקון:', {
+                name: userInfo.name,
+                email: userInfo.email,
+                verified: userInfo.email_verified
             });
             
-            this.processGoogleUser(payload);
+            this.processGoogleUser(userInfo);
             
         } catch (error) {
             console.error('❌ שגיאה בעיבוד תגובת Google:', error);
             this.showError('שגיאה בעיבוד פרטי ההתחברות מGoogle');
             this.showLoading(false);
+        }
+    }
+
+    /**
+     * תיקון קידוד UTF-8 עבור טקסט שמגיע מGoogle
+     */
+    fixUTF8Encoding(text) {
+        if (!text || typeof text !== 'string') return text;
+        
+        try {
+            // בדיקה אם הטקסט כבר תקין
+            if (this.isValidUTF8(text)) {
+                return text;
+            }
+            
+            // ניסיון תיקון קידוד - מספר שיטות
+            
+            // שיטה 1: תיקון Latin-1 ל-UTF-8
+            try {
+                const fixed1 = decodeURIComponent(escape(text));
+                if (this.isValidUTF8(fixed1) && fixed1 !== text) {
+                    console.log('🔧 תוקן בשיטה 1:', fixed1);
+                    return fixed1;
+                }
+            } catch (e) { /* ignore */ }
+            
+            // שיטה 2: תיקון bytes שגויים
+            try {
+                const fixed2 = text
+                    .replace(/Â/g, '')
+                    .replace(/×/g, '')
+                    .replace(/יב/g, 'חי')
+                    .replace(/×¨/g, 'ר')
+                    .replace(/ש/g, 'ש');
+                    
+                if (fixed2 !== text) {
+                    console.log('🔧 תוקן בשיטה 2:', fixed2);
+                    return fixed2;
+                }
+            } catch (e) { /* ignore */ }
+            
+            // שיטה 3: ניקוי תווים לא תקינים
+            try {
+                const fixed3 = text.replace(/[^\u0000-\u007F\u0590-\u05FF\u200E\u200F]/g, '');
+                if (fixed3 !== text) {
+                    console.log('🔧 תוקן בשיטה 3:', fixed3);
+                    return fixed3;
+                }
+            } catch (e) { /* ignore */ }
+            
+            console.warn('⚠️ לא ניתן לתקן את הקידוד, משאיר כמו שהוא:', text);
+            return text;
+            
+        } catch (error) {
+            console.error('❌ שגיאה בתיקון קידוד:', error);
+            return text;
+        }
+    }
+
+    /**
+     * בדיקה אם הטקסט הוא UTF-8 תקין
+     */
+    isValidUTF8(text) {
+        if (!text || typeof text !== 'string') return false;
+        
+        try {
+            // בדיקה אם יש תווים לא תקינים
+            const hasInvalidChars = /[Â×]/.test(text);
+            const hasValidHebrew = /[\u0590-\u05FF]/.test(text);
+            const hasValidLatin = /[a-zA-Z]/.test(text);
+            
+            // אם יש עברית או לטינית ללא תווים לא תקינים - זה בסדר
+            return (hasValidHebrew || hasValidLatin) && !hasInvalidChars;
+        } catch (e) {
+            return false;
         }
     }
 
@@ -487,6 +580,20 @@ class LandingAuthManager {
             // מעבר לאפליקציה הראשית
             this.redirectToApp();
         });
+
+        // מאזין לכפתור X - חזרה לדף ההתחברות
+        const backBtn = document.getElementById('backToLoginBtn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                // הסתרת המודל
+                modal.classList.add('hidden');
+                
+                // מחיקת מצב האימות
+                localStorage.removeItem('gibushAuthState');
+                
+                console.log('🔙 חזרה לדף ההתחברות');
+            });
+        }
 
         // מאזינים ל-Enter
         evaluatorNameInput.addEventListener('keydown', (e) => {

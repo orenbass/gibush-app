@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>מערכת גיבוש חת"מ - התחברות</title>
     
     <!-- External Libraries -->
@@ -41,6 +41,27 @@
             padding: 0;
             min-height: 100vh;
             overflow-x: hidden;
+        }
+        
+        /* מניעת זום וכפתורים נוספים */
+        html, body {
+            touch-action: manipulation; /* מניעת זום כפול */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        /* מניעת זום בכל האלמנטים */
+        * {
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* עיצוב בסיסי של מיכל Google - ללא התערבות */
+        .google-signin-container {
+            position: relative;
+            width: 100%;
         }
         
         /* רקע מתקדם עם גרדיאנט וטקסטורה */
@@ -118,6 +139,7 @@
                 0 10px 20px rgba(59, 130, 246, 0.2),
                 inset 0 2px 4px rgba(255, 255, 255, 0.3);
             animation: logoFloat 4s ease-in-out infinite;
+            overflow: hidden;
         }
         
         .logo::before {
@@ -140,6 +162,14 @@
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
             position: relative;
             z-index: 1;
+        }
+        
+        /* תמונת הלוגו */
+        .logo-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
         }
         
         @keyframes logoFloat {
@@ -253,20 +283,14 @@
             }
         }
         
-        /* עיצוב מתקדם של קופסת Google */
-        .google-signin-container {
-            position: relative;
-        }
-        
-        .google-signin-container iframe {
-            border-radius: 16px !important;
-            box-shadow: 0 8px 24px rgba(66, 133, 244, 0.2) !important;
-            transition: all 0.3s ease !important;
-        }
-        
-        .google-signin-container:hover iframe {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(66, 133, 244, 0.3) !important;
+        /* תיקון עבור מסכים קטנים */
+        @media (max-width: 640px) {
+            .google-signin-container div[role="button"] {
+                width: 100% !important;
+                min-width: 100% !important;
+                max-width: 100% !important;
+                height: 48px !important;
+            }
         }
         
         /* מסך טעינה מתקדם */
@@ -357,7 +381,7 @@
             <!-- לוגו -->
             <div class="logo-container mb-8 fade-in">
                 <div class="logo mx-auto">
-                    <span class="logo-text">ג</span>
+                    <img src="./icons/login_app.png" alt="לוגו מערכת גיבוש" class="logo-image">
                 </div>
             </div>
             
@@ -413,7 +437,12 @@
 
     <!-- חלון הגדרת פרטי קבוצה -->
     <div id="groupSetupModal" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex justify-center items-center z-50 hidden">
-        <div class="auth-card p-8 w-full max-w-md mx-4 text-right">
+        <div class="auth-card p-8 w-full max-w-md mx-4 text-right relative">
+            <!-- כפתור X לחזרה -->
+            <button id="backToLoginBtn" class="absolute top-4 left-4 w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors z-10">
+                <span class="text-lg font-bold">×</span>
+            </button>
+            
             <h3 class="text-2xl font-bold mb-6 text-center text-blue-600">הגדרת פרטי הערכה</h3>
             <p class="text-gray-700 mb-6 text-center">אנא הזן את פרטי ההערכה כדי להמשיך</p>
             
@@ -422,7 +451,8 @@
                     <label class="block text-right mb-2 text-sm font-medium text-gray-700">שם המעריך:</label>
                     <input type="text" id="evaluatorName" 
                            class="w-full p-3 border-2 border-gray-300 rounded-lg text-lg text-right bg-white focus:border-blue-500 focus:outline-none transition-colors" 
-                           placeholder="הכנס שם מעריך">
+                           placeholder="הכנס שם מעריך" 
+                           style="font-family: 'Heebo', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;">
                 </div>
                 <div>
                     <label class="block text-right mb-2 text-sm font-medium text-gray-700">מספר קבוצה:</label>

@@ -41,6 +41,9 @@ const state = {
 
     groupNumber: '',         // מספר הקבוצה
 
+    // NEW: מצב נעילת מקצים - מונע עריכת מתמודדים ומעבר בין עמודים
+    competitionStarted: false, // האם לחצו על "התחל מקצים"
+
     crawlingDrills: {},      // אובייקט לנתוני תרגילי זחילה (הערות, ספרינטים, נושאי שק)
 
     generalComments: {}, // הוספת שדה להערות כלליות
@@ -349,6 +352,9 @@ function initializeAllData() {
     state.evaluatorName = '';
 
     state.groupNumber = '';
+
+    // NEW: אתחול מצב התחרות
+    state.competitionStarted = false;
 
     initializeHeats();
 
@@ -773,9 +779,22 @@ function validateAndStartHeats() {
         return;
     }
 
-    state.currentPage = PAGES.HEATS;
-    saveState();
-    renderPage(); // FIXED: שימוש ב-renderPage במקום render
+    // NEW: הוספת התראה לפני התחלת מקצים
+    showModal(
+        'התחלת מקצים - אזהרה חשובה!',
+        `⚠️ לאחר המעבר למקצים לא תהיה יותר אפשרות לערוך את רשימת המועמדים או לשנות את מבנה הקבוצה.
+
+כל עריכה של מתמודדים תיחסם ורק המתמודדים הנוכחיים ישתתפו בתחרות.
+
+להמשיך למקצים?`,
+        () => {
+            // סימון שהתחילו מקצים - זה ינעל עריכות
+            state.competitionStarted = true;
+            state.currentPage = PAGES.HEATS;
+            saveState();
+            renderPage();
+        }
+    );
 }
 /**
 
@@ -1744,12 +1763,30 @@ function renderPage() {
 
     // השבתת טאבים כשאין מתמודדים
     const noRunners = !state.runners || state.runners.length === 0;
+    
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const page = tab.dataset.page;
-        const shouldDisable = noRunners && page !== PAGES.RUNNERS;
+        
+        // נעילה רק כשאין מתמודדים (הוסרה הנעילה של טאב הרצים כשהתחרות התחילה)
+        let shouldDisable = false;
+        
+        if (noRunners && page !== PAGES.RUNNERS) {
+            // הלוגיקה הקיימת - נעילה כשאין מתמודדים
+            shouldDisable = true;
+        }
+        
         tab.classList.toggle('is-disabled', shouldDisable);
         tab.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
         tab.style.pointerEvents = shouldDisable ? 'none' : '';
+        
+        // הוספת טולטיפ הסבר רק למצב חסר מתמודדים
+        if (shouldDisable) {
+            if (noRunners) {
+                tab.title = 'יש להוסיף מתמודדים תחילה';
+            }
+        } else {
+            tab.removeAttribute('title');
+        }
     });
 
     // Refresh tab structure/styles after toggling

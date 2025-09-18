@@ -7,7 +7,9 @@ const LANDING_CONFIG = {
     
     // כתובות מייל מורשות (רק אלה יוכלו להתחבר)
     authorizedEmails: [
-        'gibush.hatam@gmail.com'        // הוסף כאן כתובות מייל נוספות
+        'gibush.hatam@gmail.com',
+        'orenbassm@gmail.com',
+        'ronmalk@gmail.com'      // הוסף כאן כתובות מייל נוספות
     ],
     
     // הגדרות עיצוב
