@@ -25,13 +25,45 @@
     const fastest = finishers.length ? finishers[0].finishTime : null;
 
     const results = [];
+    
+    // חישוב ציונים עבור מי שסיים
     finishers.forEach((a, idx) => {
-      const score = fastest ? Math.max(1, Math.min(7, Math.round((7 * fastest) / a.finishTime))) : 1;
-      results.push({ rank: idx + 1, shoulderNumber: a.shoulderNumber, finishTime: a.finishTime, score, comment: a.comment || null });
+      const rank = idx + 1;
+      const totalFinishers = finishers.length;
+      
+      // ציון מיקום: מקום ראשון יקבל 7, מקום אחרון יקבל 1, באופן מדורג
+      const positionScore = totalFinishers === 1 ? 7 : Math.max(1, Math.round(7 - ((rank - 1) / (totalFinishers - 1)) * 6));
+      
+      // ציון זמן: יחסי לזמן המהיר ביותר (המהיר ביותר יקבל 7)
+      const timeScore = fastest && a.finishTime ? Math.max(1, Math.min(7, Math.round((7 * fastest) / a.finishTime))) : 1;
+      
+      // ציון סופי: ממוצע של שני הציונים
+      const finalScore = Math.round((positionScore + timeScore) / 2);
+      
+      results.push({ 
+        rank, 
+        shoulderNumber: a.shoulderNumber, 
+        finishTime: a.finishTime, 
+        score: finalScore,
+        positionScore, // שמירת הציונים הנפרדים למידע נוסף
+        timeScore,
+        comment: a.comment || null 
+      });
     });
+    
+    // מי שלא סיים יקבל ציון 1
     dnfs.forEach((a, i) => {
-      results.push({ rank: finishers.length + i + 1, shoulderNumber: a.shoulderNumber, finishTime: null, score: 1, comment: a.comment || 'לא סיים' });
+      results.push({ 
+        rank: finishers.length + i + 1, 
+        shoulderNumber: a.shoulderNumber, 
+        finishTime: null, 
+        score: 1,
+        positionScore: 1,
+        timeScore: 1,
+        comment: a.comment || 'לא סיים' 
+      });
     });
+    
     return results;
   }
 

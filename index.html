@@ -10,10 +10,10 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="application-name" content="Gibush">
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/thumbnail_gibush_192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="./icons/thumbnail_gibush_12.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="./icons/thumbnail_gibush_192.png">
     <link rel="apple-touch-icon" href="./icons/thumbnail_gibush_192.png">
 
-    <!-- iOS PWA metadata (no Android effect, but recommended) -->
+    <!-- iOS PWA metadata -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Gibush">
@@ -21,10 +21,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="icon" href="./icons/thumbnail_gibush_192.png">
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/thumbnail_gibush_192.png">
-    <!-- ודא שהתיקייה /icons מכילה icon-192.png -->
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    
     <!-- Utils and config first -->
     <script src="./config.js"></script>
     <script src="./js/config/crawling-config.js"></script>
@@ -37,7 +37,7 @@
     <script src="./js/utils/ui-helpers.js"></script>
     <script src="js/services/google-drive-uploader.js"></script>
 
-    <!-- Pages (each once) -->
+    <!-- Pages -->
     <script src="js/pages/runners.js"></script>
     <script src="js/pages/status-management.js"></script>
     <script src="js/pages/heat.js"></script>
@@ -61,13 +61,13 @@
             body { padding-top: max(calc(var(--safe-area-top) + 6px), 6px); }
             header.sticky { top: var(--safe-area-top); }
         }
-        /* iOS חלק מהגרסאות לא מדווחות display-mode בזמן טעינה ראשונה */
         @supports(padding:max(0px)) {
             body.pwa-safe { padding-top: max(calc(var(--safe-area-top) + 6px), 6px); }
             body.pwa-safe header.sticky { top: var(--safe-area-top); }
         }
     </style>
-    <!-- NEW: quick comment sticky styles -->
+    
+    <!-- Quick comment sticky styles -->
     <style>
         #quick-comment-bar-container.quick-comment-sticky {
           position: sticky;
@@ -77,22 +77,21 @@
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             border-radius: 0.1rem;
-           /* padding: .5rem .75rem;*/
         }
         .dark #quick-comment-bar-container.quick-comment-sticky {
             background: rgba(44,54,117,0);
         }
         body.hide-quick-comments #quick-comment-bar-container { display: none; }
         
-        /* Enable rapid taps (prevents browser double-tap zoom naturally) */
         html, body { touch-action: manipulation; }
     </style>
+    
+    <!-- Navigation tab styling -->
     <style>
-        /* UPDATED: navigation tab styling (increased height) */
         .nav-tab {
             border-bottom: 2px solid transparent;
             border-radius: .65rem;
-            padding: .62rem .70rem; /* was .4rem .55rem */
+            padding: .62rem .70rem;
             min-height: 46px;
             font-weight: 600;
             line-height: 1.05;
@@ -123,7 +122,6 @@
         .nav-icon-crawl,
         .nav-icon-crawl-sprint,
         .nav-icon-socio-stretcher,
-        /* NEW: reports icon */
         .nav-icon-report {
             width:30px;
             height:30px;
@@ -137,13 +135,36 @@
         .nav-tab.is-active .nav-icon-crawl,
         .nav-tab.is-active .nav-icon-crawl-sprint,
         .nav-tab.is-active .nav-icon-socio-stretcher,
-        /* NEW: reports icon active */
         .nav-tab.is-active .nav-icon-report {
             filter:brightness(1.15);
         }
+        
+        /* כפתור יציאה - הוסר */
+        /* .logout-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        .logout-btn:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+        } */
     </style>
+    
+    <!-- PWA and zoom prevention scripts -->
     <script>
-        // ניסיון מוקדם לזהות מצב התקנה ולהוסיף class (Fallback ל-iOS)
         (function(){
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             if (isStandalone) document.documentElement.classList.add('standalone'), document.body?.classList.add('pwa-safe');
@@ -151,39 +172,83 @@
                 if (isStandalone) document.body.classList.add('pwa-safe');
             });
         })();
-        // ביטול pinch-zoom ב-iOS
+        
         ['gesturestart','gesturechange','gestureend'].forEach(ev =>
             document.addEventListener(ev, e => e.preventDefault(), { passive:false })
         );
-        // מניעת זום מקלדת (Ctrl + גלגל / +/-)
+        
         document.addEventListener('wheel', e => {
             if (e.ctrlKey) e.preventDefault();
         }, { passive:false });
+        
         document.addEventListener('keydown', e => {
             if (e.ctrlKey && ['+','-','=', '0'].includes(e.key)) e.preventDefault();
         });
-        /* REPLACED: old double-tap block that swallowed fast clicks
-           New version only prevents Safari double-tap zoom, allows fast UI taps */
+        
         (function(){
             let lastTouchStart = 0;
             document.addEventListener('touchstart', e => {
-                if (e.touches.length !== 1) return;            // ignore multi-touch
+                if (e.touches.length !== 1) return;
                 const now = performance.now();
                 const delta = now - lastTouchStart;
                 if (delta > 0 && delta < 260) {
                     const t = e.target;
                     if (!(/^(INPUT|TEXTAREA|BUTTON|SELECT)$/.test(t.tagName)) && !t.isContentEditable) {
-                        e.preventDefault(); // block only the zoom, not normal control taps
+                        e.preventDefault();
                     }
                 }
                 lastTouchStart = now;
             }, { passive:false });
         })();
     </script>
+    
+    <!-- בדיקת אימות -->
+    <script>
+        // בדיקה אם המשתמש מחובר
+        (function() {
+            function checkAuth() {
+                try {
+                    const authState = localStorage.getItem('gibushAuthState');
+                    if (!authState) {
+                        console.log('🔒 לא נמצא מצב אימות, מעביר למסך התחברות');
+                        window.location.href = './landing.html';
+                        return;
+                    }
+                    
+                    const session = JSON.parse(authState);
+                    const now = Date.now();
+                    const sessionTime = session.timestamp || 0;
+                    const timeout = 24 * 60 * 60 * 1000; // 24 שעות
+                    
+                    if ((now - sessionTime) > timeout) {
+                        console.log('🔒 סשן פג תוקף, מעביר למסך התחברות');
+                        localStorage.removeItem('gibushAuthState');
+                        window.location.href = './landing.html';
+                        return;
+                    }
+                    
+                    if (!session.authState || !session.authState.isAuthenticated) {
+                        console.log('🔒 משתמש לא מאומת, מעביר למסך התחברות');
+                        window.location.href = './landing.html';
+                        return;
+                    }
+                    
+                    console.log('✅ אימות תקף, ממשיך לאפליקציה');
+                } catch (error) {
+                    console.error('❌ שגיאה בבדיקת אימות:', error);
+                    localStorage.removeItem('gibushAuthState');
+                    window.location.href = './landing.html';
+                }
+            }
+            
+            // בדיקה מיידית
+            checkAuth();
+        })();
+    </script>
 </head>
 
 <body>
-    <!-- Loading overlay (single instance) -->
+    <!-- Loading overlay -->
     <div id="loading-overlay" class="hidden">
         <div class="loading-box">
             <div class="spinner"></div>
@@ -194,13 +259,30 @@
     <header class="z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm">
         <div id="app" class="min-h-screen flex flex-col items-center p-4 bg-gray-100 text-gray-800">
             <header class="w-full max-w-6xl p-4 bg-white rounded-lg shadow-md mb-2 text-center relative">
-                <h1 id="header-title" class="text-2xl md:text-3xl font-bold text-blue-600">מערכת גיבוש חת"מ</h1>
-                <p class="text-sm text-gray-500 mt-1" id="version-text">V2 (12/9/2025)</p>
-                <button id="theme-toggle-btn" type="button"
-                    style="position:absolute;top:14px;left:12px; background:none; border:none; font-size:2em; cursor:pointer;">
-                    <span id="theme-icon">🌓</span>
-                </button>
+                <!-- כותרת מרכזית עם מקום לכפתורים בצדדים -->
+                <div class="flex items-center justify-between">
+                    <!-- אווטר בצד ימין (בעברית) -->
+                    <div class="flex-shrink-0 w-12 flex justify-start">
+                        <!-- האווטר יתווסף כאן דינמית -->
+                    </div>
+                    
+                    <!-- כותרת במרכז - יכולה לגלוש למטה במסכים קטנים -->
+                    <div class="flex-1 min-w-0 px-2">
+                        <h1 id="header-title" class="text-2xl md:text-3xl font-bold text-blue-600 leading-tight">מערכת גיבוש חת"מ</h1>
+                        <p class="text-sm text-gray-500 mt-1" id="version-text">V2 (12/9/2025)</p>
+                    </div>
+                    
+                    <!-- כפתור גוונים בצד שמאל -->
+                    <div class="flex-shrink-0 w-12 flex justify-end">
+                        <button id="theme-toggle-btn" type="button"
+                            class="w-10 h-10 flex items-center justify-center bg-transparent border-none text-2xl cursor-pointer rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                            title="שינוי גוונים">
+                            <span id="theme-icon">🌓</span>
+                        </button>
+                    </div>
+                </div>
             </header>
+            
             <nav class="w-full max-w-6xl bg-white rounded-lg shadow-md overflow-x-auto mb-1">
                 <ul class="flex justify-start md:justify-center gap-x-1 text-sm font-semibold text-gray-600 px-1 py-1">
                     <li class="flex-shrink-0">
@@ -244,7 +326,6 @@
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
                             data-page="crawling-sprint">
                             <span>
-                                <!-- NEW: crawl sprint icon -->
                                 <img src="./icons/crawl_sprint_icon.svg" alt="זחילות" class="nav-icon-crawl-sprint" aria-hidden="true">
                             </span>
                             <span class="text-xs mt-1">זחילות</span>
@@ -253,7 +334,6 @@
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
                             data-page="sociometric-stretcher-heat">
                             <span>
-                                <!-- NEW: sociometric stretcher icon -->
                                 <img src="./icons/sociometric_stretcher_icon.svg" alt="אלונקה סוציומטרית" class="nav-icon-socio-stretcher" aria-hidden="true">
                             </span>
                             <span class="text-xs mt-1">אלונקות</span>
@@ -262,28 +342,30 @@
                             class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
                             data-page="report">
                             <span>
-                                <!-- NEW: reports icon -->
                                 <img src="./icons/report_page_icon.svg" alt="סיכום" class="nav-icon-report" aria-hidden="true">
                             </span>
                             <span class="text-xs mt-1">סיכום</span>
                     </button></li>
                 </ul>
             </nav>
+            
             <div id="quick-comment-bar-container" class="quick-comment-sticky w-full max-w-6xl mb-1"></div>
+            
             <main id="content" class="w-full max-w-6xl bg-white p-4 md:p-6 rounded-lg shadow-md flex-grow">
                 <div id="runner-list" class="space-y-2"></div>
             </main>
+            
             <footer id="footer-navigation" class="w-full max-w-6xl p-4 mt-1"></footer>
-            <!-- סטטוס שמירה אוטומטית -->
+            
             <div id="autosave-status"
                 class="fixed bottom-4 left-4 bg-gray-800 text-white text-xs py-1 px-3 rounded-full opacity-0 transition-opacity duration-300">
                 שמירה אוטומטית...
             </div>
-            <!-- שכבת טעינה -->
+            
             <div id="loading-overlay"
                 class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 hidden"></div>
         </div>
-        <!-- תבנית שורה לרשימת רצים (לשכפול דינאמי) -->
+        
         <template id="runner-row-template">
             <div class="flex items-center space-x-2 space-x-reverse flex-wrap">
                 <span class="runner-index w-6 md:w-8 text-center text-gray-500 flex-shrink-0"></span>
@@ -294,12 +376,13 @@
                     class="remove-runner-btn bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors duration-200 text-sm">הסר</button>
             </div>
         </template>
+        
         <button id="install-btn" style="display:none; position:fixed; bottom:24px; right:24px; z-index:1000;" aria-label="התקן כאפליקציה">
             📲 התקן כאפליקציה
         </button>
     </header>
-    </div>
-    <!-- UPDATED: script to toggle quick comment visibility dynamically -->
+
+    <!-- Scripts for quick comment visibility -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const qc = document.getElementById('quick-comment-bar-container');
@@ -314,35 +397,28 @@
             }
 
             function detectCurrentPage(){
-                // 1. Try live state first
                 if (window.state && window.state.currentPage) {
                     return window.state.currentPage;
                 }
-                // 2. Fallback to reading from localStorage
                 try {
-                    const key = (window.CONFIG && window.CONFIG.APP_STATE_KEY) || 'sprintAppState_v1.11'; // Use known key as fallback
+                    const key = (window.CONFIG && window.CONFIG.APP_STATE_KEY) || 'sprintAppState_v1.11';
                     const rawState = localStorage.getItem(key);
                     if (rawState) {
                         const parsed = JSON.parse(rawState);
-                        // Handle both state structures {appState: ...} and older flat structure
                         return parsed.appState?.currentPage || parsed.currentPage || 'runners';
                     }
                 } catch (e) {
                     // Ignore parsing errors
                 }
-                // 3. Default to 'runners' if nothing found
                 return 'runners';
             }
 
-            // Set initial visibility based on actual current page
             setQC(detectCurrentPage());
 
-            // Update visibility on navigation clicks
             document.querySelectorAll('.nav-tab').forEach(btn=>{
                 btn.addEventListener('click', () => setQC(btn.dataset.page));
             });
 
-            // Also hook into the main render function to catch programmatic page changes
             if (window.render && !window.__qcRenderPatched) {
                 const originalRender = window.render;
                 window.render = function() {
@@ -356,42 +432,8 @@
             }
         });
     </script>
-    <!-- NEW: script to toggle quick comment visibility -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const qc = document.getElementById('quick-comment-bar-container');
-            if(!qc) return;
-            
-            function setQC(page){
-                if(page === 'runners'){ document.body.classList.add('hide-quick-comments'); }
-                else { document.body.classList.remove('hide-quick-comments'); }
-            }
-            
-            // Check current page from state instead of assuming
-            const getCurrentPage = () => {
-                if (window.state && window.state.currentPage) {
-                    return window.state.currentPage;
-                }
-                // Fallback: check which nav tab is active
-                const activeTab = document.querySelector('.nav-tab.is-active');
-                return activeTab ? activeTab.dataset.page : 'runners';
-            };
-            
-            // Wait for app state to be loaded, then set correct visibility
-            const checkAndSetQC = () => {
-                const currentPage = getCurrentPage();
-                setQC(currentPage);
-            };
-            
-            // Try immediately and also after a short delay for app initialization
-            checkAndSetQC();
-            setTimeout(checkAndSetQC, 100);
-            
-            document.querySelectorAll('.nav-tab').forEach(btn=>{
-                btn.addEventListener('click', () => setQC(btn.dataset.page));
-            });
-        });
-    </script>
+
+    <!-- PWA Install Script -->
     <script>
         (function(){
             let deferredInstallEvent = null;
@@ -399,7 +441,6 @@
 
             function hide(){ btn.style.display='none'; }
 
-            // כבר מותקן?
             if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
                 hide(); return;
             }
@@ -446,9 +487,25 @@
                 deferredInstallEvent = null;
             });
 
-            // אם אחרי 8ש׳ אין אירוע – הסתר
             setTimeout(()=> { if(!deferredInstallEvent) hide(); }, 8000);
         })();
+    </script>
+
+    <!-- Logout Function -->
+    <script>
+        function logout() {
+            if (confirm('האם אתה בטוח שברצונך לצאת מהמערכת?')) {
+                try {
+                    localStorage.removeItem('gibushAuthState');
+                    localStorage.removeItem('gibushAppState');
+                    console.log('🚪 יציאה מהמערכת');
+                    window.location.href = './landing.html';
+                } catch (error) {
+                    console.error('שגיאה ביציאה:', error);
+                    window.location.href = './landing.html';
+                }
+            }
+        }
     </script>
 </body>
 
