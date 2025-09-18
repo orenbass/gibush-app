@@ -1565,38 +1565,51 @@ function recoverEvaluatorDetailsIfMissing() {
 }
 function ensureUserAvatar() {
     try {
-        const themeBtn = document.getElementById('theme-toggle-btn');
-        if (!themeBtn) return;
-        const headerBar = themeBtn.parentElement;
-        if (!headerBar) return;
+        // חיפוש המיכל הייעודי לאווטר (בצד ימין)
+        const avatarContainer = document.querySelector('header .flex.items-center.justify-between > div:first-child');
+        if (!avatarContainer) return;
+        
         let avatarBtn = document.getElementById('user-avatar-btn');
         if (!avatarBtn) {
             avatarBtn = document.createElement('button');
             avatarBtn.id = 'user-avatar-btn';
             avatarBtn.title = 'פרטי משתמש / יציאה';
-            avatarBtn.style.marginRight = '0.5rem';
             avatarBtn.style.width = '40px';
             avatarBtn.style.height = '40px';
             avatarBtn.style.minWidth = '40px';
             avatarBtn.style.borderRadius = '50%';
             avatarBtn.style.overflow = 'hidden';
-            avatarBtn.style.border = '2px solid rgba(255,255,255,0.6)';
+            avatarBtn.style.border = '2px solid rgba(37, 99, 235, 0.3)';
             avatarBtn.style.display = 'flex';
             avatarBtn.style.alignItems = 'center';
             avatarBtn.style.justifyContent = 'center';
             avatarBtn.style.background = 'linear-gradient(135deg,#2563eb,#1e3a8a)';
             avatarBtn.style.cursor = 'pointer';
-            avatarBtn.style.position = 'relative';
+            avatarBtn.style.transition = 'all 0.2s ease';
+            avatarBtn.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.2)';
             avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
-            headerBar.insertBefore(avatarBtn, themeBtn); // right side (RTL)
+            
+            // הוספת אפקט hover
+            avatarBtn.addEventListener('mouseenter', () => {
+                avatarBtn.style.transform = 'scale(1.05)';
+                avatarBtn.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.3)';
+            });
+            avatarBtn.addEventListener('mouseleave', () => {
+                avatarBtn.style.transform = 'scale(1)';
+                avatarBtn.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.2)';
+            });
+            
+            avatarContainer.appendChild(avatarBtn);
             avatarBtn.addEventListener('click', onAvatarClick);
         }
+        
         // קביעת תמונה
         let imgUrl = '';
         const method = state?.authState?.authMethod;
         if (method === 'google' && state.authState?.googleUserInfo?.picture) {
             imgUrl = state.authState.googleUserInfo.picture;
         }
+        
         if (imgUrl) {
             if (!avatarBtn.querySelector('img')) {
                 avatarBtn.innerHTML = '';
@@ -1611,7 +1624,7 @@ function ensureUserAvatar() {
                 avatarBtn.querySelector('img').src = imgUrl;
             }
         } else {
-            // אורח
+            // אורח - אייקון ברירת מחדל
             avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
         }
     } catch (e) {
@@ -1638,10 +1651,43 @@ function onAvatarClick() {
 function renderPage() {
     recoverEvaluatorDetailsIfMissing();
     ensureDomRefs();
-    if (!contentDiv) { setTimeout(renderPage, 50); return; }
+    
+    // הוספת בדיקה למניעת לופ אינסופי
+    if (!renderPage._retryCount) renderPage._retryCount = 0;
+    
+    if (!contentDiv) { 
+        if (renderPage._retryCount < 10) {
+            renderPage._retryCount++;
+            setTimeout(() => {
+                renderPage._retryCount = 0; // איפוס הקאונטר
+                renderPage();
+            }, 50); 
+            return;
+        } else {
+            console.error('Failed to find content element after 10 retries');
+            renderPage._retryCount = 0;
+            return;
+        }
+    }
 
     const content = document.getElementById('content');
-    if (!content) { setTimeout(renderPage, 50); return; }
+    if (!content) { 
+        if (renderPage._retryCount < 10) {
+            renderPage._retryCount++;
+            setTimeout(() => {
+                renderPage._retryCount = 0; // איפוס הקאונטר
+                renderPage();
+            }, 50); 
+            return;
+        } else {
+            console.error('Failed to find content element after 10 retries');
+            renderPage._retryCount = 0;
+            return;
+        }
+    }
+
+    // איפוס הקאונטר כשהכל בסדר
+    renderPage._retryCount = 0;
 
     content.innerHTML = '';
     const footer = document.getElementById('footer-navigation');

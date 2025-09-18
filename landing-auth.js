@@ -21,7 +21,9 @@ class LandingAuthManager {
             console.log('🚀 מאתחל מערכת התחברות...');
             
             // בדיקה אם המשתמש כבר מחובר
-            this.checkExistingSession();
+            if (this.checkExistingSession()) {
+                return; // כבר מחובר, לא צריך להמשיך
+            }
             
             // אתחול Google Sign-In
             await this.initGoogleSignIn();
@@ -73,7 +75,7 @@ class LandingAuthManager {
         
         const now = Date.now();
         const sessionTime = session.timestamp || 0;
-        const timeout = this.config.security.sessionTimeout;
+        const timeout = 24 * 60 * 60 * 1000; // 24 שעות
         
         return (now - sessionTime) < timeout;
     }
@@ -210,8 +212,8 @@ class LandingAuthManager {
      */
     processGoogleUser(userInfo) {
         try {
-            // בדיקת הרשאה
-            if (!this.isEmailAuthorized(userInfo.email)) {
+            // בדיקת הרשאה - אם יש הגדרת authorizedEmails
+            if (this.config.authorizedEmails && !this.isEmailAuthorized(userInfo.email)) {
                 console.warn('🚫 כתובת מייל לא מורשה:', userInfo.email);
                 this.showError(`כתובת המייל ${userInfo.email} אינה מורשית להתחבר למערכת`);
                 this.showLoading(false);
@@ -219,7 +221,7 @@ class LandingAuthManager {
             }
             
             // בדיקת אימות מייל
-            if (this.config.security.requireEmailVerification && !userInfo.email_verified) {
+            if (this.config.security?.requireEmailVerification && !userInfo.email_verified) {
                 console.warn('📧 כתובת מייל לא מאומתת');
                 this.showError('כתובת המייל צריכה להיות מאומתת');
                 this.showLoading(false);
@@ -262,7 +264,7 @@ class LandingAuthManager {
      * בדיקה אם כתובת מייל מורשית
      */
     isEmailAuthorized(email) {
-        if (!email) return false;
+        if (!email || !this.config.authorizedEmails) return true; // אם אין הגבלת מיילים
         
         const normalizedEmail = email.toLowerCase().trim();
         return this.config.authorizedEmails.some(
@@ -324,10 +326,11 @@ class LandingAuthManager {
             loadingText.style.color = '#10b981'; // ירוק
         }
         
-        this.showLoading(false);
-        
         // הצגת חלון הגדרת פרטי קבוצה
-        this.showGroupSetupModal();
+        setTimeout(() => {
+            this.showLoading(false);
+            this.showGroupSetupModal();
+        }, 800);
     }
 
     /**
@@ -335,9 +338,9 @@ class LandingAuthManager {
      */
     showGroupSetupModal() {
         const modal = document.getElementById('groupSetupModal');
-        const evaluatorNameInput = document.getElementById('evaluatorName');
-        const groupNumberInput = document.getElementById('groupNumber');
-        const saveBtn = document.getElementById('saveGroupDetailsBtn');
+        let evaluatorNameInput = document.getElementById('evaluatorName');
+        let groupNumberInput = document.getElementById('groupNumber');
+        let saveBtn = document.getElementById('saveGroupDetailsBtn');
         const errorDiv = document.getElementById('groupSetupError');
 
         // קבלת מצב האימות הנוכחי
@@ -352,6 +355,28 @@ class LandingAuthManager {
             evaluatorNameInput.value = authState.googleUserInfo.name;
         }
 
+        // הגבלת הזנה למספרי קבוצה (מספרים בלבד עד 999)
+        groupNumberInput.setAttribute('type', 'number');
+        groupNumberInput.setAttribute('min', '1');
+        groupNumberInput.setAttribute('max', '999');
+        groupNumberInput.setAttribute('pattern', '[0-9]*');
+        
+        // מניעת הזנת תווים לא חוקיים
+        groupNumberInput.addEventListener('input', function(e) {
+            let value = e.target.value;
+            // הסרת תווים לא מספריים
+            value = value.replace(/[^0-9]/g, '');
+            // הגבלה ל-3 ספרות
+            if (value.length > 3) {
+                value = value.substring(0, 3);
+            }
+            // הגבלה לערך מקסימלי של 999
+            if (parseInt(value) > 999) {
+                value = '999';
+            }
+            e.target.value = value;
+        });
+
         // הצג את המודל
         modal.classList.remove('hidden');
         
@@ -362,17 +387,62 @@ class LandingAuthManager {
             evaluatorNameInput.focus();
         }
 
+        // הסרת event listeners קודמים כדי למנוע כפילויות
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        
+        // עדכון ההפניות לאלמנטים החדשים
+        const newEvaluatorNameInput = evaluatorNameInput.cloneNode(true);
+        evaluatorNameInput.parentNode.replaceChild(newEvaluatorNameInput, evaluatorNameInput);
+        
+        const newGroupNumberInput = groupNumberInput.cloneNode(true);
+        groupNumberInput.parentNode.replaceChild(newGroupNumberInput, groupNumberInput);
+        
+        // עדכון ההפניות
+        evaluatorNameInput = newEvaluatorNameInput;
+        groupNumberInput = newGroupNumberInput;
+        saveBtn = newSaveBtn;
+
+        // הגדרת הגבלות מחדש לשדה החדש
+        groupNumberInput.setAttribute('type', 'number');
+        groupNumberInput.setAttribute('min', '1');
+        groupNumberInput.setAttribute('max', '999');
+        groupNumberInput.setAttribute('pattern', '[0-9]*');
+        
+        groupNumberInput.addEventListener('input', function(e) {
+            let value = e.target.value;
+            value = value.replace(/[^0-9]/g, '');
+            if (value.length > 3) {
+                value = value.substring(0, 3);
+            }
+            if (parseInt(value) > 999) {
+                value = '999';
+            }
+            e.target.value = value;
+        });
+
         // מאזין לכפתור שמירה
-        const self = this;
-        saveBtn.onclick = function() {
+        saveBtn.addEventListener('click', () => {
             const evaluatorNameValue = evaluatorNameInput.value.trim();
             const groupNumberValue = groupNumberInput.value.trim();
 
-            console.log('📝 מנסה לשמור פרטים:', { evaluatorNameValue, groupNumberValue });
+            // בדיקת תקינות משופרת
+            if (!evaluatorNameValue) {
+                this.showGroupSetupError('יש להזין שם מעריך');
+                evaluatorNameInput.focus();
+                return;
+            }
+            
+            if (!groupNumberValue) {
+                this.showGroupSetupError('יש להזין מספר קבוצה');
+                groupNumberInput.focus();
+                return;
+            }
 
-            // בדיקת תקינות
-            if (!evaluatorNameValue || !groupNumberValue) {
-                self.showGroupSetupError('יש למלא את כל השדות');
+            const groupNum = parseInt(groupNumberValue);
+            if (isNaN(groupNum) || groupNum < 1 || groupNum > 999) {
+                this.showGroupSetupError('מספר קבוצה חייב להיות בין 1 ל-999');
+                groupNumberInput.focus();
                 return;
             }
 
@@ -388,56 +458,45 @@ class LandingAuthManager {
             };
             localStorage.setItem('gibushAuthState', JSON.stringify(updatedSession));
 
-            // שמירת הפרטים גם ב-localStorage הרגיל של האפליקציה - בכוח!
+            // שמירת הפרטים גם ב-localStorage הרגיל של האפליקציה
             try {
-                // יצירת מצב חדש לחלוטין
-                const directAppState = {
-                    evaluatorName: evaluatorNameValue,
-                    groupNumber: groupNumberValue,
-                    currentPage: 'runners',
-                    runners: [],
-                    heats: [],
-                    crawlingDrills: {},
-                    authState: authState
-                };
+                const existingAppState = localStorage.getItem('gibushAppState');
+                let appState = {};
                 
+                if (existingAppState) {
+                    const parsed = JSON.parse(existingAppState);
+                    appState = parsed.appState || parsed;
+                }
+                
+                // עדכון הפרטים
+                appState.evaluatorName = evaluatorNameValue;
+                appState.groupNumber = groupNumberValue;
+                
+                // שמירה
                 const fullState = {
-                    config: {},
-                    appState: directAppState
+                    config: appState.config || {},
+                    appState: appState
                 };
-                
                 localStorage.setItem('gibushAppState', JSON.stringify(fullState));
                 
-                console.log('✅ פרטי קבוצה נשמרו בכוח:', { 
-                    evaluatorName: evaluatorNameValue, 
-                    groupNumber: groupNumberValue,
-                    saved: 'gibushAppState'
-                });
-                
-                // גם שמירה נוספת במפתח אחר למקרה
-                localStorage.setItem('evaluatorDetails', JSON.stringify({
-                    evaluatorName: evaluatorNameValue,
-                    groupNumber: groupNumberValue,
-                    timestamp: Date.now()
-                }));
-                
+                console.log('✅ פרטי קבוצה נשמרו:', { evaluatorNameValue, groupNumberValue });
             } catch (error) {
-                console.error('❌ שגיאה בשמירת פרטי קבוצה:', error);
+                console.warn('⚠️ שגיאה בשמירת פרטי קבוצה:', error);
             }
 
             // מעבר לאפליקציה הראשית
-            self.redirectToApp();
-        };
+            this.redirectToApp();
+        });
 
         // מאזינים ל-Enter
-        evaluatorNameInput.addEventListener('keydown', function(e) {
+        evaluatorNameInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 groupNumberInput.focus();
             }
         });
 
-        groupNumberInput.addEventListener('keydown', function(e) {
+        groupNumberInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 saveBtn.click();
@@ -467,13 +526,8 @@ class LandingAuthManager {
     redirectToApp() {
         console.log('🚀 מעביר לאפליקציה הראשית...');
         
-        // בדיקה אם יש קובץ index.html עם האפליקציה
-        if (window.location.pathname.includes('landing.html')) {
-            window.location.href = './index.html';
-        } else {
-            // אם כבר ב-index.html, פשוט רענן
-            window.location.reload();
-        }
+        // מעבר ל-index.html (האפליקציה הראשית)
+        window.location.href = './index.html';
     }
 
     /**
@@ -511,7 +565,7 @@ class LandingAuthManager {
         this.loginAttempts++;
         
         // בלוק זמני אחרי מספר ניסיונות כושלים
-        if (this.loginAttempts >= this.config.security.maxLoginAttempts) {
+        if (this.config.security?.maxLoginAttempts && this.loginAttempts >= this.config.security.maxLoginAttempts) {
             this.blockLoginTemporarily();
         }
     }
@@ -562,115 +616,6 @@ class LandingAuthManager {
                 }
             }
         });
-    }
-}
-
-// התחברות מוצלחת
-function handleSuccessfulAuth(authMethod, userInfo = null) {
-    console.log('Authentication successful:', authMethod);
-    
-    // הסתרת מסך טעינה
-    hideLoading();
-    
-    // עדכון מצב האימות
-    const authState = {
-        isAuthenticated: true,
-        authMethod: authMethod,
-        googleUserInfo: userInfo,
-        isInitialSetupComplete: false
-    };
-    
-    // שמירה למקומי
-    localStorage.setItem('authState', JSON.stringify(authState));
-    
-    // הצגת חלון הגדרת פרטי קבוצה
-    showGroupSetupModal(authState);
-}
-
-// הצגת חלון הגדרת פרטי קבוצה
-function showGroupSetupModal(authState) {
-    const modal = document.getElementById('groupSetupModal');
-    const evaluatorName = document.getElementById('evaluatorName');
-    const groupNumber = document.getElementById('groupNumber');
-    const saveBtn = document.getElementById('saveGroupDetailsBtn');
-    const errorDiv = document.getElementById('groupSetupError');
-
-    // אם יש מידע ממשתמש Google, מלא את שם המעריך
-    if (authState.googleUserInfo && authState.googleUserInfo.name) {
-        evaluatorName.value = authState.googleUserInfo.name;
-    }
-
-    // הצג את המודל
-    modal.classList.remove('hidden');
-    
-    // Focus על השדה הראשון הריק
-    if (evaluatorName.value) {
-        groupNumber.focus();
-    } else {
-        evaluatorName.focus();
-    }
-
-    // מאזין לכפתור שמירה
-    saveBtn.onclick = function() {
-        const evaluatorName = evaluatorName.value.trim();
-        const groupNumber = groupNumber.value.trim();
-
-        // בדיקת תקינות
-        if (!evaluatorName || !groupNumber) {
-            showGroupSetupError('יש למלא את כל השדות');
-            return;
-        }
-
-        // שמירת הפרטים
-        authState.evaluatorName = evaluatorName;
-        authState.groupNumber = groupNumber;
-        authState.isInitialSetupComplete = true;
-
-        // שמירה למקומי
-        localStorage.setItem('authState', JSON.stringify(authState));
-
-        // מעבר לאפליקציה הראשית
-        redirectToMainApp();
-    };
-
-    // מאזינים ל-Enter
-    evaluatorName.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            groupNumber.focus();
-        }
-    });
-
-    groupNumber.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveBtn.click();
-        }
-    });
-}
-
-// הצגת שגיאה בחלון הגדרת קבוצה
-function showGroupSetupError(message) {
-    const errorDiv = document.getElementById('groupSetupError');
-    errorDiv.textContent = message;
-    errorDiv.classList.remove('hidden');
-    
-    // הסתרה אוטומטית אחרי 5 שניות
-    setTimeout(() => {
-        errorDiv.classList.add('hidden');
-    }, 5000);
-}
-
-// מעבר לאפליקציה הראשית
-function redirectToMainApp() {
-    console.log('🚀 מעביר לאפליקציה הראשית...');
-    
-    // בדיקה אם יש קובץ index.html עם האפליקציה
-    if (window.location.pathname.includes('landing.html')) {
-        window.location.href = './index.html';
-    } else {
-        // אם כבר ב-index.html, פשוט רענן
-        window.location.reload();
     }
 }
 

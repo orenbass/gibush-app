@@ -238,9 +238,9 @@ ${hasRunners ? `
         <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">מועמדי הקבוצה (${state.runners.length})</h2>
         <div class="mb-2 text-center relative">
             <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">מספרי כתף</span>
-            <!-- כפתור עריכת מועמדים בצד שמאל למעלה -->
-            <button id="edit-runners-btn" class="absolute top-0 left-0 bg-orange-500 hover:bg-orange-600 text-white font-bold py-1 px-3 rounded-lg text-sm">
-                ערוך מועמדים
+            <!-- כפתור עריכת מועמדים בצד שמאל למעלה - עיצוב מעודן וקטן יותר -->
+            <button id="edit-runners-btn" class="absolute top-0 left-0 border border-orange-400 text-orange-600 hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-900/20 font-medium py-0.5 px-2 rounded text-xs transition-colors duration-200">
+                ערוך
             </button>
         </div>
         <div id="runner-list" class="space-y-2"></div>
