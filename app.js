@@ -1766,23 +1766,22 @@ function renderPage() {
     
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const page = tab.dataset.page;
-        
-        // נעילה רק כשאין מתמודדים (הוסרה הנעילה של טאב הרצים כשהתחרות התחילה)
         let shouldDisable = false;
-        
         if (noRunners && page !== PAGES.RUNNERS) {
-            // הלוגיקה הקיימת - נעילה כשאין מתמודדים
             shouldDisable = true;
         }
-        
+        // NEW: נעילת כל שאר העמודים עד התחלת מקצים
+        if (!state.competitionStarted && page !== PAGES.RUNNERS) {
+            shouldDisable = true;
+        }
         tab.classList.toggle('is-disabled', shouldDisable);
         tab.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
         tab.style.pointerEvents = shouldDisable ? 'none' : '';
-        
-        // הוספת טולטיפ הסבר רק למצב חסר מתמודדים
         if (shouldDisable) {
             if (noRunners) {
                 tab.title = 'יש להוסיף מתמודדים תחילה';
+            } else if (!state.competitionStarted) {
+                tab.title = 'יש להתחיל מקצים (לחיצה על "התחל מקצים")';
             }
         } else {
             tab.removeAttribute('title');
@@ -1839,6 +1838,10 @@ function renderPage() {
             break;
         case PAGES.REPORT: 
             setPageTitle('דוח סיכום');
+            if (state.__needsReportRefresh && typeof window.updateAllSprintScores === 'function') {
+                try { window.updateAllSprintScores(); } catch(e){ console.warn('updateAllSprintScores before report render failed', e); }
+                state.__needsReportRefresh = false;
+            }
             window.Pages.renderReportPage?.(); 
             break;
     }
@@ -2085,6 +2088,12 @@ async function init() {
             if (tab.classList.contains('is-disabled') || tab.getAttribute('aria-disabled') === 'true') return;
 
             const nextPage = tab.dataset.page;
+            
+            // NEW: חסימת ניווט לפני התחלת מקצים
+            if (!state.competitionStarted && nextPage !== PAGES.RUNNERS) {
+                showModal('התחלת מקצים נדרשת', 'לא ניתן לעבור לעמודים אחרים לפני התחלת המקצים. לחץ על "התחל מקצים" בעמוד ניהול הקבוצה.');
+                return;
+            }
             
             // NEW: בדיקה אם יש מקצה פעיל שלא הסתיים
             if (state.currentPage === PAGES.HEATS && nextPage !== PAGES.HEATS) {
