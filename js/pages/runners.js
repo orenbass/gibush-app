@@ -184,23 +184,20 @@
         // עדכון לפני רינדור (שיהיה זמין ל quick-comments)
         window.updateActiveRunners();
 
-        // אם אין פרטי הערכה - הצג חלון התחלתי
-        if (!state.evaluatorName || !state.groupNumber) {
-            renderInitialSetupModal();
-            return;
-        }
-
         const todayDate = new Date().toLocaleDateString('he-IL');
         const currentTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
         const hasRunners = state.runners && state.runners.length > 0;
+        const manualAddMode = state.__manualAddMode === true;
 
         contentDiv.innerHTML = `
 <!-- פרטי הערכה (קומפקטי יותר) -->
 <div class="evaluation-info relative max-w-md mx-auto mb-4 rounded-lg border border-blue-200/80 dark:border-blue-800/60
             bg-white text-gray-800 dark:bg-slate-900/55 p-3 shadow">
+    <!-- NEW: נעילת כפתור עריכה אם התחרות התחילה -->
     <button id="edit-details-btn"
-            class="absolute top-2 left-2 bg-gray-600/85 hover:bg-gray-700 text-white font-medium py-0.5 px-2.5 rounded text-[0.65rem] shadow-sm">
+            class="absolute top-2 left-2 bg-gray-600/85 hover:bg-gray-700 text-white font-medium py-0.5 px-2.5 rounded text-[0.65rem] shadow-sm ${state.competitionStarted ? 'opacity-50 cursor-not-allowed' : ''}"
+            ${state.competitionStarted ? 'disabled' : ''}>
         ערוך
     </button>
     <h2 class="text-center text-base md:text-lg font-bold text-gray-800 dark:text-blue-300 mb-2 leading-snug">
@@ -211,7 +208,7 @@
             <span class="text-[0.55rem] tracking-wide text-gray-500 dark:text-gray-400">שם המעריך</span>
             <span class="mt-1 inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-gray-800 text-sm md:text-base font-extrabold
                          dark:bg-blue-900/40 dark:text-blue-200">
-                ${state.evaluatorName}
+                ${state.evaluatorName || 'לא הוזן'}
             </span>
         </div>
         <div class="w-px bg-blue-200 dark:bg-blue-800/50 mx-1"></div>
@@ -219,7 +216,7 @@
             <span class="text-[0.55rem] tracking-wide text-gray-500 dark:text-gray-400">מספר קבוצה</span>
             <span class="mt-1 inline-flex items-center px-2 py-1 rounded-md bg-indigo-100 text-gray-800 text-sm md:text-base font-extrabold
                          dark:bg-indigo-900/40 dark:text-indigo-200">
-                ${state.groupNumber}
+                ${state.groupNumber || 'לא הוזן'}
             </span>
         </div>
     </div>
@@ -230,45 +227,67 @@
 </div>
 
 ${!hasRunners ? `
-    <!-- כפתור הוספת מועמדים - רק כשאין מועמדים -->
-    <div class="mb-4 text-center">
-        <button id="add-runners-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md">
-            הוסף מועמדים לקבוצה
+    ${!manualAddMode ? `
+    <div id="no-runners-actions" class="mb-6 flex flex-col gap-4 max-w-md mx-auto">
+        <button id="no-runners-random-btn" class="flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow text-lg">
+            <span class="text-2xl">🎲</span>
+            <span>הוספה רנדומלית (${CONFIG.MAX_RUNNERS})</span>
+        </button>
+        <button id="no-runners-manual-btn" class="flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl shadow text-lg">
+            <span class="text-2xl">✍️</span>
+            <span>הוספה ידנית</span>
         </button>
     </div>
+    ` : `
+    <div id="manual-add-wrapper" class="max-w-2xl mx-auto mb-6">
+        <div class="mb-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+            <div class="flex items-center gap-2 w-full">
+                <input id="manual-add-input" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="מספר" class="w-[70px] sm:w-[78px] flex-none h-11 text-center border-2 border-gray-300 dark:border-gray-600 rounded-md text-xs sm:text-sm font-semibold bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <button id="manual-add-runner-btn" class="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-md text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-2 shadow-sm">
+                    <span class="text-base sm:text-lg">➕</span><span>הוסף</span>
+                </button>
+                <button id="finish-manual-add-btn" class="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md text-xs sm:text-sm shadow-sm">סיום</button>
+            </div>
+        </div>
+        <div class="text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">נוספו <span id="manual-added-count">${state.runners.length}</span> / ${CONFIG.MAX_RUNNERS}</div>
+        <div id="manual-add-error" class="hidden mb-2 text-center text-red-600 font-semibold text-xs sm:text-sm"></div>
+        <div id="manual-add-grid" class="auto-grid stretcher-grid"></div>
+    </div>
+    `}
 ` : ''}
 
 ${hasRunners ? `
     <!-- רשימת מועמדים קיימים עם כפתור עריכה -->
-    <div class="relative mb-6">
+    <div class="relative mb-6 ${manualAddMode ? 'opacity-40 pointer-events-none' : ''}">
         <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">מועמדי הקבוצה (${state.runners.length})</h2>
         <div class="mb-2 text-center relative">
             <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">מספרי כתף</span>
-            <!-- כפתור עריכת מועמדים בצד שמאל למעלה -->
-            <button id="edit-runners-btn" class="absolute top-0 left-0 bg-orange-500 hover:bg-orange-600 text-white font-bold py-1 px-3 rounded-lg text-sm">
-                ערוך מועמדים
-            </button>
+            ${!manualAddMode ? `<button id="edit-runners-btn" class="absolute top-0 left-0 border border-orange-400 text-orange-600 hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-900/20 font-medium py-0.5 px-2 rounded text-xs transition-colors duration-200 ${state.competitionStarted ? 'opacity-50 cursor-not-allowed border-gray-400 text-gray-400' : ''}" ${state.competitionStarted ? 'disabled' : ''}>${state.competitionStarted ? 'נעול' : 'ערוך'}</button>` : ''}
         </div>
         <div id="runner-list" class="space-y-2"></div>
-        
-        <!-- כפתור הוספת מועמד במצב עריכה - יוצג במקום כפתור התחל מקצים -->
         <div class="flex justify-center mt-6">
             <button id="add-runner-inline-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full" style="display: none;">
                 + הוסף מועמד
             </button>
         </div>
     </div>
-    
-    <!-- כפתור התחלת מקצים -->
+    ${!state.competitionStarted && !manualAddMode ? `
     <div class="flex justify-center mt-6">
         <button id="start-heats-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full">
             התחל מקצים
         </button>
-    </div>
+    </div>` : ''}
+    ${state.competitionStarted && !manualAddMode ? `
+    <div class="flex justify-center mt-6">
+        <div class="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg p-4 text-center">
+            <div class="text-blue-700 dark:text-blue-300 font-semibold mb-2">🏃‍♂️ התחרות פעילה</div>
+            <div class="text-sm text-blue-600 dark:text-blue-400">המקצים התחילו - לא ניתן לערוך מתמודדים</div>
+        </div>
+    </div>` : ''}
 ` : `
     <div class="text-center text-gray-500 dark:text-gray-400 py-8">
         <p class="text-lg mb-2">🏃‍♂️ אין עדיין מועמדים בקבוצה</p>
-        <p>לחץ על "הוסף מועמדים לקבוצה" כדי להתחיל</p>
+        <p>אנא הוסף מועמדים רנדומלית או ידנית</p>
     </div>
 `}
 
@@ -419,20 +438,189 @@ ${hasRunners ? `
                 const originalSet = new Set((runnerCardEdit.original || []).map(r => String(r.shoulderNumber)));
                 const newSet = new Set(mapped.map(r => String(r.shoulderNumber)));
                 const removed = [...originalSet].filter(x => !newSet.has(x));
-                // --- migrate changed numbers (קיים בקוד המקורי - שמור) ---
+
+                // --- mapChanges: old -> new (שינויי מספר) ---
+                const oldNums = inputs.map(i => i.dataset.original);
+                const newNums = inputs.map(i => i.value.trim());
+                const mapChanges = {};
+                for (let i = 0; i < oldNums.length; i++) {
+                    const o = oldNums[i];
+                    const n = newNums[i];
+                    if (o && n && o !== n) mapChanges[o] = n;
+                }
+
+                // REMAP בסיסי למבנים שכבר טופלו בעבר (שומרים תאימות לקוד הישן)
                 (function migrateShoulderKeyedData() {
-                    const oldNums = inputs.map(i => i.dataset.original);
-                    const newNums = inputs.map(i => i.value.trim());
-                    let hasChange = false; const mapChanges = {};
-                    for (let i = 0; i < oldNums.length; i++) { const o = oldNums[i]; const n = newNums[i]; if (o && n && o !== n) { hasChange = true; mapChanges[o] = n; } }
-                    if (!hasChange) return;
+                    if (!Object.keys(mapChanges).length) return;
                     function remapObject(obj) { if (!obj || typeof obj !== 'object') return obj; const out = {}; Object.keys(obj).forEach(k => { const newK = mapChanges[k] || k; out[newK] = obj[k]; }); return out; }
                     if (state.generalComments) state.generalComments = remapObject(state.generalComments);
                     if (state.manualScores) state.manualScores = remapObject(state.manualScores);
                     if (state.quickComments) state.quickComments = remapObject(state.quickComments);
                     if (state.crawlingDrills && state.crawlingDrills.runnerStatuses) state.crawlingDrills.runnerStatuses = remapObject(state.crawlingDrills.runnerStatuses);
                 })();
-                // NEW: ניקוי נתונים של רצים שנמחקו
+
+                // NEW: התאמת כל שאר המבנים כדי למנוע "שבירת" ציונים לאחר עריכה
+                (function reconcileOtherStructures() {
+                    const hasChanges = Object.keys(mapChanges).length > 0;
+                    const removedSet = new Set(removed);
+                    if (!hasChanges && !removed.length) return;
+
+                    // עזר להחלפת מספר כתף באיבר יחיד
+                    const swapValue = (v) => mapChanges[v] ? mapChanges[v] : v;
+
+                    // 1. מקצי ספרינט (heats.arrivals)
+                    if (Array.isArray(state.heats)) {
+                        state.heats.forEach(h => {
+                            if (Array.isArray(h.arrivals)) {
+                                h.arrivals = h.arrivals.filter(a => a && !removedSet.has(String(a.shoulderNumber)));
+                                h.arrivals.forEach(a => { a.shoulderNumber = swapValue(String(a.shoulderNumber)); });
+                            }
+                            // אם קיימים שדות עזר נוספים (participants/runners)
+                            if (Array.isArray(h.runners)) {
+                                h.runners = h.runners.filter(sn => !removedSet.has(String(sn))).map(sn => swapValue(String(sn)));
+                            }
+                            if (Array.isArray(h.participants)) {
+                                h.participants = h.participants.filter(sn => !removedSet.has(String(sn))).map(sn => swapValue(String(sn)));
+                            }
+                        });
+                    }
+
+                    // 2. ספרינטים בזחילה
+                    if (state.crawlingDrills && Array.isArray(state.crawlingDrills.sprints)) {
+                        state.crawlingDrills.sprints.forEach(s => {
+                            if (Array.isArray(s.arrivals)) {
+                                s.arrivals = s.arrivals.filter(a => a && !removedSet.has(String(a.shoulderNumber)));
+                                s.arrivals.forEach(a => { a.shoulderNumber = swapValue(String(a.shoulderNumber)); });
+                            }
+                        });
+                    }
+
+                    // 3. נשיאת שק (sackCarriers + activeSackCarriers)
+                    if (state.crawlingDrills) {
+                        const carriers = state.crawlingDrills.sackCarriers || {};
+                        if (carriers && (hasChanges || removed.length)) {
+                            const newCarriers = {};
+                            Object.keys(carriers).forEach(k => {
+                                if (removedSet.has(k)) return; // דילוג על נמחקים
+                                const newK = mapChanges[k] || k;
+                                newCarriers[newK] = carriers[k];
+                            });
+                            state.crawlingDrills.sackCarriers = newCarriers;
+                        }
+                        if (Array.isArray(state.crawlingDrills.activeSackCarriers)) {
+                            state.crawlingDrills.activeSackCarriers = state.crawlingDrills.activeSackCarriers
+                                .filter(sn => !removedSet.has(String(sn)))
+                                .map(sn => swapValue(String(sn)));
+                        }
+                        // הערות זחילה
+                        if (state.crawlingDrills.comments) {
+                            const newComments = {};
+                            Object.keys(state.crawlingDrills.comments).forEach(k => {
+                                if (removedSet.has(k)) return;
+                                const nk = mapChanges[k] || k;
+                                newComments[nk] = state.crawlingDrills.comments[k];
+                            });
+                            state.crawlingDrills.comments = newComments;
+                        }
+                    }
+
+                    // 4. אלונקה סוציומטרית
+                    if (state.sociometricStretcher && Array.isArray(state.sociometricStretcher.heats)) {
+                        state.sociometricStretcher.heats.forEach(sh => {
+                            if (sh && sh.selections) {
+                                const newSel = {};
+                                Object.keys(sh.selections).forEach(k => {
+                                    if (removedSet.has(k)) return;
+                                    const nk = mapChanges[k] || k;
+                                    newSel[nk] = sh.selections[k];
+                                });
+                                sh.selections = newSel;
+                            }
+                            if (Array.isArray(sh.participants)) {
+                                sh.participants = sh.participants
+                                    .filter(sn => !removedSet.has(String(sn)))
+                                    .map(sn => swapValue(String(sn)));
+                            }
+                        });
+                    }
+
+                    // 5. sprintResults (חישוב קודם) – נמחק או ממופה
+                    if (state.sprintResults) {
+                        const newSprintResults = {};
+                        Object.keys(state.sprintResults).forEach(k => {
+                            if (removedSet.has(k)) return;
+                            const nk = mapChanges[k] || k;
+                            const entry = state.sprintResults[k];
+                            if (entry && Array.isArray(entry.heatResults)) {
+                                entry.heatResults.forEach(hr => { if (hr && hr.shoulderNumber) hr.shoulderNumber = swapValue(String(hr.shoulderNumber)); });
+                            }
+                            newSprintResults[nk] = entry;
+                        });
+                        state.sprintResults = newSprintResults;
+                    }
+
+                    // 6. ניקוי מבנים כלליים נוספים שכבר טופלו בחלק קודם (במידה ונשארו שאריות) - ביטחון
+                    function pruneKeys(obj) { if (!obj) return; for (const k of Object.keys(obj)) { if (removedSet.has(k)) delete obj[k]; } }
+                    pruneKeys(state.generalComments);
+                    pruneKeys(state.manualScores);
+                    pruneKeys(state.quickComments);
+
+                    // 7. הרצת חישוב ציונים מחדש אחרי רה-מיפוי (מונע ציונים שגויים)
+                    if (typeof window.updateAllSprintScores === 'function') {
+                        try { window.updateAllSprintScores(); } catch(e){ console.warn('updateAllSprintScores failed after reconcile', e); }
+                    }
+                    // NEW: חישוב חוזר לציוני זחילה ואלונקות (אין מטמון אבל מפעיל לבדיקה וסטטוס)
+                    try {
+                        (state.runners||[]).forEach(r=>{
+                            // הפעלות כדי לוודא שמתרחשים חישובים/אימותים
+                            if (typeof window.calculateCrawlingFinalScore==='function') window.calculateCrawlingFinalScore(r);
+                            if (typeof window.calculateStretcherFinalScore==='function') window.calculateStretcherFinalScore(r);
+                        });
+                    } catch(e){ console.warn('post-edit crawl/stretcher recompute failed', e); }
+                })();
+
+                // NEW: פונקציה לאכיפת טיפוס מספרי לכל מספרי הכתף בכל המבנים
+                function normalizeNumericShoulders(){
+                    try {
+                        state.runners?.forEach(r=>{ r.shoulderNumber = Number(r.shoulderNumber); });
+                        state.heats?.forEach(h=> h.arrivals?.forEach(a=> a.shoulderNumber = Number(a.shoulderNumber)));
+                        state.crawlingDrills?.sprints?.forEach(s=> s.arrivals?.forEach(a=> a.shoulderNumber = Number(a.shoulderNumber)));
+                        state.sociometricStretcher?.heats?.forEach(sh=> {
+                            if (Array.isArray(sh.participants)) sh.participants = sh.participants.map(sn=>Number(sn));
+                            if (sh.selections){
+                                const newSel={};
+                                Object.keys(sh.selections).forEach(k=> { newSel[Number(k)] = sh.selections[k]; });
+                                sh.selections = newSel;
+                            }
+                        });
+                        ['generalComments','manualScores','quickComments'].forEach(key=>{
+                            if(state[key]){
+                                const newObj={};
+                                Object.keys(state[key]).forEach(k=>{ newObj[Number(k)] = state[key][k]; });
+                                state[key]=newObj;
+                            }
+                        });
+                        if (state.crawlingDrills?.runnerStatuses){
+                            const ns={}; Object.keys(state.crawlingDrills.runnerStatuses).forEach(k=> ns[Number(k)] = state.crawlingDrills.runnerStatuses[k]);
+                            state.crawlingDrills.runnerStatuses = ns;
+                        }
+                        if (state.crawlingDrills?.sackCarriers){
+                            const sc={}; Object.keys(state.crawlingDrills.sackCarriers).forEach(k=> sc[Number(k)] = state.crawlingDrills.sackCarriers[k]);
+                            state.crawlingDrills.sackCarriers = sc;
+                        }
+                        if (state.sprintResults){
+                            const sr={};
+                            Object.keys(state.sprintResults).forEach(k=>{
+                                const entry = state.sprintResults[k];
+                                entry?.heatResults?.forEach(hr=> hr.shoulderNumber = Number(hr.shoulderNumber));
+                                sr[Number(k)] = entry;
+                            });
+                            state.sprintResults = sr;
+                        }
+                    } catch(e){ console.warn('normalizeNumericShoulders failed', e); }
+                }
+                normalizeNumericShoulders();
+
                 (function cleanupRemoved() {
                     if (!removed.length) return;
                     const remSet = new Set(removed);
@@ -441,25 +629,16 @@ ${hasRunners ? `
                     pruneKeys(state.manualScores);
                     pruneKeys(state.quickComments);
                     if (state.crawlingDrills && state.crawlingDrills.runnerStatuses) pruneKeys(state.crawlingDrills.runnerStatuses);
-                    // גיבוי: אם יש מערך heats בפורמט של אובייקטים המכילים runners/participants
-                    if (Array.isArray(state.heats)) {
-                        state.heats.forEach(h => {
-                            if (Array.isArray(h.runners)) h.runners = h.runners.filter(sn => !remSet.has(String(sn)));
-                            if (Array.isArray(h.participants)) h.participants = h.participants.filter(sn => !remSet.has(String(sn)));
-                        });
-                    }
-                    // עמודים אחרים (דוגמא כללית):
-                    if (state.crawlingDrills && Array.isArray(state.crawlingDrills.results)) {
-                        state.crawlingDrills.results = state.crawlingDrills.results.filter(r => !remSet.has(String(r.shoulderNumber)));
-                    }
+                    if (state.crawlingDrills && state.crawlingDrills.sackCarriers) pruneKeys(state.crawlingDrills.sackCarriers);
+                    if (state.sprintResults) pruneKeys(state.sprintResults);
                 })();
-                state.runners = mapped;
+
+                state.runners = mapped.map(r => ({...r, shoulderNumber: Number(r.shoulderNumber)})).sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
+                // סמן שעמוד הדוח דורש רענון אם לא פתוח כרגע
+                if (state.currentPage !== PAGES.REPORT) state.__needsReportRefresh = true;
                 saveState?.();
                 window.updateActiveRunners();
-                
-                // ADDED: רענון עמודים קשורים אחרי שמירה
                 refreshRelatedPages();
-                
                 try { window.dispatchEvent(new CustomEvent('runnersChanged', { detail: { runners: state.runners.map(r => ({ ...r })) } })); } catch (e) { /* silent */ }
             } else {
                 if (runnerCardEdit.original) { state.runners = JSON.parse(JSON.stringify(runnerCardEdit.original)); }
@@ -491,11 +670,18 @@ ${hasRunners ? `
 
         // --- מאזינים ---
 
-        // החלפת מאזין כפתור עריכה למצב אינלייני
+        // החלפת מאזין כפתור עריכה למצב אינלייני - NEW: בדיקת נעילה
         const editBtn = document.getElementById('edit-runners-btn');
         if (editBtn) {
             editBtn.removeEventListener('click', showRunnerEditMode); // אם היה קיים
-            editBtn.addEventListener('click', enterInlineEditMode);
+            editBtn.addEventListener('click', () => {
+                // NEW: מניעת עריכה אם התחרות התחילה
+                if (state.competitionStarted) {
+                    showModal('עריכה נעולה', 'לא ניתן לערוך מתמודדים לאחר התחלת המקצים. להתחיל מחדש יש לאפס את האפליקציה.');
+                    return;
+                }
+                enterInlineEditMode();
+            });
         }
 
         // ADDED: מאזין לכפתור הוספת מתמודד במצב עריכה
@@ -556,9 +742,24 @@ ${hasRunners ? `
         });
 
         // --- מאזינים קיימים (התאמות) ---
-        document.getElementById('add-runners-btn')?.addEventListener('click', showAddRunnersModal);
-        document.getElementById('edit-details-btn')?.addEventListener('click', showEditBasicDetailsModal);
-        // *** הוסר: showRunnerEditMode (עכשיו עריכה אינליינית) ***
+        document.getElementById('add-runners-btn')?.addEventListener('click', () => {
+            // NEW: מניעת הוספת מתמודדים אם התחרות התחילה
+            if (state.competitionStarted) {
+                showModal('הוספה נעולה', 'לא ניתן להוסיף מתמודדים לאחר התחלת המקצים. להתחיל מחדש יש לאפס את האפליקציה.');
+                return;
+            }
+            showAddRunnersModal();
+        });
+        
+        document.getElementById('edit-details-btn')?.addEventListener('click', () => {
+            // NEW: מניעת עריכת פרטים אם התחרות התחילה
+            if (state.competitionStarted) {
+                showModal('עריכה נעולה', 'לא ניתן לערוך פרטי ההערכה לאחר התחלת המקצים. להתחיל מחדש יש לאפס את האפליקציה.');
+                return;
+            }
+            showEditBasicDetailsModal();
+        });
+
         document.getElementById('start-heats-btn')?.addEventListener('click', () => {
             if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
             validateAndStartHeats();
@@ -597,14 +798,61 @@ ${hasRunners ? `
                     }
                 }, 100);
             }
-            
+            // רענון דוח סיכום אם פתוח כרגע
+            if (state.currentPage === PAGES.REPORT && typeof window.Pages?.renderReportPage === 'function') {
+                setTimeout(() => { window.Pages.renderReportPage(); }, 120);
+            }
             // שליחת אירועים לעמודים אחרים
-            window.dispatchEvent(new CustomEvent('runnerUpdated', { 
-                detail: { timestamp: Date.now() } 
-            }));
-            window.dispatchEvent(new CustomEvent('runnersChanged', { 
-                detail: { timestamp: Date.now() } 
-            }));
+            window.dispatchEvent(new CustomEvent('runnerUpdated', { detail: { timestamp: Date.now() } }));
+            window.dispatchEvent(new CustomEvent('runnersChanged', { detail: { timestamp: Date.now() } }));
+        }
+
+        // --- לאחר ה-HTML: בניית גריד במצב הוספה ידנית ללא רצים קודמים ---
+        if (!hasRunners && manualAddMode) {
+            const grid = document.getElementById('manual-add-grid');
+            const countEl = document.getElementById('manual-added-count');
+            const errorEl = document.getElementById('manual-add-error');
+            function renderManualGrid(){
+                if (!grid) return;
+                const sorted = [...state.runners].sort((a,b)=>Number(a.shoulderNumber)-Number(b.shoulderNumber));
+                grid.innerHTML = sorted.map(r=>`<div class='runner-card border rounded-xl shadow-sm p-3 flex flex-col items-center justify-center bg-white dark:bg-gray-800 dark:border-gray-700 border-gray-200'>
+                    <div class='text-xl font-bold text-gray-800 dark:text-gray-100 leading-none'>${r.shoulderNumber}</div>
+                    <div class='mt-1 text-[0.55rem] font-medium text-emerald-600 dark:text-emerald-400 tracking-wide'>פעיל</div>
+                </div>`).join('');
+                if (countEl) countEl.textContent = state.runners.length;
+            }
+            function showManualErr(msg){ if(!errorEl) return; errorEl.textContent = msg; errorEl.classList.remove('hidden'); }
+            function clearErr(){ if(!errorEl) return; errorEl.classList.add('hidden'); errorEl.textContent=''; }
+            document.getElementById('manual-add-runner-btn')?.addEventListener('click', () => {
+                const inp = document.getElementById('manual-add-input');
+                if (!inp) return;
+                const raw = (inp.value||'').trim();
+                const num = parseInt(raw,10);
+                if (!raw || isNaN(num) || num<=0) { showManualErr('מספר לא תקין'); return; }
+                if (state.runners.some(r=>Number(r.shoulderNumber)===num)) { showManualErr('מספר כתף קיים'); return; }
+                if (state.runners.length >= CONFIG.MAX_RUNNERS) { showManualErr(`לא ניתן לעבור את ${CONFIG.MAX_RUNNERS}`); return; }
+                state.runners.push({ shoulderNumber: num });
+                clearErr();
+                inp.value='';
+                saveState();
+                renderManualGrid();
+            });
+            document.getElementById('manual-add-input')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('manual-add-runner-btn')?.click(); }});
+            document.getElementById('finish-manual-add-btn')?.addEventListener('click', () => {
+                if (state.runners.length===0) { showManualErr('יש להוסיף לפחות מתמודד אחד'); return; }
+                state.__manualAddMode = false; saveState(); render();
+            });
+            renderManualGrid();
+        }
+        // --- אירועים חדשים במצב ללא רצים ---
+        if (!hasRunners && !manualAddMode) {
+            document.getElementById('no-runners-random-btn')?.addEventListener('click', () => {
+                generateRandomRunners();
+                state.__manualAddMode = false; saveState(); render();
+            });
+            document.getElementById('no-runners-manual-btn')?.addEventListener('click', () => {
+                state.__manualAddMode = true; saveState(); render();
+            });
         }
     };
 })();

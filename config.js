@@ -9,6 +9,7 @@ var CONFIG = {
     NUM_STRETCHER_HEATS: 10,        // מספר מקצי אלונקה סוציומטרית
     MAX_STRETCHER_CARRIERS: 4,     // מספר נושאי אלונקה מקסימלי למקצה
     MAX_JERRICAN_CARRIERS: 3,      // ברירת מחדל 3
+    SACK_CARRY_MINUTES_PER_POINT: 4, // דקות סחיבת שק לכל נקודה נוספת
     STRETCHER_PAGE_LABEL: 'אלונקות',                     // תווית הלשונית/כותרת
     STRETCHER_CARRIER_NOUN_PLURAL: 'רצים שלקחו אלונקה', // טקסט הנחיה לבחירה
     APP_STATE_KEY: 'sprintAppState_v1.11'                // מפתח ל-localStorage

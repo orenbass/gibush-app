@@ -25,13 +25,100 @@
     const fastest = finishers.length ? finishers[0].finishTime : null;
 
     const results = [];
+    
+    // חישוב ציונים עבור מי שסיים
     finishers.forEach((a, idx) => {
-      const score = fastest ? Math.max(1, Math.min(7, Math.round((7 * fastest) / a.finishTime))) : 1;
-      results.push({ rank: idx + 1, shoulderNumber: a.shoulderNumber, finishTime: a.finishTime, score, comment: a.comment || null });
+      const rank = idx + 1;
+      const totalFinishers = finishers.length;
+      
+      // ציון מיקום: מקום ראשון יקבל 7, מקום אחרון יקבל 1, באופן מדורג
+      const positionScore = totalFinishers === 1 ? 7 : Math.max(1, Math.round(7 - ((rank - 1) / (totalFinishers - 1)) * 6));
+      
+      // ציון זמן: יחסי לזמן המהיר ביותר (המהיר ביותר יקבל 7)
+      const timeScore = fastest && a.finishTime ? Math.max(1, Math.min(7, Math.round((7 * fastest) / a.finishTime))) : 1;
+      
+      // ציון סופי: ממוצע של שני הציונים
+      const finalScore = Math.round((positionScore + timeScore) / 2);
+      
+      results.push({ 
+        rank, 
+        shoulderNumber: a.shoulderNumber, 
+        finishTime: a.finishTime, 
+        score: finalScore,
+        positionScore, // שמירת הציונים הנפרדים למידע נוסף
+        timeScore,
+        comment: a.comment || null 
+      });
     });
+    
+    // מי שלא סיים יקבל ציון 1
     dnfs.forEach((a, i) => {
-      results.push({ rank: finishers.length + i + 1, shoulderNumber: a.shoulderNumber, finishTime: null, score: 1, comment: a.comment || 'לא סיים' });
+      results.push({ 
+        rank: finishers.length + i + 1, 
+        shoulderNumber: a.shoulderNumber, 
+        finishTime: null, 
+        score: 1,
+        positionScore: 1,
+        timeScore: 1,
+        comment: a.comment || 'לא סיים' 
+      });
     });
+    
+    return results;
+  }
+
+  function computeCrawlingSprintResults(arrivals = []) {
+    if (!Array.isArray(arrivals)) {
+      console.warn('computeCrawlingSprintResults: arrivals is not an array:', arrivals);
+      return [];
+    }
+    
+    const withOrder = arrivals.map((a, i) => ({ ...a, _order: i }));
+    const isFinisher = a => typeof a.finishTime === 'number' && a.finishTime > 0;
+    const finishers = withOrder.filter(isFinisher).sort((a, b) => (a.finishTime - b.finishTime) || (a._order - b._order));
+    const dnfs = withOrder.filter(a => !isFinisher(a));
+    const fastest = finishers.length ? finishers[0].finishTime : null;
+
+    const results = [];
+    
+    // חישוב ציונים עבור מי שסיים - בטווח 1-5
+    finishers.forEach((a, idx) => {
+      const rank = idx + 1;
+      const totalFinishers = finishers.length;
+      
+      // ציון מיקום: מקום ראשון יקבל 5, מקום אחרון יקבל 1
+      const positionScore = totalFinishers === 1 ? 5 : Math.max(1, Math.round(5 - ((rank - 1) / (totalFinishers - 1)) * 4));
+      
+      // ציון זמן: יחסי לזמן המהיר ביותר (המהיר ביותר יקבל 5)
+      const timeScore = fastest && a.finishTime ? Math.max(1, Math.min(5, Math.round((5 * fastest) / a.finishTime))) : 1;
+      
+      // ציון סופי: ממוצע של שני הציונים
+      const finalScore = Math.round((positionScore + timeScore) / 2);
+      
+      results.push({ 
+        rank, 
+        shoulderNumber: a.shoulderNumber, 
+        finishTime: a.finishTime, 
+        score: finalScore,
+        positionScore,
+        timeScore,
+        comment: a.comment || null 
+      });
+    });
+    
+    // מי שלא סיים יקבל ציון 1
+    dnfs.forEach((a, i) => {
+      results.push({ 
+        rank: finishers.length + i + 1, 
+        shoulderNumber: a.shoulderNumber, 
+        finishTime: null, 
+        score: 1,
+        positionScore: 1,
+        timeScore: 1,
+        comment: a.comment || 'לא סיים' 
+      });
+    });
+    
     return results;
   }
 
@@ -78,7 +165,7 @@
     return Math.round(validScores.reduce((sum, score) => sum + score, 0) / validScores.length);
   }
 
-  // FIXED: חישוב ציון זחילה ספרינט סופי - כולל מתמודדים שהשתתפו אבל לא סיימו
+  // UPDATED: חישוב ציון זחילה ספרינט סופי - עכשיו בטווח 1-5 במקום 1-7
   function getCrawlingSprintScore(runner) {
     const shoulderNumber = runner.shoulderNumber;
     const statuses = window.state?.crawlingDrills?.runnerStatuses || {};
@@ -96,22 +183,18 @@
     const validScores = [];
     
     activeCrawlingSprints.forEach(sprint => {
-      // עכשיו אנחנו עובדים רק עם זחילות פעילות
-      const crawlingResults = window.getCrawlingSprintHeatResults?.(sprint) || [];
+      // חישוב תוצאות עם קנה מידה של 1-5 (במקום 1-7)
+      const crawlingResults = computeCrawlingSprintResults(sprint.arrivals);
       const runnerResult = crawlingResults.find(r => r.shoulderNumber === shoulderNumber);
       const runnerParticipated = sprint.arrivals.some(a => a.shoulderNumber === shoulderNumber);
       
       if (runnerParticipated) {
-        // אם הרץ השתתף בזחילה הפעילה
         if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
-          // אם יש לו זמן תקין - השתמש בציון המחושב
           validScores.push(runnerResult.score);
         } else {
-          // אם השתתף אבל אין זמן תקין - ציון 1
           validScores.push(1);
         }
       } else {
-        // אם לא השתתף בזחילה פעילה - ציון 1
         validScores.push(1);
       }
     });
@@ -239,18 +322,43 @@
     };
   }
 
+  // NEW: חישוב ציון סחיבת שק לפי דקות
   function getSackCarryScore(runner) {
+    const shoulderNumber = runner.shoulderNumber;
     const carriers = window.state?.crawlingDrills?.sackCarriers || {};
-    const sackTime = carriers[runner.shoulderNumber]?.totalTime || 0;
-    const allSackTimes = Object.values(carriers).map(c => c.totalTime || 0);
-    const maxSackTime = Math.max(...allSackTimes, 0);
-    return normalizeScore(sackTime, 0, maxSackTime);
+    const carrierData = carriers[shoulderNumber];
+    
+    if (!carrierData || !carrierData.totalTime || carrierData.totalTime <= 0) {
+      return 0; // מי שלא סחב כלל לא מקבל נקודות
+    }
+    
+    // המרת זמן ממילישניות לדקות
+    const totalMinutes = carrierData.totalTime / (1000 * 60);
+    const minutesPerPoint = window.CONFIG?.SACK_CARRY_MINUTES_PER_POINT || 4;
+    
+    // חישוב נקודות - כל 4 דקות = נקודה אחת
+    const points = Math.floor(totalMinutes / minutesPerPoint);
+    
+    return points;
   }
 
   // UPDATED: פונקציה מפושטת לציון זחילה קבוצתית סופי - רק על בסיס נשיאת שק
   function calculateCrawlingFinalScore(runner) {
-    // הפונקציה עכשיו מחזירה רק את ציון הזחילה הקבוצתית
-    return calculateCrawlingGroupScore(runner);
+    const shoulderNumber = runner.shoulderNumber;
+    const statuses = window.state?.crawlingDrills?.runnerStatuses || {};
+    if (statuses[shoulderNumber] !== 'פעיל' && statuses[shoulderNumber] !== undefined) return 1;
+
+    // ציון ספרינטי זחילה (1-5)
+    const sprintScore = getCrawlingSprintScore(runner);
+    
+    // נקודות סחיבת שק (0+)
+    const sackPoints = getSackCarryScore(runner);
+    
+    // ציון כולל = ספרינט + נקודות שק, בטווח 1-5
+    const totalScore = sprintScore + sackPoints;
+    const finalScore = Math.min(5, Math.max(1, totalScore));
+    
+    return finalScore;
   }
 
   // NEW: חישוב וביצוע עדכון ציוני ספרינטים לכל הרצים
