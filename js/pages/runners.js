@@ -102,6 +102,8 @@
                 const v = inp.value;
                 const digits = v.replace(/\D+/g,'');
                 if (v !== digits) inp.value = digits;
+                // מניעת 0 (לא לאפשר מספר כתף 0)
+                if (inp.value === '0') inp.value = '';
             });
         });
     }
@@ -177,6 +179,25 @@
         obs.observe(document.documentElement,{subtree:true, childList:true});
     }
 
+    // Fallback: generateRandomRunners אם לא הוגדרה (במקרה של סדר טעינה שונה)
+    if (!window.generateRandomRunners) {
+        window.generateRandomRunners = function(count){
+            try {
+                const existing = new Set(state.runners.map(r => Number(r.shoulderNumber)));
+                const maxAddable = Math.max(0, CONFIG.MAX_RUNNERS - existing.size);
+                const toAdd = Math.min(maxAddable, count || maxAddable);
+                if (toAdd <= 0) { console.warn('generateRandomRunners fallback: nothing to add'); return; }
+                const pool = [];
+                for (let n = 1; n <= 999; n++) if (!existing.has(n)) pool.push(n);
+                for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+                const selected = pool.slice(0, toAdd).map(n => ({ shoulderNumber: n }));
+                state.runners = state.runners.concat(selected).sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
+                console.log('Fallback generateRandomRunners added', selected.length, 'runners');
+                saveState?.();
+            } catch(e){ console.error('Fallback generateRandomRunners failed', e); }
+        }
+    }
+
     window.Pages.renderRunnersPage = function renderRunnersPage() {
         // REMOVED: מחיקת קביעת כותרת
         // headerTitle.textContent = 'ניהול קבוצה';
@@ -239,19 +260,26 @@ ${!hasRunners ? `
         </button>
     </div>
     ` : `
-    <div id="manual-add-wrapper" class="max-w-2xl mx-auto mb-6">
-        <div class="mb-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-            <div class="flex items-center gap-2 w-full">
-                <input id="manual-add-input" type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="מספר" class="w-[70px] sm:w-[78px] flex-none h-11 text-center border-2 border-gray-300 dark:border-gray-600 rounded-md text-xs sm:text-sm font-semibold bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                <button id="manual-add-runner-btn" class="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-md text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-2 shadow-sm">
-                    <span class="text-base sm:text-lg">➕</span><span>הוסף</span>
-                </button>
-                <button id="finish-manual-add-btn" class="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md text-xs sm:text-sm shadow-sm">סיום</button>
+    <div id="manual-add-wrapper" class="max-w-3xl mx-auto mb-6">
+        <div class="flex flex-col gap-2 mb-3">
+            <div class="flex flex-wrap items-center gap-2 justify-center sm:justify-between">
+                <div class="flex items-center gap-2 order-2 sm:order-1">
+                    <button id="finish-manual-add-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md text-xs sm:text-sm shadow-sm">סיום</button>
+                    <button id="cancel-manual-add-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md text-xs sm:text-sm shadow-sm">ביטול</button>
+                </div>
+                <div class="order-1 sm:order-2 text-center sm:text-left text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">
+                    נוספו <span id="manual-added-count">${state.runners.length}</span> / ${CONFIG.MAX_RUNNERS}
+                </div>
             </div>
+            <div id="manual-add-error" class="hidden text-center text-red-600 font-semibold text-xs sm:text-sm"></div>
         </div>
-        <div class="text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">נוספו <span id="manual-added-count">${state.runners.length}</span> / ${CONFIG.MAX_RUNNERS}</div>
-        <div id="manual-add-error" class="hidden mb-2 text-center text-red-600 font-semibold text-xs sm:text-sm"></div>
         <div id="manual-add-grid" class="auto-grid stretcher-grid"></div>
+        <div class="flex justify-center mt-4">
+            <button id="manual-add-new-card-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg shadow w-full max-w-sm flex items-center justify-center gap-2 text-sm">
+                <span class="text-lg">➕</span><span>הוסף מועמד</span>
+            </button>
+        </div>
+        <div class="mt-3 text-center text-[0.6rem] text-gray-500 dark:text-gray-400">הקלד מספר כתף (עד 3 ספרות). אין כפילויות. מחיקה בלחיצה על כפתור מחק בכרטיס.</div>
     </div>
     `}
 ` : ''}
@@ -354,13 +382,9 @@ ${hasRunners ? `
             const runnerListEl = document.getElementById('runner-list');
             if (runnerListEl && !document.getElementById('runner-inline-edit-bar')) {
                 runnerListEl.insertAdjacentHTML('beforebegin', `
-                    <div id="runner-inline-edit-bar" class="hidden flex justify-center gap-3 mb-3">
-                        <button id="save-inline-runners-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">
-                            שמור שינויים
-                        </button>
-                        <button id="cancel-inline-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg text-sm">
-                            בטל
-                        </button>
+                    <div id="runner-inline-edit-bar" class="hidden flex flex-wrap justify-center gap-2 mb-3">
+                        <button id="save-inline-runners-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">שמור</button>
+                        <button id="cancel-inline-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg text-sm">בטל</button>
                     </div>
                     <div id="runner-inline-edit-error" class="hidden text-center text-red-600 font-semibold text-sm mb-2"></div>
                 `);
@@ -390,7 +414,7 @@ ${hasRunners ? `
             
             const addRunnerBtn = document.getElementById('add-runner-inline-btn');
             if (addRunnerBtn) {
-                addRunnerBtn.style.display = 'inline-block';
+                addRunnerBtn.style.display = '';
             }
 
             grid.querySelectorAll('.runner-card').forEach(card => {
@@ -420,12 +444,16 @@ ${hasRunners ? `
             // NEW: החלת מקלדת מספרים על האינפוטים החדשים
             applyNumericEnhancements(grid);
         }
+        // חשיפה גלובלית להפעלה מבחוץ (למשל אחרי לחיצה על הוספה ידנית במודאל)
+        window.enterRunnersEditMode = enterInlineEditMode;
 
         function exitInlineEditMode(save) {
             const errorEl = document.getElementById('runner-inline-edit-error');
             if (save) {
                 const inputs = Array.from(document.querySelectorAll('.runner-inline-input'));
                 let values = inputs.map(i => i.value.trim()).filter(v => v !== '');
+                // NEW: חסימת 0
+                if (values.some(v => v === '0' || Number(v) === 0)) { showError('מספר 0 אינו מותר'); return; }
                 const duplicates = values.filter((v, i) => values.indexOf(v) !== i);
                 if (values.length === 0) { showError('נדרש לפחות מספר אחד'); return; }
                 if (duplicates.length) { showError('יש כפילויות: ' + [...new Set(duplicates)].join(', ')); return; }
@@ -785,6 +813,34 @@ ${hasRunners ? `
         });
         document.getElementById('import-backup-input')?.addEventListener('change', importBackup);
 
+        // NEW: מאזינים לכפתורי הוספת מתמודדים במצב ללא רצים (רנדומלי / ידני)
+        if (!hasRunners && !manualAddMode) {
+            const randBtn = document.getElementById('no-runners-random-btn');
+            const manualBtn = document.getElementById('no-runners-manual-btn');
+            randBtn?.addEventListener('click', () => {
+                console.log('[Runners] random add button click');
+                if (state.competitionStarted) { showModal('נעול', 'לא ניתן להוסיף לאחר התחלת המקצים'); return; }
+                try { (window.generateRandomRunners||generateRandomRunners)(); } catch(e){ console.warn('generateRandomRunners failed', e); showModal('שגיאה','שגיאה בהוספה רנדומלית'); }
+                state.__manualAddMode = false;
+                saveState();
+                render();
+            });
+            manualBtn?.addEventListener('click', () => {
+                console.log('[Runners] manual add mode button click');
+                if (state.competitionStarted) { showModal('נעול', 'לא ניתן להוסיף לאחר התחלת המקצים'); return; }
+                // כניסה ישירה למצב עריכה: יצירת placeholder אם אין רשומות
+                if (!Array.isArray(state.runners) || state.runners.length === 0) {
+                    state.runners = [{ shoulderNumber: '' }];
+                }
+                delete state.__manualAddMode; // לא משתמשים יותר במצב נפרד
+                state.__autoEnterEditRunners = true; // דגל להפעלה אחרי render
+                saveState();
+                render();
+            });
+            if(!randBtn) console.warn('no-runners-random-btn not found in DOM');
+            if(!manualBtn) console.warn('no-runners-manual-btn not found in DOM');
+        }
+
         // לאחר רינדור ראשוני – החלה גם אם יש אינפוטים קיימים (למקרה של מודאל פתוח מראש)
         applyNumericEnhancements();
 
@@ -811,48 +867,69 @@ ${hasRunners ? `
         if (!hasRunners && manualAddMode) {
             const grid = document.getElementById('manual-add-grid');
             const countEl = document.getElementById('manual-added-count');
-            const errorEl = document.getElementById('manual-add-error');
-            function renderManualGrid(){
+            const errEl = document.getElementById('manual-add-error');
+            function renderManualCards(){
                 if (!grid) return;
-                const sorted = [...state.runners].sort((a,b)=>Number(a.shoulderNumber)-Number(b.shoulderNumber));
-                grid.innerHTML = sorted.map(r=>`<div class='runner-card border rounded-xl shadow-sm p-3 flex flex-col items-center justify-center bg-white dark:bg-gray-800 dark:border-gray-700 border-gray-200'>
-                    <div class='text-xl font-bold text-gray-800 dark:text-gray-100 leading-none'>${r.shoulderNumber}</div>
-                    <div class='mt-1 text-[0.55rem] font-medium text-emerald-600 dark:text-emerald-400 tracking-wide'>פעיל</div>
+                const sorted = state.runners.map((r,i)=>({i, sn:r.shoulderNumber})).sort((a,b)=>Number(a.sn||0)-Number(b.sn||0));
+                grid.innerHTML = sorted.map(o=>`<div class='runner-card border rounded-xl shadow-sm p-3 flex flex-col items-center justify-center bg-white dark:bg-gray-800 dark:border-gray-700 border-gray-200 relative'>
+                    <div class='text-xl font-bold text-gray-800 dark:text-gray-100 leading-none'>
+                        <input data-manual-card-input type='tel' maxlength='3' inputmode='numeric' pattern='[0-9]*' class='w-16 text-center font-bold text-gray-800 dark:text-gray-100 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400' value='${o.sn ?? ''}' data-index='${o.i}' placeholder='מספר' />
+                    </div>
+                    <button type='button' class='runner-delete-btn mt-2 text-[0.60rem] font-semibold px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md shadow focus:outline-none focus:ring-2 focus:ring-rose-300' data-index='${o.i}'>מחק</button>
                 </div>`).join('');
                 if (countEl) countEl.textContent = state.runners.length;
             }
-            function showManualErr(msg){ if(!errorEl) return; errorEl.textContent = msg; errorEl.classList.remove('hidden'); }
-            function clearErr(){ if(!errorEl) return; errorEl.classList.add('hidden'); errorEl.textContent=''; }
-            document.getElementById('manual-add-runner-btn')?.addEventListener('click', () => {
-                const inp = document.getElementById('manual-add-input');
-                if (!inp) return;
-                const raw = (inp.value||'').trim();
-                const num = parseInt(raw,10);
-                if (!raw || isNaN(num) || num<=0) { showManualErr('מספר לא תקין'); return; }
-                if (state.runners.some(r=>Number(r.shoulderNumber)===num)) { showManualErr('מספר כתף קיים'); return; }
-                if (state.runners.length >= CONFIG.MAX_RUNNERS) { showManualErr(`לא ניתן לעבור את ${CONFIG.MAX_RUNNERS}`); return; }
-                state.runners.push({ shoulderNumber: num });
-                clearErr();
-                inp.value='';
-                saveState();
-                renderManualGrid();
+            function showManualErr(m){ if(!errEl) return; errEl.textContent=m; errEl.classList.remove('hidden'); }
+            function clearManualErr(){ if(!errEl) return; errEl.classList.add('hidden'); errEl.textContent=''; }
+            function validateAll(){
+                const nums = state.runners.map(r=>String(r.shoulderNumber).trim()).filter(v=>v!=='');
+                if (nums.includes('0')) { showManualErr('מספר 0 אינו מותר'); return false; }
+                if (nums.some(v=>!/^[0-9]{1,3}$/.test(v))) { showManualErr('רק מספרים (עד 3 ספרות)'); return false; }
+                const dups = nums.filter((v,i)=>nums.indexOf(v)!==i);
+                if (dups.length){ showManualErr('כפילויות: '+[...new Set(dups)].join(',')); return false; }
+                if (nums.length===0){ showManualErr('יש להוסיף לפחות מתמודד אחד'); return false; }
+                return true;
+            }
+            document.getElementById('manual-add-new-card-btn')?.addEventListener('click', ()=>{
+                if (state.runners.length >= CONFIG.MAX_RUNNERS){ showManualErr(`לא ניתן לעבור את ${CONFIG.MAX_RUNNERS}`); return; }
+                state.runners.push({ shoulderNumber: '' });
+                clearManualErr();
+                renderManualCards();
+                setTimeout(()=>{ grid.querySelector('.runner-card:last-child input')?.focus(); },0);
             });
-            document.getElementById('manual-add-input')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('manual-add-runner-btn')?.click(); }});
-            document.getElementById('finish-manual-add-btn')?.addEventListener('click', () => {
-                if (state.runners.length===0) { showManualErr('יש להוסיף לפחות מתמודד אחד'); return; }
+            document.getElementById('finish-manual-add-btn')?.addEventListener('click', ()=>{
+                if (!validateAll()) return;
+                // ניקוי והמרה למספרים
+                state.runners = state.runners.map(r=>({ shoulderNumber: Number(r.shoulderNumber) })).sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
                 state.__manualAddMode = false; saveState(); render();
             });
-            renderManualGrid();
+            document.getElementById('cancel-manual-add-btn')?.addEventListener('click', ()=>{ state.runners = []; state.__manualAddMode = false; saveState(); render(); });
+            grid.addEventListener('input', e=>{
+                const inp = e.target.closest('[data-manual-card-input]'); if(!inp) return;
+                inp.value = inp.value.replace(/\D+/g,'').slice(0,3);
+                if (inp.value === '0') inp.value = '';
+                const idx = Number(inp.dataset.index);
+                if (state.runners[idx]) state.runners[idx].shoulderNumber = inp.value;
+                clearManualErr();
+            });
+            grid.addEventListener('blur', e=>{ const inp=e.target.closest('[data-manual-card-input]'); if(!inp) return; /* future: per-field validation */ }, true);
+            grid.addEventListener('click', e=>{
+                const del = e.target.closest('.runner-delete-btn'); if(!del) return;
+                const idx = Number(del.dataset.index);
+                state.runners.splice(idx,1);
+                renderManualCards();
+            });
+            // התחלה עם כרטיס ראשון אוטומטי אם אין כלל
+            if (state.runners.length===0){ state.runners.push({ shoulderNumber: '' }); }
+            renderManualCards();
         }
-        // --- אירועים חדשים במצב ללא רצים ---
-        if (!hasRunners && !manualAddMode) {
-            document.getElementById('no-runners-random-btn')?.addEventListener('click', () => {
-                generateRandomRunners();
-                state.__manualAddMode = false; saveState(); render();
-            });
-            document.getElementById('no-runners-manual-btn')?.addEventListener('click', () => {
-                state.__manualAddMode = true; saveState(); render();
-            });
+
+        // לאחר יצירת / עדכון הגריד — בדיקה אם צריך להיכנס אוטומטית למצב עריכה אחרי "הוספה ידנית"
+        if (state.__autoEnterEditRunners) {
+            delete state.__autoEnterEditRunners;
+            setTimeout(() => {
+                if (typeof enterInlineEditMode === 'function') enterInlineEditMode();
+            }, 0);
         }
     };
 })();

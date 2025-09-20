@@ -55,11 +55,23 @@
       .heat-nav .heat-indicator{font-size:18px;font-weight:700;color:#1e293b}
       .dark .heat-nav .heat-indicator{color:#f1f5f9}
       .task-btn svg{width:20px;height:20px;pointer-events:none;display:block}
-      /* Jerrican water fill */
       .task-btn[data-type="jerrican"] svg .water{fill:#3b82f6;transition:.15s}
       .task-btn.active[data-type="jerrican"] svg .water{fill:#60a5fa}
       .dark .task-btn[data-type="jerrican"] svg .water{fill:#3b82f6}
       .dark .task-btn.active[data-type="jerrican"] svg .water{fill:#93c5fd}
+      /* NEW summary styles */
+      .selection-summary-wrapper{margin-top:30px}
+      .selection-summary-box{background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:14px}
+      .dark .selection-summary-box{background:#1f2937;border-color:#334155}
+      .selection-summary-box h4{margin:0 0 10px;font-size:15px;font-weight:700;text-align:center;color:#1e293b}
+      .dark .selection-summary-box h4{color:#f1f5f9}
+      .summary-lines{display:grid;gap:6px}
+      .summary-line{display:flex;justify-content:center;gap:6px;font-size:13px;padding:4px 8px;background:#f1f5f9;border-radius:8px}
+      .dark .summary-line{background:#374151}
+      .summary-line span strong{color:#2563eb}
+      .dark .summary-line span strong{color:#3b82f6}
+      .summary-note{margin-top:8px;font-size:11px;text-align:center;color:#64748b}
+      .dark .summary-note{color:#94a3b8}
     `;
     document.head.appendChild(st);
   }
@@ -70,6 +82,25 @@
     const heat = state.sociometricStretcher?.heats?.[heatIndex];
     if (!heat) { contentDiv.innerHTML = '<p>מקצה לא נמצא.</p>'; return; }
     heat.selections = heat.selections || {};
+
+    // NEW: ensure ordered selection arrays (order of user clicks)
+    function ensureSelectionOrderBackfill(){
+      if (!heat.selectionOrder) heat.selectionOrder = { stretcher: [], jerrican: [] };
+      heat.selectionOrder.stretcher = heat.selectionOrder.stretcher || [];
+      heat.selectionOrder.jerrican = heat.selectionOrder.jerrican || [];
+      const sel = heat.selections;
+      // Add any selected numbers missing from arrays
+      Object.entries(sel).forEach(([sn,type])=>{
+        const arr = heat.selectionOrder[type];
+        if (arr && !arr.includes(sn)) arr.push(sn);
+      });
+      // Remove any numbers no longer selected
+      ['stretcher','jerrican'].forEach(type=>{
+        heat.selectionOrder[type] = heat.selectionOrder[type].filter(sn => sel[sn] === type);
+      });
+    }
+    ensureSelectionOrderBackfill();
+
     const selections = heat.selections;
 
     const PAGE_LABEL = 'מקצה';
@@ -167,39 +198,85 @@
         </div>
       </div>`;
 
+    // NEW: instruction + summary container
+    const instructionsHtml = `
+      <div class="mb-3 text-center text-sm text-gray-600 dark:text-gray-300">
+        בחר את נושאי האלונקה והג'ריקן. לחיצה חוזרת מבטלת, מעבר בין סוגים מחליף. הסיכום הדינמי למטה מציג את סדר הבחירה.
+      </div>`;
+
     contentDiv.innerHTML = `
       ${topNavHtml}
+      ${instructionsHtml}
       <div id="stretcher-grid" class="auto-grid stretcher-grid">
         ${runnerCardsHtml}
       </div>
       ${bottomHtml}
+      <div id="selection-summary" class="selection-summary-wrapper"></div>
     `;
 
-    // כפתורי רץ
+    // NEW: summary update
+    function updateSelectionSummary(){
+      const wrap = document.getElementById('selection-summary');
+      if(!wrap) return;
+      ensureSelectionOrderBackfill();
+      const orderSt = heat.selectionOrder.stretcher || [];
+      const orderJe = heat.selectionOrder.jerrican || [];
+      const lineHtml = (arr,label) => arr.length ? arr.map((sn,i)=>`<div class="summary-line"><span>${label} <strong>${i+1}</strong>:</span><span>מס' כתף <strong>${sn}</strong></span></div>`).join('') : '<div class="summary-line"><span>—</span></div>';
+      wrap.innerHTML = `
+        <div class="selection-summary-box">
+          <h4>סיכום סדר בחירה (דינמי)</h4>
+          <div class="summary-lines">
+            <div style="font-weight:600;text-align:center;margin-bottom:4px">אלונקה</div>
+            ${lineHtml(orderSt,'מקום')}
+            <div style="font-weight:600;text-align:center;margin:8px 0 4px">ג'ריקן</div>
+            ${lineHtml(orderJe,'מקום')}
+          </div>
+          <div class="summary-note">הסדר מתעדכן אוטומטית לפי סדר הלחיצות. הסרה תשמור על הרצף למעט הנמחק.</div>
+        </div>`;
+    }
+    updateSelectionSummary();
+
+    // כפתורי רץ (selection handling with order tracking)
     contentDiv.querySelector('#stretcher-grid')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.task-btn');
       if (!btn || btn.disabled) return;
-      const sn = +btn.dataset.shoulderNumber;
+      const sn = String(btn.dataset.shoulderNumber);
       const type = btn.dataset.type;
-
-      // לוגיקה "כמו בספרינטים": לחיצה על אותו סוג שנבחר – ביטול; אחרת החלפה.
       const current = selections[sn];
+
+      ensureSelectionOrderBackfill();
+
       if (current === type) {
+        // deselect
         delete selections[sn];
+        const arr = heat.selectionOrder[type];
+        heat.selectionOrder[type] = arr.filter(x=>x!==sn);
       } else {
+        // switching or new selection
+        if (current) {
+          // remove from old type order
+            const oldArr = heat.selectionOrder[current];
+            heat.selectionOrder[current] = oldArr.filter(x=>x!==sn);
+        }
         selections[sn] = type;
+        const arr = heat.selectionOrder[type];
+        if (!arr.includes(sn)) arr.push(sn);
       }
       saveState();
+      // re-render (will rebuild summary too)
       render();
       setTimeout(() => btn.blur(), 0);
     });
 
-    // הסרת בחירה (X)
+    // הסרת בחירה (X) מעדכן גם סדר
     contentDiv.querySelectorAll('[data-remove-sn]')?.forEach(x => {
       x.addEventListener('click', (e) => {
-        const sn = +e.currentTarget.dataset.removeSn;
-        if (selections[sn]) {
+        const sn = String(e.currentTarget.dataset.removeSn);
+        const t = selections[sn];
+        if (t) {
           delete selections[sn];
+          ensureSelectionOrderBackfill();
+          heat.selectionOrder[t] = heat.selectionOrder[t].filter(v=>v!==sn);
           saveState();
           render();
         }

@@ -303,7 +303,28 @@
     window.Pages.initReportPageListeners();
   };
 
+  // Helper: בדיקת משתמש אורח
+  function isGuestUser(){
+    try {
+      const saved = localStorage.getItem('gibushAuthState');
+      if(!saved) return true;
+      const session = JSON.parse(saved);
+      return session?.authState?.authMethod === 'guest';
+    } catch(e){ return true; }
+  }
+
   async function handleDriveUploadClick(btn) {
+    // דרישת סיסמה אם אורח
+    if (isGuestUser() && !sessionStorage.getItem('reportDriveApproved')) {
+      const pwd = prompt('הזן סיסמת מנהל לשליחת הקובץ:');
+      if (pwd === null) return; // ביטול
+      const adminPwd = (window.ADMIN_PASSWORD || typeof ADMIN_PASSWORD !== 'undefined' && ADMIN_PASSWORD) || '';
+      if (pwd !== adminPwd) {
+        alert('סיסמה שגויה');
+        return;
+      }
+      sessionStorage.setItem('reportDriveApproved','1');
+    }
     const original = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'מכין קובץ...';
