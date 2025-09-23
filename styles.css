@@ -914,7 +914,8 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
 }
 
 /* ===== Comment Buttons (Global) – MUST BE LAST ===== */
-#arrival-list .comment-btn{
+#arrival-list .comment-btn,
+#sack-arrival-list .comment-btn{
   display:block;
   width:100%;
   padding:6px 10px;
@@ -931,63 +932,83 @@ button:focus{ outline: none; box-shadow: 0 0 0 3px var(--ring); }
   border:1px solid #d1d5db;
   transition:.18s background,.18s border-color,.18s color,.18s box-shadow;
 }
-#arrival-list .comment-btn:hover{background:#e5e7eb;border-color:#9ca3af;}
-#arrival-list .comment-btn.comment-btn-empty{opacity:.75;}
+#arrival-list .comment-btn:hover,
+#sack-arrival-list .comment-btn:hover{background:#e5e7eb;border-color:#9ca3af;}
+#arrival-list .comment-btn.comment-btn-empty,
+#sack-arrival-list .comment-btn.comment-btn-empty{opacity:.75;}
 
 /* Levels (fill + text + border) */
-#arrival-list .comment-btn.comment-level-0:not(.comment-btn-empty){
+#arrival-list .comment-btn.comment-level-0:not(.comment-btn-empty),
+#sack-arrival-list .comment-btn.comment-level-0:not(.comment-btn-empty){
   background:#fecaca;color:#7f1d1d;border-color:#fca5a5;box-shadow:0 0 0 1px #f87171 inset;
 }
-#arrival-list .comment-btn.comment-level-1:not(.comment-btn-empty){
+#arrival-list .comment-btn.comment-level-1:not(.comment-btn-empty),
+#sack-arrival-list .comment-btn.comment-level-1:not(.comment-btn-empty){
   background:#fed7aa;color:#7c2d12;border-color:#fdba74;box-shadow:0 0 0 1px #fb923c inset;
 }
-#arrival-list .comment-btn.comment-level-2:not(.comment-btn-empty){
+#arrival-list .comment-btn.comment-level-2:not(.comment-btn-empty),
+#sack-arrival-list .comment-btn.comment-level-2:not(.comment-btn-empty){
   background:#fde68a;color:#713f12;border-color:#fcd34d;box-shadow:0 0 0 1px #facc15 inset;
 }
-#arrival-list .comment-btn.comment-level-3:not(.comment-btn-empty){
+#arrival-list .comment-btn.comment-level-3:not(.comment-btn-empty),
+#sack-arrival-list .comment-btn.comment-level-3:not(.comment-btn-empty){
   background:#fef9c3;color:#654321;border-color:#fef08a;box-shadow:0 0 0 1px #fde047 inset;
 }
-#arrival-list .comment-btn.comment-level-4:not(.comment-btn-empty){
+#arrival-list .comment-btn.comment-level-4:not(.comment-btn-empty),
+#sack-arrival-list .comment-btn.comment-level-4:not(.comment-btn-empty){
   background:#ecfccb;color:#365314;border-color:#d9f99d;box-shadow:0 0 0 1px #bef264 inset;
 }
-#arrival-list .comment-btn.comment-level-5:not(.comment-btn-empty){
+#arrival-list .comment-btn.comment-level-5:not(.comment-btn-empty),
+#sack-arrival-list .comment-btn.comment-level-5:not(.comment-btn-empty){
   background:#e7fef3;color:#065f46;border-color:#bbf7d0;box-shadow:0 0 0 1px #34d399 inset;
 }
-#arrival-list .comment-btn:not(.comment-btn-empty):hover{filter:brightness(.97);}
+#arrival-list .comment-btn:not(.comment-btn-empty):hover,
+#sack-arrival-list .comment-btn:not(.comment-btn-empty):hover{filter:brightness(.97);}
 
 /* Dark mode */
-.dark #arrival-list .comment-btn{
+.dark #arrival-list .comment-btn,
+.dark #sack-arrival-list .comment-btn{
   background:#374151;color:#e2e8f0;border-color:#4b5563;
 }
-.dark #arrival-list .comment-btn:hover{background:#425065;border-color:#64748b;}
-.dark #arrival-list .comment-btn.comment-level-0:not(.comment-btn-empty){
+.dark #arrival-list .comment-btn:hover,
+.dark #sack-arrival-list .comment-btn:hover{background:#425065;border-color:#64748b;}
+.dark #arrival-list .comment-btn.comment-level-0:not(.comment-btn-empty),
+.dark #sack-arrival-list .comment-btn.comment-level-0:not(.comment-btn-empty){
   background:#641414;color:#fecaca;border-color:#991b1b;box-shadow:0 0 0 1px #b91c1c inset;
 }
-.dark #arrival-list .comment-btn.comment-level-1:not(.comment-btn-empty){
+.dark #arrival-list .comment-btn.comment-level-1:not(.comment-btn-empty),
+.dark #sack-arrival-list .comment-btn.comment-level-1:not(.comment-btn-empty){
   background:#5a250c;color:#fed7aa;border-color:#9a3412;box-shadow:0 0 0 1px #c2410c inset;
 }
-.dark #arrival-list .comment-btn.comment-level-2:not(.comment-btn-empty){
+.dark #arrival-list .comment-btn.comment-level-2:not(.comment-btn-empty),
+.dark #sack-arrival-list .comment-btn.comment-level-2:not(.comment-btn-empty){
   background:#5a3a05;color:#fde68a;border-color:#854d0e;box-shadow:0 0 0 1px #ca8a04 inset;
 }
-.dark #arrival-list .comment-btn.comment-level-3:not(.comment-btn-empty){
+.dark #arrival-list .comment-btn.comment-level-3:not(.comment-btn-empty),
+.dark #sack-arrival-list .comment-btn.comment-level-3:not(.comment-btn-empty){
   background:#55520a;color:#fef08a;border-color:#713f12;box-shadow:0 0 0 1px #eab308 inset;
 }
-.dark #arrival-list .comment-btn.comment-level-4:not(.comment-btn-empty){
+.dark #arrival-list .comment-btn.comment-level-4:not(.comment-btn-empty),
+.dark #sack-arrival-list .comment-btn.comment-level-4:not(.comment-btn-empty){
   background:#25420a;color:#d9f99d;border-color:#3f6212;box-shadow:0 0 0 1px #65a30d inset;
 }
-.dark #arrival-list .comment-btn.comment-level-5:not(.comment-btn-empty){
+.dark #arrival-list .comment-btn.comment-level-5:not(.comment-btn-empty),
+.dark #sack-arrival-list .comment-btn.comment-level-5:not(.comment-btn-empty){
   background:#094226;color:#bbf7d0;border-color:#166534;box-shadow:0 0 0 1px #059669 inset;
 }
-.dark #arrival-list .comment-btn:not(.comment-btn-empty):hover{filter:brightness(1.05);}
+.dark #arrival-list .comment-btn:not(.comment-btn-empty):hover,
+.dark #sack-arrival-list .comment-btn:not(.comment-btn-empty):hover{filter:brightness(1.05);}
 
 /* === OVERRIDE: 0 comments (level 0) should be red even when empty === */
-#arrival-list .comment-btn.comment-level-0{
+#arrival-list .comment-btn.comment-level-0,
+#sack-arrival-list .comment-btn.comment-level-0{
   background:#fecaca;
   border-color:#fca5a5;
   color:#7f1d1d;
   opacity:1; /* מבטל ההעממה של comment-btn-empty */
 }
-.dark #arrival-list .comment-btn.comment-level-0{
+.dark #arrival-list .comment-btn.comment-level-0,
+.dark #sack-arrival-list .comment-btn.comment-level-0{
   background:#641414;
   border-color:#991b1b;
   color:#fecaca;

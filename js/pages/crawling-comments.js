@@ -48,6 +48,21 @@
     window.Pages.renderCrawlingDrillsCommentsPage = function renderCrawlingDrillsCommentsPage() {
         headerTitle.textContent = 'זחילה קבוצתית';
 
+        // NEW: load ArrivalRows component if needed (for unified table look like sprint pages)
+        if (!window.ArrivalRows || !window.ArrivalRows.render){
+            if (!document.querySelector('script[data-arrival-rows]')) {
+                const s = document.createElement('script');
+                s.src = 'js/components/arrivalRows.js';
+                s.async = true; s.dataset.arrivalRows = 'true';
+                s.onload = () => setTimeout(()=>window.Pages.renderCrawlingDrillsCommentsPage(),0);
+                document.head.appendChild(s);
+            } else {
+                // script already loading – try again shortly
+                setTimeout(()=>window.Pages.renderCrawlingDrillsCommentsPage(), 60);
+            }
+            return; // wait until component available
+        }
+
         if (!document.getElementById('crawling-comments-style')) {
             const s = document.createElement('style');
             s.id = 'crawling-comments-style';
@@ -426,53 +441,33 @@
         console.log('Displayed sack carriers:', displayedSackCarriers.map(r => r.shoulderNumber));
         console.log('Sack carrier set:', Array.from(sackCarrierSet));
 
-        const carriersListHtml = `
-<div class="arrival-header">
-  <div class="flex items-center gap-2">
-    <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:right;">מספר כתף</span>
-    <span class="flex-1 text-center font-semibold text-xs md:text-sm">הערות</span>
-    <span class="font-semibold text-xs md:text-sm whitespace-nowrap" style="min-width:88px;text-align:left;">זמן</span>
-  </div>
-</div>
-<div id="arrival-list" class="space-y-2">
-  ${
-    displayedSackCarriers.length
-      ? displayedSackCarriers.map((r,i)=>{
-          const sn = r.shoulderNumber;
-          const sackData = state.crawlingDrills.sackCarriers[sn];
-          const timeText = sackData
-              ? formatTime_no_ms(sackData.totalTime + (sackData.startTime ? Date.now()-sackData.startTime : 0))
-              : '00:00';
-          const raw = state.generalComments?.[sn];
-          const arr = Array.isArray(raw) ? raw.filter(c=>c && c.trim()) :
-                       (raw && String(raw).trim() ? [String(raw).trim()] : []);
-          const has = arr.length > 0;
-          const cCount = arr.length;
-          const level = Math.min(cCount,5); // for color scale
-          const summary = truncateCrawlCommentSummary(raw);
-          return `<div class="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2 dark:bg-slate-700">
-              <span class="font-bold text-gray-700 dark:text-gray-100 text-sm md:text-base whitespace-nowrap" style="min-width:88px;text-align:right;">${i+1}. ${sn}</span>
-              <span class="flex-1" style="min-width:0;">
-                <button class="comment-btn sprint-comment-btn table-comment-btn comment-level-${level} ${has ? '' : 'comment-btn-empty'}"
-                        data-comment-btn="${sn}"
-                        title="עריכת הערות">
-                  ${summary} ✎
-                </button>
-              </span>
-              <span class="font-mono text-gray-600 dark:text-gray-200 text-sm md:text-base whitespace-nowrap"
-                    style="min-width:88px;text-align:left;" id="sack-timer-${sn}">${timeText}</span>
-            </div>`;
-        }).join('')
-      : `<div class="text-center text-sm text-gray-500 py-4">עדיין לא נבחרו נושאי שק</div>`
-  }
-</div>
-<p class="mt-4 text-center text-xs text-gray-500">מוצגים רק המתמודדים שסחבו שק</p>`;
+        // REPLACED: carriersListHtml custom markup -> unified ArrivalRows table (ALL runners, not only carriers)
+        // Build arrivals array for ALL active (non-retired) runners sorted by descending total sack carrying time
+        function computeEffectiveTime(sn){
+            const d = state.crawlingDrills.sackCarriers?.[sn];
+            if (!d) return 0;
+            return d.totalTime + (d.startTime ? Date.now()-d.startTime : 0);
+        }
+        const allDisplayRunners = activeRunners; // כולל כולם (לא רק מי שסחב בפועל)
+        const arrivalsData = allDisplayRunners
+            .map(r => ({ shoulderNumber: String(r.shoulderNumber), finishTime: computeEffectiveTime(String(r.shoulderNumber)) }))
+            .sort((a,b)=> b.finishTime - a.finishTime); // גדול קודם
+
+        const arrivalsBlockHtml = ArrivalRows.render({
+            arrivals: arrivalsData,
+            getComment: sn => state.generalComments?.[sn],
+            formatTime: formatTime_no_ms,
+            showHeader: true,
+            labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן נשיאה' },
+            listId: 'sack-arrival-list', // CHANGED: unique id to avoid collisions with heat page
+            hideCommentsColumn: false
+        });
 
         contentDiv.innerHTML = `
 <h2 class="text-2xl font-semibold mb-4 text-center mt-6 text-blue-500">ניהול נשיאת שק</h2>
 ${sackCarrierHtml}
-${carriersListHtml}
-`;
+${arrivalsBlockHtml}
+<p class="mt-2 text-center text-xs text-gray-500">הטבלה מציגה את כל המתמודדים – מסודר לפי זמן נשיאת שק מירבי (גבוה ביותר ראשון)</p>`;
 
         if (!document.getElementById('gc-top-backdrop')) {
             const wrap = document.createElement('div');
@@ -744,26 +739,56 @@ ${carriersListHtml}
 
         // עדכון טיימרים קטנים
         function updateMiniSackTimers(){
+            // GUARD: run only on this page
+            if (state.currentPage !== PAGES.CRAWLING_COMMENTS) return;
             (state.crawlingDrills.activeSackCarriers || []).forEach(sn=>{
                 const data = state.crawlingDrills.sackCarriers?.[sn];
                 if(!data) return;
-                
-                // עדכון הטיימר הקטן בכפתור
+                const effective = data.totalTime + (data.startTime ? Date.now()-data.startTime : 0);
+                const formatted = formatTime_no_ms(effective);
                 const miniEl = document.getElementById('mini-sack-timer-'+sn);
-                if(miniEl) {
-                    miniEl.textContent = formatTime_no_ms(
-                        data.totalTime + (data.startTime ? Date.now()-data.startTime : 0)
-                    );
-                }
-                
-                // ADDED: עדכון הטיימר הגדול ברשימה התחתונה
-                const bigEl = document.getElementById('sack-timer-'+sn);
-                if(bigEl) {
-                    bigEl.textContent = formatTime_no_ms(
-                        data.totalTime + (data.startTime ? Date.now()-data.startTime : 0)
-                    );
-                }
+                if(miniEl) miniEl.textContent = formatted;
             });
+            // ALSO: update unified table times + reorder if needed (scoped to sack-arrival-list only)
+            const rows = Array.from(document.querySelectorAll('#sack-arrival-list .arrival-row'));
+            if (rows.length){
+                let changedOrder = false;
+                const updated = rows.map(r=>{
+                    const sn = r.getAttribute('data-shoulder-number');
+                    const eff = computeEffectiveTime(sn);
+                    const tc = r.querySelector('.time-cell');
+                    if (tc) tc.textContent = formatTime_no_ms(eff);
+                    return { sn, eff };
+                });
+                const sorted = [...updated].sort((a,b)=> b.eff - a.eff).map(o=>o.sn);
+                const current = updated.map(o=>o.sn);
+                for (let i=0;i<sorted.length;i++){ if (sorted[i] !== current[i]) { changedOrder = true; break; } }
+                if (changedOrder){
+                    const newArrivalsData = updated.map(o=>({ shoulderNumber:o.sn, finishTime:o.eff }))
+                        .sort((a,b)=> b.finishTime - a.finishTime);
+                    const newHtml = ArrivalRows.render({
+                        arrivals: newArrivalsData,
+                        getComment: sn => state.generalComments?.[sn],
+                        formatTime: formatTime_no_ms,
+                        showHeader: true,
+                        labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן נשיאה' },
+                        listId: 'sack-arrival-list'
+                    });
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newHtml;
+                    const newList = tempDiv.querySelector('#sack-arrival-list');
+                    const oldList = document.getElementById('sack-arrival-list');
+                    if (newList && oldList){
+                        oldList.replaceWith(newList);
+                        newList.querySelectorAll('[data-comment-btn]').forEach(btn=>{
+                            btn.addEventListener('click', async ()=>{
+                                const sn = btn.getAttribute('data-comment-btn');
+                                try{ await ensureCommentsModalLoaded(); window.CommentsModal.open(sn, { originBtn: btn, truncateFn: truncateCrawlCommentSummary, onSave: (val)=>{ state.generalComments = state.generalComments || {}; state.generalComments[sn]=val; saveState(); if (window.CommentButtonUpdater) CommentButtonUpdater.update(sn);} }); } catch(e){ console.error(e); }
+                            });
+                        });
+                    }
+                }
+            }
         }
         clearInterval(window._miniSackTimersInterval);
         window._miniSackTimersInterval = setInterval(updateMiniSackTimers,1000);

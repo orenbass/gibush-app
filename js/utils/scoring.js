@@ -363,9 +363,9 @@
     // נקודות סחיבת שק (0+)
     const sackPoints = getSackCarryScore(runner);
     
-    // ציון כולל = ספרינט + נקודות שק, בטווח 1-5
+    // ציון כולל = ספרינט + נקודות שק, בטווח 1-7 (נחתך ב-7)
     const totalScore = sprintScore + sackPoints;
-    const finalScore = Math.min(5, Math.max(1, totalScore));
+    const finalScore = Math.min(7, Math.max(1, totalScore)); // UPDATED: היה 5, כעת 7
     
     return finalScore;
   }

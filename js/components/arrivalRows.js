@@ -39,7 +39,8 @@
       labels = { shoulder:'מספר כתף', comment:'הערות', time:'זמן' },
       listId = 'arrival-list',
       onCommentClick,
-      hideCommentsColumn = false
+      hideCommentsColumn = false,
+      headerTitle // NEW: כותרת מותאמת מעל שורת הכותרת של הטבלה
     } = opts;
 
     const headerHtml = (showHeader && arrivals.length) ? `
@@ -50,30 +51,40 @@
         <span class="h-cell time">${labels.time}</span>
       </div>` : '';
 
+    // NEW: עטיפת כותרת מותאמת אם נשלחה
+    const headerTitleHtml = headerTitle ? `<div class="arrival-header-title">${headerTitle}</div>` : '';
+
     const rowsHtml = arrivals.map((a, idx) => {
       const sn = a.shoulderNumber;
       const raw = getComment ? getComment(sn) : undefined;
-      const has = Array.isArray(raw) ? raw.some(c=>c && c.trim()) : !!(raw && String(raw).trim());
+      let count = 0;
+      if (Array.isArray(raw)) count = raw.filter(c=>c && c.trim()).length; else if (raw && String(raw).trim()) count = 1;
+      const level = Math.min(count,5);
+      const has = count > 0;
       const display = truncate(raw, maxChars);
       const timeText = a.finishTime != null ? formatTime(a.finishTime) : (a.comment || '');
       const staticPosition = idx + 1;
-      
+
+      const commentCell = hideCommentsColumn ? '' : `
+          <span class="comment-cell">
+            <button class="comment-btn comment-level-${level} ${has ? '' : 'comment-btn-empty'}" data-comment-btn="${sn}" data-comment-count="${count}">
+              <span class="comment-text">${display}</span>
+              <span class="comment-icon" aria-hidden="true">✎</span>
+            </button>
+          </span>`;
+
       return `
         <div class="arrival-row ${variant}" data-shoulder-number="${sn}">
           <span class="static-position">${staticPosition}</span>
           <span class="shoulder-cell">${sn}</span>
-          <span class="comment-cell">
-            <button class="comment-btn ${has ? '' : 'comment-btn-empty'}" data-comment-btn="${sn}">
-              <span class="comment-text">${display}</span>
-              <span class="comment-icon" aria-hidden="true">✎</span>
-            </button>
-          </span>
+          ${commentCell}
           <span class="time-cell">${timeText}</span>
         </div>`;
     }).join('');
 
     return `
-      <div class="arrival-section">
+      <div class="arrival-section${hideCommentsColumn ? ' hide-comments' : ''}">
+        ${headerTitleHtml}
         ${headerHtml}
         <div id="${listId}" class="${hideCommentsColumn ? 'hide-comments' : ''}">
           ${rowsHtml}

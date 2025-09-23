@@ -580,7 +580,7 @@ ${hasRunners ? `
                             const nk = mapChanges[k] || k;
                             const entry = state.sprintResults[k];
                             if (entry && Array.isArray(entry.heatResults)) {
-                                entry.heatResults.forEach(hr => { if (hr && hr.shoulderNumber) hr.shoulderNumber = swapValue(String(hr.shoulderNumber)); });
+                                entry.heatResults.forEach(hr => { hr.shoulderNumber = swapValue(String(hr.shoulderNumber)); });
                             }
                             newSprintResults[nk] = entry;
                         });
@@ -661,7 +661,12 @@ ${hasRunners ? `
                     if (state.sprintResults) pruneKeys(state.sprintResults);
                 })();
 
-                state.runners = mapped.map(r => ({...r, shoulderNumber: Number(r.shoulderNumber)})).sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
+                state.runners = mapped
+                    // קודם משאירים כמחרוזת כדי לסנן ריקים ו-0
+                    .map(r => ({ ...r, shoulderNumber: String(r.shoulderNumber).trim() }))
+                    .filter(r => r.shoulderNumber !== '' && r.shoulderNumber !== '0')
+                    .map(r => ({ ...r, shoulderNumber: Number(r.shoulderNumber) }))
+                    .sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
                 // סמן שעמוד הדוח דורש רענון אם לא פתוח כרגע
                 if (state.currentPage !== PAGES.REPORT) state.__needsReportRefresh = true;
                 saveState?.();
@@ -899,8 +904,12 @@ ${hasRunners ? `
             });
             document.getElementById('finish-manual-add-btn')?.addEventListener('click', ()=>{
                 if (!validateAll()) return;
-                // ניקוי והמרה למספרים
-                state.runners = state.runners.map(r=>({ shoulderNumber: Number(r.shoulderNumber) })).sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
+                // ניקוי: הסרת ריקים או 0 ואז המרה למספרים (מונע יצירת 0)
+                state.runners = state.runners
+                    .map(r => ({ shoulderNumber: String(r.shoulderNumber||'').trim() }))
+                    .filter(r => r.shoulderNumber !== '' && r.shoulderNumber !== '0')
+                    .map(r => ({ shoulderNumber: Number(r.shoulderNumber) }))
+                    .sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
                 state.__manualAddMode = false; saveState(); render();
             });
             document.getElementById('cancel-manual-add-btn')?.addEventListener('click', ()=>{ state.runners = []; state.__manualAddMode = false; saveState(); render(); });
