@@ -1,7 +1,7 @@
 (function() {
   if (window.GoogleDriveUploader) return;
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDL6ACluh4gnBF2BU_4JK8y4akpSHsTelOXeb-j32uZXaw7NWNRp8664QlzoLf7pM/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzc_qBM8mAebKQ_xh6fo8hneXWyKSiOWIX5EvDfBhgU-qFM9-akwwiOXvXN77wY7mY/exec';
 
   function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
@@ -75,4 +75,5 @@
   window.GoogleDriveUploader = { upload };
 })();
 // ודא שאין שום קוד נוסף אחרי שורה זו
+
 
