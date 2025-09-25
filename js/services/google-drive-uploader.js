@@ -1,7 +1,7 @@
 (function() {
   if (window.GoogleDriveUploader) return;
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyWay9wvfHVTc2PvK1irGYy0iZKJ33FGykWydeBCdCsI8uTMGFYlAt2XmoX61j6o9o/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzs7WVHzK5e4XdrBNsEKpVt9OUy5WGogBmHDtCAVxQyZQOmQZuXs2e9T_Z3EXFCdnI/exec';
 
   function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
@@ -41,20 +41,21 @@
 
       console.log('Uploader: blob size =', blobToUpload.size, 'type =', blobToUpload.type);
       if (blobToUpload.size === 0) {
-        throw new Error('The generated Excel file is empty.');
+        throw new Error('The generated file is empty.');
       }
       
       const base64String = await blobToBase64(blobToUpload);
       console.log('Uploader: base64 length =', base64String.length);
 
-      // שימוש בשם הקובץ המועבר או ברירת מחדל
       const finalFileName = fileName || opts.fileName || `GibushReport_${new Date().toLocaleDateString('en-CA').replace(/-/g,'')}.xlsx`;
 
-      // IMPORTANT: Remove 'no-cors' to see the actual response from Google
+      // Build payload with optional metadata (folder, type, overwrite, etc.)
+      const payload = { fileName: finalFileName, base64: base64String, ...opts };
+
       const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' }, // Google Apps Script expects text/plain for postData.contents
-        body: JSON.stringify({ fileName: finalFileName, base64: base64String }),
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -64,7 +65,7 @@
         throw new Error(result.message || 'Unknown error from Google Script.');
       }
 
-      return { status: 'success', message: `File "${result.fileName}" uploaded successfully!` };
+      return { status: 'success', message: `File "${result.fileName || finalFileName}" uploaded successfully!` };
 
     } catch (error) {
       console.error('Google Drive Upload Failed:', error);
@@ -75,9 +76,3 @@
   window.GoogleDriveUploader = { upload };
 })();
 // ודא שאין שום קוד נוסף אחרי שורה זו
-
-
-
-
-
-

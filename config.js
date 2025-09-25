@@ -12,7 +12,12 @@ var CONFIG = {
     SACK_CARRY_MINUTES_PER_POINT: 4, // דקות סחיבת שק לכל נקודה נוספת
     STRETCHER_PAGE_LABEL: 'אלונקות',                     // תווית הלשונית/כותרת
     STRETCHER_CARRIER_NOUN_PLURAL: 'רצים שלקחו אלונקה', // טקסט הנחיה לבחירה
-    APP_STATE_KEY: 'sprintAppState_v1.11'                // מפתח ל-localStorage
+    APP_STATE_KEY: 'sprintAppState_v1.11',               // מפתח ל-localStorage
+    DASHBOARD_ALLOWED_EMAILS: [
+        // רשימת מיילים מורשים לראות את לשונית הדשבורד (השאר ריק כדי לבטל)
+        'gibush.hatam@gmail.com',
+        'orenbassm@gmail.com'
+    ]
 };
 
 // סיסמת מנהל
@@ -27,5 +32,6 @@ var PAGES = {
     CRAWLING_SPRINT: 'crawling-sprint',
     STRETCHER_HEAT: 'sociometric-stretcher-heat',
     REPORT: 'report',
-    ADMIN_SETTINGS: 'admin-settings'
+    ADMIN_SETTINGS: 'admin-settings',
+    BACKUP_DASHBOARD: 'backup-dashboard' // NEW: דשבורד קבצי גיבוי
 };

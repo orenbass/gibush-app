@@ -1661,7 +1661,7 @@ function onAvatarClick() {
             localStorage.removeItem('evaluatorDetails');
             localStorage.removeItem(CONFIG?.APP_STATE_KEY || 'gibushAppState');
             // אפשר גם ניקוי כללי אם רוצים אפס מלא:
-            // localStorage.clear(); // (נמנע כדי לא למחוק דברים אחרים בטעות)
+            localStorage.clear(); // (נמנע כדי לא למחוק דברים אחרים בטעות)
         } catch(e) { console.warn('logout clear error', e); }
         // הפניה לעמוד הנחיתה
         window.location.href = 'landing.html';
@@ -1763,15 +1763,30 @@ function renderPage() {
 
     // השבתת טאבים כשאין מתמודדים
     const noRunners = !state.runners || state.runners.length === 0;
-    
+
+    // הצגת/הסתרת לשונית דשבורד לפי מייל מורשה
+    (function(){
+        try {
+            const li = document.getElementById('backup-dashboard-nav-item');
+            if (!li) return;
+            const email = state?.authState?.googleUserInfo?.email?.toLowerCase?.();
+            const allowedList = (CONFIG.DASHBOARD_ALLOWED_EMAILS || []).map(e=>e.toLowerCase());
+            const isAllowed = email && allowedList.includes(email);
+            li.style.display = isAllowed ? '' : 'none';
+            // אם המשתמש כבר בעמוד דשבורד ואיבד הרשאה (נדיר) נחזיר אותו לעמוד ראשי
+            if (!isAllowed && state.currentPage === PAGES.BACKUP_DASHBOARD) {
+                state.currentPage = PAGES.RUNNERS;
+            }
+        } catch(e){ console.warn('dashboard tab toggle failed', e); }
+    })();
+
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const page = tab.dataset.page;
         let shouldDisable = false;
-        if (noRunners && page !== PAGES.RUNNERS) {
+        if (noRunners && page !== PAGES.RUNNERS && page !== PAGES.BACKUP_DASHBOARD) {
             shouldDisable = true;
         }
-        // NEW: נעילת כל שאר העמודים עד התחלת מקצים
-        if (!state.competitionStarted && page !== PAGES.RUNNERS) {
+        if (!state.competitionStarted && page !== PAGES.RUNNERS && page !== PAGES.BACKUP_DASHBOARD) {
             shouldDisable = true;
         }
         tab.classList.toggle('is-disabled', shouldDisable);
@@ -1843,6 +1858,10 @@ function renderPage() {
                 state.__needsReportRefresh = false;
             }
             window.Pages.renderReportPage?.(); 
+            break;
+        case PAGES.BACKUP_DASHBOARD: // NEW
+            setPageTitle('דשבורד גיבוי');
+            window.Pages.renderBackupDashboardPage?.();
             break;
     }
 }
