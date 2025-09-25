@@ -16,7 +16,8 @@ var CONFIG = {
     DASHBOARD_ALLOWED_EMAILS: [
         // רשימת מיילים מורשים לראות את לשונית הדשבורד (השאר ריק כדי לבטל)
         'gibush.hatam@gmail.com',
-        'orenbassm@gmail.com'
+        'orenbassm@gmail.com',
+        'ronmalk@gmail.com'
     ]
 };
 
@@ -33,5 +34,5 @@ var PAGES = {
     STRETCHER_HEAT: 'sociometric-stretcher-heat',
     REPORT: 'report',
     ADMIN_SETTINGS: 'admin-settings',
-    BACKUP_DASHBOARD: 'backup-dashboard' // NEW: דשבורד קבצי גיבוי
+    AGGREGATED_DASHBOARD: 'aggregated-dashboard' // NEW unified dashboard
 };

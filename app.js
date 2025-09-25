@@ -1726,10 +1726,17 @@ function renderPage() {
 
     const shouldShowQuickBar =
     state.runners && state.runners.length > 0 &&
-    state.currentPage !== PAGES.RUNNERS;
+    state.currentPage !== PAGES.RUNNERS &&
+    state.currentPage !== PAGES.AGGREGATED_DASHBOARD; // hide on aggregated dashboard
 
   const quickBarDiv = document.getElementById('quick-comment-bar-container');
-  if (quickBarDiv) quickBarDiv.style.display = '';
+  if (quickBarDiv) {
+    if (!shouldShowQuickBar) {
+        quickBarDiv.style.display = 'none';
+    } else {
+        quickBarDiv.style.display = '';
+    }
+  }
   window.QuickComments?.renderBar(shouldShowQuickBar);
 
     // סגנון לטאבים מבוטלים (מוזרק פעם אחת)
@@ -1767,26 +1774,26 @@ function renderPage() {
     // הצגת/הסתרת לשונית דשבורד לפי מייל מורשה
     (function(){
         try {
-            const li = document.getElementById('backup-dashboard-nav-item');
+            // החלפת מזהה הרשאה לדשבורד המאוחד
+            const li = document.getElementById('aggregated-dashboard-nav-item');
             if (!li) return;
             const email = state?.authState?.googleUserInfo?.email?.toLowerCase?.();
             const allowedList = (CONFIG.DASHBOARD_ALLOWED_EMAILS || []).map(e=>e.toLowerCase());
             const isAllowed = email && allowedList.includes(email);
             li.style.display = isAllowed ? '' : 'none';
-            // אם המשתמש כבר בעמוד דשבורד ואיבד הרשאה (נדיר) נחזיר אותו לעמוד ראשי
-            if (!isAllowed && state.currentPage === PAGES.BACKUP_DASHBOARD) {
+            if (!isAllowed && state.currentPage === PAGES.AGGREGATED_DASHBOARD) {
                 state.currentPage = PAGES.RUNNERS;
             }
-        } catch(e){ console.warn('dashboard tab toggle failed', e); }
+        } catch(e){ console.warn('aggregated dashboard tab toggle failed', e); }
     })();
 
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const page = tab.dataset.page;
         let shouldDisable = false;
-        if (noRunners && page !== PAGES.RUNNERS && page !== PAGES.BACKUP_DASHBOARD) {
+        if (noRunners && page !== PAGES.RUNNERS && page !== PAGES.AGGREGATED_DASHBOARD) {
             shouldDisable = true;
         }
-        if (!state.competitionStarted && page !== PAGES.RUNNERS && page !== PAGES.BACKUP_DASHBOARD) {
+        if (!state.competitionStarted && page !== PAGES.RUNNERS && page !== PAGES.AGGREGATED_DASHBOARD) {
             shouldDisable = true;
         }
         tab.classList.toggle('is-disabled', shouldDisable);
@@ -1859,9 +1866,9 @@ function renderPage() {
             }
             window.Pages.renderReportPage?.(); 
             break;
-        case PAGES.BACKUP_DASHBOARD: // NEW
-            setPageTitle('דשבורד גיבוי');
-            window.Pages.renderBackupDashboardPage?.();
+        case PAGES.AGGREGATED_DASHBOARD:
+            setPageTitle('דשבורד מאוחד');
+            window.Pages.renderAggregatedDashboardPage?.();
             break;
     }
 }
