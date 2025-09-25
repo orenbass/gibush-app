@@ -34,8 +34,6 @@
       .dark .task-btn:hover{background:#4b5563}
       .dark .task-btn.active[data-type="stretcher"]{background:#047857;border-color:#065f46}
       .dark .task-btn.active[data-type="jerrican"]{background:#1d4ed8;border-color:#1e40af}
-      .st-selected-wrapper{margin-top:28px;display:grid;gap:16px}
-      @media (min-width:700px){.st-selected-wrapper{grid-template-columns:1fr 1fr}}
       .st-panel{background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:14px}
       .dark .st-panel{background:#1f2937;border-color:#334155}
       .st-panel h3{margin:0 0 8px;font-size:15px;font-weight:700;color:#2563eb;display:flex;justify-content:space-between;align-items:center}
@@ -83,18 +81,15 @@
     if (!heat) { contentDiv.innerHTML = '<p>מקצה לא נמצא.</p>'; return; }
     heat.selections = heat.selections || {};
 
-    // NEW: ensure ordered selection arrays (order of user clicks)
     function ensureSelectionOrderBackfill(){
       if (!heat.selectionOrder) heat.selectionOrder = { stretcher: [], jerrican: [] };
       heat.selectionOrder.stretcher = heat.selectionOrder.stretcher || [];
       heat.selectionOrder.jerrican = heat.selectionOrder.jerrican || [];
       const sel = heat.selections;
-      // Add any selected numbers missing from arrays
       Object.entries(sel).forEach(([sn,type])=>{
         const arr = heat.selectionOrder[type];
         if (arr && !arr.includes(sn)) arr.push(sn);
       });
-      // Remove any numbers no longer selected
       ['stretcher','jerrican'].forEach(type=>{
         heat.selectionOrder[type] = heat.selectionOrder[type].filter(sn => sel[sn] === type);
       });
@@ -167,38 +162,6 @@
         </button>
       </div>`;
 
-    const toList = (type) =>
-      Object.entries(selections)
-        .filter(([, v]) => v === type)
-        .map(([sn]) => +sn)
-        .sort((a, b) => a - b);
-
-    const listStretcher = toList('stretcher');
-    const listJerrican  = toList('jerrican');
-
-    const mkChip = (sn, type) => `
-      <span class="chip" data-type="${type}">
-        <span>${sn}</span>
-        <button type="button" data-remove-sn="${sn}" data-remove-type="${type}" aria-label="הסר ${sn}">×</button>
-      </span>`;
-
-    const bottomHtml = `
-      <div class="st-selected-wrapper">
-        <div class="st-panel">
-          <h3>נושאי אלונקה <span>${listStretcher.length}/${CONFIG.MAX_STRETCHER_CARRIERS}</span></h3>
-          <div id="stretcher-selected" class="st-chips">
-            ${listStretcher.length ? listStretcher.map(sn => mkChip(sn, 'stretcher')).join('') : '<span class="chip-empty">—</span>'}
-          </div>
-        </div>
-        <div class="st-panel">
-          <h3>סוחבי ג'ריקן <span>${listJerrican.length}/${CONFIG.MAX_JERRICAN_CARRIERS}</span></h3>
-          <div id="jerrican-selected" class="st-chips">
-            ${listJerrican.length ? listJerrican.map(sn => mkChip(sn, 'jerrican')).join('') : '<span class="chip-empty">—</span>'}
-          </div>
-        </div>
-      </div>`;
-
-    // NEW: instruction + summary container
     const instructionsHtml = `
       <div class="mb-3 text-center text-sm text-gray-600 dark:text-gray-300">
         בחר את נושאי האלונקה והג'ריקן. לחיצה חוזרת מבטלת, מעבר בין סוגים מחליף. הסיכום הדינמי למטה מציג את סדר הבחירה.
@@ -210,11 +173,9 @@
       <div id="stretcher-grid" class="auto-grid stretcher-grid">
         ${runnerCardsHtml}
       </div>
-      ${bottomHtml}
       <div id="selection-summary" class="selection-summary-wrapper"></div>
     `;
 
-    // NEW: summary update
     function updateSelectionSummary(){
       const wrap = document.getElementById('selection-summary');
       if(!wrap) return;
@@ -236,7 +197,6 @@
     }
     updateSelectionSummary();
 
-    // כפתורי רץ (selection handling with order tracking)
     contentDiv.querySelector('#stretcher-grid')?.addEventListener('click', (e) => {
       const btn = e.target.closest('.task-btn');
       if (!btn || btn.disabled) return;
@@ -247,43 +207,23 @@
       ensureSelectionOrderBackfill();
 
       if (current === type) {
-        // deselect
         delete selections[sn];
         const arr = heat.selectionOrder[type];
         heat.selectionOrder[type] = arr.filter(x=>x!==sn);
       } else {
-        // switching or new selection
         if (current) {
-          // remove from old type order
-            const oldArr = heat.selectionOrder[current];
-            heat.selectionOrder[current] = oldArr.filter(x=>x!==sn);
+          const oldArr = heat.selectionOrder[current];
+          heat.selectionOrder[current] = oldArr.filter(x=>x!==sn);
         }
         selections[sn] = type;
         const arr = heat.selectionOrder[type];
         if (!arr.includes(sn)) arr.push(sn);
       }
       saveState();
-      // re-render (will rebuild summary too)
       render();
       setTimeout(() => btn.blur(), 0);
     });
 
-    // הסרת בחירה (X) מעדכן גם סדר
-    contentDiv.querySelectorAll('[data-remove-sn]')?.forEach(x => {
-      x.addEventListener('click', (e) => {
-        const sn = String(e.currentTarget.dataset.removeSn);
-        const t = selections[sn];
-        if (t) {
-          delete selections[sn];
-          ensureSelectionOrderBackfill();
-          heat.selectionOrder[t] = heat.selectionOrder[t].filter(v=>v!==sn);
-          saveState();
-          render();
-        }
-      });
-    });
-
-    // ניווט
     document.getElementById('stretcher-heat-prev')?.addEventListener('click', () => {
       if (heatIndex > 0) {
         state.sociometricStretcher.currentHeatIndex = heatIndex - 1;

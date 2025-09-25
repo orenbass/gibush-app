@@ -17,8 +17,9 @@
       console.warn('computeHeatResults: arrivals is not an array:', arrivals);
       return [];
     }
-    
-    const withOrder = arrivals.map((a, i) => ({ ...a, _order: i }));
+    // NEW: סינון מתמודדים שאינם פעילים (status !== 'active') כדי שלא ישפיעו על דירוג
+    const activeArrivals = arrivals.filter(a => !a.status || a.status === 'active');
+    const withOrder = activeArrivals.map((a, i) => ({ ...a, _order: i }));
     const isFinisher = a => typeof a.finishTime === 'number' && a.finishTime > 0;
     const finishers = withOrder.filter(isFinisher).sort((a, b) => (a.finishTime - b.finishTime) || (a._order - b._order));
     const dnfs = withOrder.filter(a => !isFinisher(a));
@@ -129,78 +130,60 @@
   function calculateSprintFinalScore(runner) {
     const shoulderNumber = runner.shoulderNumber;
     const statuses = window.state?.crawlingDrills?.runnerStatuses || {};
-    if (statuses[shoulderNumber] !== 'פעיל' && statuses[shoulderNumber] !== undefined) return 1;
+    // אם הרץ עצמו מוגדר פרש/נגרע מוחלט – החזר 1
+    if (statuses[shoulderNumber] && statuses[shoulderNumber] !== 'active') return 1;
 
     const heats = window.state?.heats || [];
     if (heats.length === 0) return 1;
     
-    // סינון רק מקצים פעילים (שבהם לפחות אחד השתתף)
-    const activeHeats = heats.filter(heat => heat.arrivals && heat.arrivals.length > 0);
-    if (activeHeats.length === 0) return 1;
-    
     const validScores = [];
     
-    activeHeats.forEach(heat => {
-      // עכשיו אנחנו עובדים רק עם מקצים פעילים
+    heats.forEach(heat => {
+      if (!heat.arrivals || !heat.arrivals.length) return; // מקצה ריק – דלג
+      // מציאת הגעה של הרץ כשהוא פעיל
+      const arrival = heat.arrivals.find(a => a.shoulderNumber === shoulderNumber && (!a.status || a.status === 'active'));
+      if (!arrival) return; // לא השתתף בפועל – לא מוסיפים ציון 1 יותר
+
       const heatResults = window.computeHeatResults?.(heat.arrivals) || [];
       const runnerResult = heatResults.find(r => r.shoulderNumber === shoulderNumber);
-      const runnerParticipated = heat.arrivals.some(a => a.shoulderNumber === shoulderNumber);
-      
-      if (runnerParticipated) {
-        // אם הרץ השתתף במקצה הפעיל
-        if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
-          // אם יש לו זמן תקין - השתמש בציון המחושב
-          validScores.push(runnerResult.score);
-        } else {
-          // אם השתתף אבל אין זמן תקין - ציון 1
-          validScores.push(1);
-        }
+      if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
+        validScores.push(runnerResult.score);
       } else {
-        // אם לא השתתף במקצה פעיל - ציון 1
+        // השתתף אבל לא סיים
         validScores.push(1);
       }
     });
     
-    // ממוצע הציונים מהמקצים הפעילים
-    return Math.round(validScores.reduce((sum, score) => sum + score, 0) / validScores.length);
+    if (!validScores.length) return 1; // לא השתתף באף מקצה פעיל
+    return Math.round(validScores.reduce((s, v) => s + v, 0) / validScores.length);
   }
 
   // UPDATED: חישוב ציון זחילה ספרינט סופי - עכשיו בטווח 1-5 במקום 1-7
   function getCrawlingSprintScore(runner) {
     const shoulderNumber = runner.shoulderNumber;
     const statuses = window.state?.crawlingDrills?.runnerStatuses || {};
-    if (statuses[shoulderNumber] !== 'פעיל' && statuses[shoulderNumber] !== undefined) return 1;
+    if (statuses[shoulderNumber] && statuses[shoulderNumber] !== 'active') return 1;
 
     const crawlingSprints = window.state?.crawlingDrills?.sprints || [];
-    if (crawlingSprints.length === 0) return 1;
-    
-    // סינון רק זחילות פעילות (שבהן לפחות אחד השתתף)
-    const activeCrawlingSprints = crawlingSprints.filter(sprint => 
-      sprint.arrivals && sprint.arrivals.length > 0
-    );
-    if (activeCrawlingSprints.length === 0) return 1;
+    if (!crawlingSprints.length) return 1;
     
     const validScores = [];
-    
-    activeCrawlingSprints.forEach(sprint => {
-      // חישוב תוצאות עם קנה מידה של 1-5 (במקום 1-7)
+    crawlingSprints.forEach(sprint => {
+      if (!sprint.arrivals || !sprint.arrivals.length) return;
+      const arrival = sprint.arrivals.find(a => a.shoulderNumber === shoulderNumber && (!a.status || a.status === 'active'));
+      if (!arrival) return; // לא השתתף => לא מוסיפים 1
+
       const crawlingResults = computeCrawlingSprintResults(sprint.arrivals);
       const runnerResult = crawlingResults.find(r => r.shoulderNumber === shoulderNumber);
-      const runnerParticipated = sprint.arrivals.some(a => a.shoulderNumber === shoulderNumber);
-      
-      if (runnerParticipated) {
-        if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
-          validScores.push(runnerResult.score);
-        } else {
-          validScores.push(1);
-        }
+      if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
+        validScores.push(runnerResult.score);
       } else {
-        validScores.push(1);
+        validScores.push(1); // השתתף ולא סיים
       }
     });
     
-    // ממוצע הציונים מהזחילות הפעילות
-    return Math.round(validScores.reduce((sum, score) => sum + score, 0) / validScores.length);
+    if (!validScores.length) return 1;
+    return Math.round(validScores.reduce((s, v) => s + v, 0) / validScores.length);
   }
 
   // NEW MODEL 2: Sociometric stretcher heat scoring

@@ -326,10 +326,11 @@ ${hasRunners ? `
     <h3 class="text-lg font-semibold mb-3 text-center text-gray-700 dark:text-gray-300">ניהול נתונים</h3>
     <div class="flex justify-center gap-4 flex-wrap">
         <button id="admin-settings-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg text-sm">הגדרות מנהל</button>
-        <button id="export-backup-btn" class="bg-blue-800 hover:bg-blue-900 text-white font-bold py-2 px-4 rounded-lg text-sm">ייצא גיבוי (JSON)</button>
-        <input type="file" id="import-backup-input" class="hidden" accept=".json">
-        <button id="import-backup-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg text-sm">ייבא גיבוי (JSON)</button>
         <button id="reset-app-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm">אפס אפליקציה</button>
+        <button id="compact-backup-upload-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-sm">שלח גיבוי למנהל</button>
+        <button id="compact-backup-download-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg text-sm">הורד גיבוי</button>
+        <button id="compact-backup-import-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg text-sm">טען גיבוי</button>
+        <input type="file" id="compact-backup-import-input" class="hidden" accept="application/json,.json" />
     </div>
 </div>`;
 
@@ -808,15 +809,131 @@ ${hasRunners ? `
                 render();
             });
         });
-        document.getElementById('export-backup-btn')?.addEventListener('click', () => {
-            if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. לייצא בכל זאת?')) return;
-            exportBackup();
-        });
-        document.getElementById('import-backup-btn')?.addEventListener('click', () => {
+        
+        // Compact backup buttons (renamed)
+        document.getElementById('compact-backup-upload-btn')?.addEventListener('click', async () => {
             if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
-            document.getElementById('import-backup-input').click();
+            if (!window.CompactBackup) { showModal('שגיאה','מודול גיבוי לא נטען'); return; }
+            await window.CompactBackup.createAndUploadCompactBackup(window.showModal);
         });
-        document.getElementById('import-backup-input')?.addEventListener('change', importBackup);
+        document.getElementById('compact-backup-download-btn')?.addEventListener('click', () => {
+            if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
+            if (!window.CompactBackup) { showModal('שגיאה','מודול גיבוי לא נטען'); return; }
+            window.CompactBackup.downloadLocal();
+        });
+        
+        // NEW: Import compact (verbose or legacy) backup into a fresh / existing state
+        document.getElementById('compact-backup-import-btn')?.addEventListener('click', () => {
+            if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
+            document.getElementById('compact-backup-import-input').value='';
+            document.getElementById('compact-backup-import-input').click();
+        });
+        document.getElementById('compact-backup-import-input')?.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            try {
+                const txt = await file.text();
+                let parsed;
+                try { parsed = JSON.parse(txt); } catch(err){ showModal('שגיאה','קובץ גיבוי לא תקין'); return; }
+                if (!parsed) { showModal('שגיאה','קובץ ריק'); return; }
+                if (!confirm('לייבא את הגיבוי ולדרוס את הנתונים הנוכחיים?')) return;
+                restoreFromCompactBackup(parsed);
+                showModal('הצלחה','הגיבוי נטען בהצלחה');
+            } catch(err){
+                console.error('Import compact backup failed', err);
+                showModal('שגיאה','ייבוא נכשל');
+            }
+        });
+        
+        function restoreFromCompactBackup(backup){
+            // תומך בגרסאות: 2.1 (verbose), 2.0 (legacy shorthand)
+            // ניקוי מצב קודם
+            initializeAllData();
+            state.evaluatorName = backup.evaluatorName || backup.e || '';
+            state.groupNumber = backup.groupNumber || backup.g || '';
+            state.runners = [];
+            state.heats = [];
+            state.crawlingDrills = state.crawlingDrills || {};
+            state.crawlingDrills.sprints = [];
+            state.crawlingDrills.runnerStatuses = {};
+            state.crawlingDrills.sackCarriers = {};
+            state.quickComments = {};
+            state.generalComments = {};
+            state.manualScores = {};
+
+            // Detect verbose vs legacy structure
+            let runnersArr = [];
+            if (Array.isArray(backup.runners)) { // verbose 2.1 or unknown
+                runnersArr = backup.runners;
+            } else if (Array.isArray(backup.r)) { // legacy 2.0
+                // map legacy to verbose-like objects
+                runnersArr = backup.r.map(r => ({
+                    shoulderNumber: r.sn,
+                    status: r.st || 'active',
+                    sprintHeats: (r.hs||[]).map((t,i)=> t==null? null : { heatIndex: i+1, timeMs: t, comment: (r.hc||[])[i]||null }).filter(Boolean),
+                    crawlingSprints: (r.cs||[]).map((t,i)=> t==null? null : { sprintIndex: i+1, timeMs: t, comment: (r.cc||[])[i]||null }).filter(Boolean),
+                    sackCarry: { totalTimeMs: r.sk||0 },
+                    quickComments: r.q || [],
+                    generalComments: r.gc || null,
+                    manualScore: (r.ms!==undefined? r.ms:null),
+                    finalScores: { sprint: r.spr||0, crawling: r.cr||0, stretcher: r.stf||0 }
+                }));
+            }
+
+            // Runners list
+            const runnerNums = new Set();
+            runnersArr.forEach(r => {
+                const sn = Number(r.shoulderNumber);
+                if (!sn || runnerNums.has(sn)) return;
+                runnerNums.add(sn);
+                state.runners.push({ shoulderNumber: sn });
+                if (r.status && r.status !== 'active' && r.status !== 'פעיל') {
+                    state.crawlingDrills.runnerStatuses[sn] = r.status;
+                }
+                if (Array.isArray(r.quickComments) && r.quickComments.length) state.quickComments[sn] = r.quickComments.slice();
+                if (r.generalComments) state.generalComments[sn] = r.generalComments;
+                if (r.manualScore !== undefined && r.manualScore !== null) state.manualScores[sn] = r.manualScore;
+                const sackMs = r.sackCarry && r.sackCarry.totalTimeMs; if (sackMs) state.crawlingDrills.sackCarriers[sn] = { totalTime: sackMs };
+            });
+            state.runners.sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
+
+            // Reconstruct heats (sprint)
+            const maxSprintHeatIndex = Math.max(0, ...runnersArr.flatMap(r=> (r.sprintHeats||[]).map(h=>h.heatIndex||0)));
+            for (let i=0;i<maxSprintHeatIndex;i++) state.heats.push({ index: i+1, arrivals: [] });
+            runnersArr.forEach(r => {
+                (r.sprintHeats||[]).forEach(h => {
+                    const heat = state.heats[h.heatIndex-1]; if (!heat) return;
+                    heat.arrivals.push({ shoulderNumber: Number(r.shoulderNumber), finishTime: h.timeMs||null, comment: h.comment||null });
+                });
+            });
+
+            // Reconstruct crawling sprints
+            const maxCrawlSprintIdx = Math.max(0, ...runnersArr.flatMap(r=> (r.crawlingSprints||[]).map(cs=>cs.sprintIndex||0)));
+            state.crawlingDrills.sprints = [];
+            for (let i=0;i<maxCrawlSprintIdx;i++) state.crawlingDrills.sprints.push({ index: i+1, arrivals: [] });
+            runnersArr.forEach(r => {
+                (r.crawlingSprints||[]).forEach(cs => {
+                    const sp = state.crawlingDrills.sprints[cs.sprintIndex-1]; if (!sp) return;
+                    sp.arrivals.push({ shoulderNumber: Number(r.shoulderNumber), finishTime: cs.timeMs||null, comment: cs.comment||null });
+                });
+            });
+
+            // Sociometric (if available verbose)
+            if (Array.isArray(backup.sociometricHeats)) {
+                state.sociometricStretcher = state.sociometricStretcher || {};
+                state.sociometricStretcher.heats = backup.sociometricHeats.map(h => ({
+                    selectionOrder: { stretcher: (h.stretcherOrder||[]).map(Number), jerrican: (h.jerricanOrder||[]).map(Number) },
+                    participants: []
+                }));
+            }
+
+            // Recalculate derived data
+            try { window.updateAllSprintScores?.(); } catch(e){ console.warn('updateAllSprintScores failed after import', e); }
+            try { (state.runners||[]).forEach(r => { window.calculateCrawlingFinalScore?.(r); window.calculateStretcherFinalScore?.(r); }); } catch(e){ }
+            window.updateActiveRunners?.();
+            saveState?.();
+            render();
+        }
 
         // NEW: מאזינים לכפתורי הוספת מתמודדים במצב ללא רצים (רנדומלי / ידני)
         if (!hasRunners && !manualAddMode) {
