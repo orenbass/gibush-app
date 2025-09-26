@@ -188,147 +188,130 @@
     renderCurrentView(){
       const content = this.root.querySelector('#aggContent');
       if (!content) return;
+      
       if (!this.state.selected.group) {
         if (!this.state.selected.evaluator) {
           content.innerHTML = '<h3>סיכום כל המתמודדים</h3>';
-          content.appendChild(this.buildCandidatesTable(this.aggregateAllCandidates()));
+          const allCandidates = this.aggregateAllCandidates();
+          const { active, retired } = this.separateActiveAndRetired(allCandidates);
+          content.appendChild(this.buildCandidatesTable(active));
+          if (retired.length > 0) {
+            content.appendChild(this.buildRetiredCandidatesSection(retired));
+          }
         } else {
           content.innerHTML = `<h3>מעריך: ${this.state.selected.evaluator} (כל הקבוצות)</h3>`;
-          content.appendChild(this.buildCandidatesTable(this.aggregateEvaluatorAcrossAll(this.state.selected.evaluator)));
+          const evaluatorCandidates = this.aggregateEvaluatorAcrossAll(this.state.selected.evaluator);
+          const { active, retired } = this.separateActiveAndRetired(evaluatorCandidates);
+          content.appendChild(this.buildCandidatesTable(active));
+          if (retired.length > 0) {
+            content.appendChild(this.buildRetiredCandidatesSection(retired));
+          }
         }
       } else {
         const gData = this.state.groups.get(this.state.selected.group);
         if (!gData) { content.textContent='לא נמצאה קבוצה'; return; }
         if (!this.state.selected.evaluator) {
           content.innerHTML = `<h3>קבוצה ${this.state.selected.group} - ממוצעי כל המעריכים</h3>`;
-          content.appendChild(this.buildCandidatesTable(this.aggregateGroup(gData)));
+          const groupCandidates = this.aggregateGroup(gData);
+          const { active, retired } = this.separateActiveAndRetired(groupCandidates);
+          content.appendChild(this.buildCandidatesTable(active));
+          if (retired.length > 0) {
+            content.appendChild(this.buildRetiredCandidatesSection(retired));
+          }
         } else {
           const evalData = gData.evaluators.get(this.state.selected.evaluator);
-            content.innerHTML = `<h3>קבוצה ${this.state.selected.group} - מעריך: ${this.state.selected.evaluator}</h3>`;
-            if (evalData) {
-              const list = (evalData.runners||[]).map(r=>{
-                const sprintAvg = r.finalScores?.sprint ?? null;
-                const crawlingAvg = r.finalScores?.crawling ?? null;
-                const stretcherAvg = r.finalScores?.stretcher ?? null;
-                const parts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
-                const overallAvg= parts.length? +(parts.reduce((a,b)=>a+b,0)/parts.length).toFixed(2):null;
-                return { group: evalData.groupNumber, shoulder: r.shoulderNumber, sprintAvg, crawlingAvg, stretcherAvg, overallAvg, evalCount: 1, hasComments: this._hasComments(evalData.groupNumber, r.shoulderNumber) };
-              }).sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || a.shoulder - b.shoulder);
-              content.appendChild(this.buildCandidatesTable(list));
-            } else {
-              content.appendChild(document.createTextNode('לא נמצאו נתונים למעריך')); }
-        }
-      }
-    }
-
-    countEvaluators() {
-      let count=0; this.state.groups.forEach(g=> count += g.evaluators.size); return count;
-    }
-
-    refreshCurrent() {
-      if(!this.lastQuery) return this.renderDatePicker();
-      this._refreshFetch();
-    }
-
-    _groupNumbers(){ return Array.from(this.state.groups.keys()).sort((a,b)=>parseInt(a)-parseInt(b)); }
-    _allEvaluatorNames(){ const set = new Set(); this.state.groups.forEach(g=> g.evaluators.forEach((_,name)=> set.add(name))); return Array.from(set).sort(); }
-    _evaluatorNamesByGroup(g){ const gd=this.state.groups.get(g); if(!gd) return []; return Array.from(gd.evaluators.keys()).sort(); }
-
-    aggregateAllCandidates() {
-      const map = new Map();
-      this.state.groups.forEach((gData, groupNumber) => {
-        gData.evaluators.forEach(evalData => {
-          (evalData.runners||[]).forEach(r => {
-            const key = groupNumber+'-'+r.shoulderNumber;
-            if (!map.has(key)) map.set(key,{ group: groupNumber, shoulder: r.shoulderNumber, sprint: [], crawling: [], stretcher: [] });
-            const entry = map.get(key);
-            if (r.finalScores) {
-              ['sprint','crawling','stretcher'].forEach(k=> { if (typeof r.finalScores[k]==='number') entry[k].push(r.finalScores[k]); });
-            }
-          });
-        });
-      });
-      return Array.from(map.values()).map(c=> {
-        const sprintAvg = this.avg(c.sprint);
-        const crawlingAvg = this.avg(c.crawling);
-        const stretcherAvg = this.avg(c.stretcher);
-        const parts = [sprintAvg, crawlingAvg, stretcherAvg].filter(v=> typeof v==='number');
-        const overallAvg = parts.length? +(parts.reduce((a,b)=>a+b,0)/parts.length).toFixed(2) : null;
-        return {
-          group: c.group,
-          shoulder: c.shoulder,
-            sprintAvg,
-            crawlingAvg,
-            stretcherAvg,
-            overallAvg,
-            evalCount: Math.max(c.sprint.length, c.crawling.length, c.stretcher.length),
-            hasComments: this._hasComments(c.group, c.shoulder)
-        };
-      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder-b.shoulder);
-    }
-
-    aggregateEvaluatorAcrossAll(name){
-      const rows=[];
-      this.state.groups.forEach((gData, groupNumber)=>{
-        gData.evaluators.forEach((evData, evName)=>{
-          if (evName===name){
-            (evData.runners||[]).forEach(r=>{
+          content.innerHTML = `<h3>קבוצה ${this.state.selected.group} - מעריך: ${this.state.selected.evaluator}</h3>`;
+          if (evalData) {
+            const list = (evalData.runners||[]).map(r=>{
               const sprintAvg = r.finalScores?.sprint ?? null;
               const crawlingAvg = r.finalScores?.crawling ?? null;
               const stretcherAvg = r.finalScores?.stretcher ?? null;
               const parts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
               const overallAvg= parts.length? +(parts.reduce((a,b)=>a+b,0)/parts.length).toFixed(2):null;
-              rows.push({ group: groupNumber, shoulder: r.shoulderNumber, sprintAvg, crawlingAvg, stretcherAvg, overallAvg, evalCount:1, hasComments: this._hasComments(groupNumber, r.shoulderNumber) });
-            });
+              return { 
+                group: evalData.groupNumber, 
+                shoulder: r.shoulderNumber, 
+                sprintAvg, 
+                crawlingAvg, 
+                stretcherAvg, 
+                overallAvg, 
+                evalCount: 1, 
+                hasComments: this._hasComments(evalData.groupNumber, r.shoulderNumber),
+                status: r.status || 'active'
+              };
+            }).sort((a,b)=> (b.overallAvg ?? -1) - (a.shoulder - b.shoulder));
+            
+            const { active, retired } = this.separateActiveAndRetired(list);
+            content.appendChild(this.buildCandidatesTable(active));
+            if (retired.length > 0) {
+              content.appendChild(this.buildRetiredCandidatesSection(retired));
+            }
+          } else {
+            content.appendChild(document.createTextNode('לא נמצאו נתונים למעריך')); 
           }
-        });
-      });
-      return rows.sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder - b.shoulder);
-    }
-
-    buildCandidatesTable(list, opts={}) {
-      const clickable = opts.clickable !== false; // default true
-      const hasOverall = list.some(r=> typeof r.overallAvg === 'number' || r.overallAvg === null);
-      const table = document.createElement('div');
-      table.className='agg-table-wrapper';
-      table.innerHTML = `
-        <div class="agg-table-scroll">
-          <table class="agg-table">
-            <thead>
-              <tr>
-                <th class="sticky-col">קבוצה</th>
-                <th>מספר</th>
-                <th title="ממוצע ציון ספרינט">ספרינט</th>
-                <th title="ממוצע ציון זחילה">זחילה</th>
-                <th title="ממוצע ציון אלונקה">אלונקה</th>
-                ${hasOverall?'<th title="ממוצע כולל (3 פרמטרים)">כולל</th>':''}
-                <th title="מספר מעריכים תורמים"># מעריכים</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${list.map(r=>`
-                <tr ${clickable?`class=\"agg-row\" data-group=\"${r.group}\" data-shoulder=\"${r.shoulder}\" tabindex=\"0\" aria-label=\"מועמד ${r.shoulder} בקבוצה ${r.group}\"`:''}>
-                  <td class="sticky-col">${r.group}</td>
-                  <td><span class="sn">${r.shoulder}</span>${r.hasComments?'<span class="comment-indicator" title="יש הערות" aria-label="יש הערות"></span>':''}</td>
-                  <td class="score sprint">${r.sprintAvg ?? ''}</td>
-                  <td class="score crawl">${r.crawlingAvg ?? ''}</td>
-                  <td class="score stretcher">${r.stretcherAvg ?? ''}</td>
-                  ${hasOverall?`<td class="score overall">${r.overallAvg ?? ''}</td>`:''}
-                  <td>${r.evalCount}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`;
-      if (clickable) {
-        table.querySelectorAll('.agg-row').forEach(row => {
-          row.addEventListener('click', ()=> this._openCandidateDetails(row.dataset.group, row.dataset.shoulder));
-          row.addEventListener('keydown', (e)=> { if(e.key==='Enter'||e.key===' ') { e.preventDefault(); this._openCandidateDetails(row.dataset.group, row.dataset.shoulder); }});
-        });
+        }
       }
-      return table;
     }
 
-    avg(arr){ if(!arr.length) return null; const v=(arr.reduce((a,b)=>a+b,0)/arr.length); return +v.toFixed(2); }
+    separateActiveAndRetired(candidates) {
+      const active = [];
+      const retired = [];
+      
+      candidates.forEach(candidate => {
+        // בדיקה אם המועמד פרש - נחפש בנתונים המקוריים
+        const isRetired = this.isRunnerRetired(candidate.group, candidate.shoulder);
+        
+        if (isRetired) {
+          retired.push(candidate);
+        } else {
+          active.push(candidate);
+        }
+      });
+      
+      return { active, retired };
+    }
+
+    isRunnerRetired(group, shoulder) {
+      const gData = this.state.groups.get(group);
+      if (!gData) return false;
+      
+      // בדיקה אם יש סטטוס פרישה בכל אחד מהמעריכים
+      for (const evalData of gData.evaluators.values()) {
+        if (evalData.crawlingDrills?.runnerStatuses?.[shoulder] === 'retired') {
+          return true;
+        }
+        // בדיקה בנתוני הרץ עצמו
+        const runner = (evalData.runners || []).find(r => String(r.shoulderNumber) === String(shoulder));
+        if (runner && runner.status === 'retired') {
+          return true;
+        }
+      }
+      
+      return false;
+    }
+
+    buildRetiredCandidatesSection(retiredCandidates) {
+      const section = document.createElement('div');
+      section.className = 'retired-candidates-section';
+      
+      section.innerHTML = `
+        <h4 class="retired-title">מתמודדים לא פעילים</h4>
+        <div class="retired-bubbles">
+          ${retiredCandidates.map(r => `
+            <button class="retired-bubble" data-group="${r.group}" data-shoulder="${r.shoulder}" title="מועמד ${r.shoulder} - קבוצה ${r.group}">
+              ${r.shoulder}
+            </button>
+          `).join('')}
+        </div>
+      `;
+      
+      // הוספת פונקציונליות לחיצה על בועיות
+      section.querySelectorAll('.retired-bubble').forEach(bubble => {
+        bubble.addEventListener('click', () => this._openCandidateDetails(bubble.dataset.group, bubble.dataset.shoulder));
+      });
+      
+      return section;
+    }
 
     renderGroupLanding(groupNumber) {
       const gData = this.state.groups.get(groupNumber);
@@ -355,9 +338,9 @@
       });
 
       if (!this.state.selected.evaluator) {
-        this.renderGroupSummary(content, gData, groupNumber);
+        this.renderGroupSummary(container, gData, groupNumber);
       } else {
-        this.renderEvaluatorView(content, gData.evaluators.get(this.state.selected.evaluator));
+        this.renderEvaluatorView(container, gData.evaluators.get(this.state.selected.evaluator));
       }
     }
 
@@ -384,7 +367,7 @@
         const pts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
         const overallAvg = pts.length? +(pts.reduce((a,b)=>a+b,0)/pts.length).toFixed(2):null;
         return { group: c.group, shoulder: c.shoulder, sprintAvg, crawlingAvg, stretcherAvg, overallAvg, evalCount: Math.max(c.sprint.length,c.crawling.length,c.stretcher.length), hasComments: this._hasComments(c.group, c.shoulder) };
-      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || a.shoulder - b.shoulder);
+      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.shoulder - b.shoulder));
     }
 
     renderEvaluatorView(container, evalData) {
@@ -406,7 +389,7 @@
           evalCount: 1,
           hasComments: this._hasComments(evalData.groupNumber, r.shoulderNumber)
         });
-      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || a.shoulder - b.shoulder);
+      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.shoulder - b.shoulder));
       block.appendChild(this.buildCandidatesTable(simpleList));
       container.appendChild(block);
     }
@@ -579,11 +562,63 @@
       return false;
     }
 
+    buildCandidatesTable(list, opts={}) {
+      const clickable = opts.clickable !== false; // default true
+      const hasOverall = list.some(r=> typeof r.overallAvg === 'number' || r.overallAvg === null);
+      
+      // מיון לפי ציון כללי ומיספור מיקומים
+      const sortedList = [...list].sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder-b.shoulder);
+      const listWithPositions = sortedList.map((item, index) => ({
+        ...item,
+        position: index + 1
+      }));
+
+      const table = document.createElement('div');
+      table.className='agg-table-wrapper';
+      table.innerHTML = `
+        <div class="agg-table-scroll">
+          <table class="agg-table">
+            <thead>
+              <tr>
+                <th title="מיקום כללי">מיקום</th>
+                <th>קבוצה</th>
+                <th>מספר</th>
+                <th title="ממוצע ציון ספרינט">ספרינט</th>
+                <th title="ממוצע ציון זחילה">זחילה</th>
+                <th title="ממוצע ציון אלונקה">אלונקה</th>
+                ${hasOverall?'<th title="ממוצע כולל (3 פרמטרים)">כולל</th>':''}
+                <th title="מספר מעריכים תורמים"># מעריכים</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${listWithPositions.map(r=>`
+                <tr ${clickable?`class=\"agg-row\" data-group=\"${r.group}\" data-shoulder=\"${r.shoulder}\" tabindex=\"0\" aria-label=\"מועמד ${r.shoulder} בקבוצה ${r.group}\"`:''}>
+                  <td class="position-cell ${r.position <= 3 ? `position-${r.position}` : ''}">${r.position}</td>
+                  <td>${r.group}</td>
+                  <td><span class="sn">${r.shoulder}</span>${r.hasComments?'<span class="comment-indicator" title="יש הערות" aria-label="יש הערות"></span>':''}</td>
+                  <td class="score sprint">${r.sprintAvg ?? ''}</td>
+                  <td class="score crawl">${r.crawlingAvg ?? ''}</td>
+                  <td class="score stretcher">${r.stretcherAvg ?? ''}</td>
+                  ${hasOverall?`<td class="score overall">${r.overallAvg ?? ''}</td>`:''}
+                  <td>${r.evalCount}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      if (clickable) {
+        table.querySelectorAll('.agg-row').forEach(row => {
+          row.addEventListener('click', ()=> this._openCandidateDetails(row.dataset.group, row.dataset.shoulder));
+          row.addEventListener('keydown', (e)=> { if(e.key==='Enter'||e.key===' ') { e.preventDefault(); this._openCandidateDetails(row.dataset.group, row.dataset.shoulder); }});
+        });
+      }
+      return table;
+    }
+
     _injectStyles(){
       if (document.getElementById('aggDashboardStyles')) return;
       const css = `
       .aggregated-dashboard{display:flex;flex-direction:column;gap:1rem;font-family:system-ui,'Segoe UI',Arial,sans-serif;}
-      .agg-header{background:var(--agg-head-bg,#ffffffcc);backdrop-filter:blur(6px);border:1px solid #e2e8f0;border-radius:1rem;padding:0.75rem 1rem;position:sticky;top:0;z-index:30;}
+      .agg-header{background:var(--agg-head-bg,#ffffffcc);backdrop-filter:blur(6px);border:1px solid #e2e8f0;border-radius:1rem;padding:0.75rem 1rem;}
       .dark .agg-header{background:#1e293bcc;border-color:#334155;}
       .agg-header-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;}
       .agg-title{margin:0;font-size:1.25rem;font-weight:700;color:#1d4ed8;}
@@ -637,8 +672,27 @@
       .agg-table .score.stretcher{color:#6366f1;}
       .agg-table .score.overall{color:#0d9488;font-weight:700;}
       .dark .agg-table .score.overall{color:#34d399;}
-      .agg-table .sticky-col{position:sticky;right:0;background:#fff;z-index:1;}
-      .dark .agg-table .sticky-col{background:#0f172a;}
+      
+      /* Position column styles */
+      .position-cell{font-weight:700;font-size:.75rem;}
+      .position-1{background:linear-gradient(135deg,#ffd700,#ffed4e);color:#92400e;box-shadow:0 0 8px rgba(255,215,0,.4);}
+      .position-2{background:linear-gradient(135deg,#c0c0c0,#e5e7eb);color:#374151;box-shadow:0 0 6px rgba(192,192,192,.3);}
+      .position-3{background:linear-gradient(135deg,#cd7f32,#f59e0b);color:#78350f;box-shadow:0 0 6px rgba(205,127,50,.3);}
+      .dark .position-1{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#451a03;}
+      .dark .position-2{background:linear-gradient(135deg,#9ca3af,#6b7280);color:#111827;}
+      .dark .position-3{background:linear-gradient(135deg,#d97706,#b45309);color:#1c1917;}
+      
+      /* Retired candidates section */
+      .retired-candidates-section{margin-top:2rem;border:1px solid #fecaca;border-radius:1rem;background:#fef2f2;overflow:hidden;padding:1rem;}
+      .dark .retired-candidates-section{border-color:#7f1d1d;background:#1f1917;}
+      .retired-title{margin:0;font-size:.9rem;font-weight:700;color:#991b1b;display:flex;align-items:center;gap:.5rem;}
+      .dark .retired-title{color:#fca5a5;}
+      .retired-title::before{content:'⚠️';font-size:1rem;}
+      .retired-bubbles{display:flex;flex-wrap:wrap;gap:.5rem;}
+      .retired-bubble{background:#ef4444;color:#fff;border:none;border-radius:50%;padding:.5rem .75rem;font-size:.8rem;font-weight:700;cursor:pointer;transition:.2s;}
+      .retired-bubble:hover{background:#dc2626;}
+      .dark .retired-bubble{background:#7f1d1d;}
+      .dark .retired-bubble:hover{background:#991b1b;}
       /* New comment indicator (replaces emoji square issue) */
       .comment-indicator{display:inline-block;vertical-align:middle;margin-inline-start:.35rem;width:.65rem;height:.65rem;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 1px #fff,0 0 0 2px #fbbf24aa;position:relative;}
       .dark .comment-indicator{box-shadow:0 0 0 1px #0f172a,0 0 0 2px #b45309aa;}
@@ -741,6 +795,127 @@
       style.id='aggDashboardStyles';
       style.textContent = css;
       document.head.appendChild(style);
+    }
+
+    countEvaluators() {
+      let count=0; 
+      this.state.groups.forEach(g=> count += g.evaluators.size); 
+      return count;
+    }
+
+    refreshCurrent() {
+      if(!this.lastQuery) return this.renderDatePicker();
+      this._refreshFetch();
+    }
+
+    avg(arr){ 
+      if(!arr.length) return null; 
+      const v=(arr.reduce((a,b)=>a+b,0)/arr.length); 
+      return +v.toFixed(2); 
+    }
+
+    _groupNumbers(){ 
+      return Array.from(this.state.groups.keys()).sort((a,b)=>parseInt(a)-parseInt(b)); 
+    }
+    
+    _allEvaluatorNames(){ 
+      const set = new Set(); 
+      this.state.groups.forEach(g=> g.evaluators.forEach((_,name)=> set.add(name))); 
+      return Array.from(set).sort(); 
+    }
+    
+    _evaluatorNamesByGroup(g){ 
+      const gd=this.state.groups.get(g); 
+      if(!gd) return []; 
+      return Array.from(gd.evaluators.keys()).sort(); 
+    }
+
+    aggregateAllCandidates() {
+      const map = new Map();
+      this.state.groups.forEach((gData, groupNumber) => {
+        gData.evaluators.forEach(evalData => {
+          (evalData.runners||[]).forEach(r => {
+            const key = groupNumber+'-'+r.shoulderNumber;
+            if (!map.has(key)) map.set(key,{ group: groupNumber, shoulder: r.shoulderNumber, sprint: [], crawling: [], stretcher: [] });
+            const entry = map.get(key);
+            if (r.finalScores) {
+              ['sprint','crawling','stretcher'].forEach(k=> { if (typeof r.finalScores[k]==='number') entry[k].push(r.finalScores[k]); });
+            }
+          });
+        });
+      });
+      return Array.from(map.values()).map(c=> {
+        const sprintAvg = this.avg(c.sprint);
+        const crawlingAvg = this.avg(c.crawling);
+        const stretcherAvg = this.avg(c.stretcher);
+        const parts = [sprintAvg, crawlingAvg, stretcherAvg].filter(v=> typeof v==='number');
+        const overallAvg = parts.length? +(parts.reduce((a,b)=>a+b,0)/parts.length).toFixed(2) : null;
+        return {
+          group: c.group,
+          shoulder: c.shoulder,
+          sprintAvg,
+          crawlingAvg,
+          stretcherAvg,
+          overallAvg,
+          evalCount: Math.max(c.sprint.length, c.crawling.length, c.stretcher.length),
+          hasComments: this._hasComments(c.group, c.shoulder)
+        };
+      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder-b.shoulder);
+    }
+
+    aggregateEvaluatorAcrossAll(name){
+      const rows=[];
+      this.state.groups.forEach((gData, groupNumber)=>{
+        gData.evaluators.forEach((evData, evName)=>{
+          if (evName===name){
+            (evData.runners||[]).forEach(r=>{
+              const sprintAvg = r.finalScores?.sprint ?? null;
+              const crawlingAvg = r.finalScores?.crawling ?? null;
+              const stretcherAvg = r.finalScores?.stretcher ?? null;
+              const parts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
+              const overallAvg= parts.length? +(parts.reduce((a,b)=>a+b,0)/parts.length).toFixed(2):null;
+              rows.push({ 
+                group: groupNumber, 
+                shoulder: r.shoulderNumber, 
+                sprintAvg, 
+                crawlingAvg, 
+                stretcherAvg, 
+                overallAvg, 
+                evalCount:1, 
+                hasComments: this._hasComments(groupNumber, r.shoulderNumber) 
+              });
+            });
+          }
+        });
+      });
+      return rows.sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder - b.shoulder);
+    }
+
+    aggregateGroup(gData) {
+      const map = new Map();
+      gData.evaluators.forEach(evalData => {
+        (evalData.runners||[]).forEach(r => {
+          const key = r.shoulderNumber;
+          if (!map.has(key)) map.set(key,{ group: evalData.groupNumber, shoulder: r.shoulderNumber, sprint: [], crawling: [], stretcher: [] });
+          const entry = map.get(key);
+          if (r.finalScores) ['sprint','crawling','stretcher'].forEach(k=> { if (typeof r.finalScores[k]==='number') entry[k].push(r.finalScores[k]); });
+        });
+      });
+      return Array.from(map.values()).map(c=> {
+        const sprintAvg=this.avg(c.sprint), crawlingAvg=this.avg(c.crawling), stretcherAvg=this.avg(c.stretcher);
+        const pts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
+        const overallAvg = pts.length? +(pts.reduce((a,b)=>a+b,0)/pts.length).toFixed(2):null;
+        return { 
+          group: c.group, 
+          shoulder: c.shoulder, 
+          sprintAvg, 
+          crawlingAvg, 
+          stretcherAvg, 
+          overallAvg, 
+          evalCount: Math.max(c.sprint.length,c.crawling.length,c.stretcher.length), 
+          hasComments: this._hasComments(c.group, c.shoulder) 
+        };
+      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.shoulder - b.shoulder));
     }
   }
 

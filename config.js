@@ -18,7 +18,11 @@ var CONFIG = {
         'gibush.hatam@gmail.com',
         'orenbassm@gmail.com',
         'ronmalk@gmail.com'
-    ]
+    ],
+    // === הגדרות שליחה אוטומטית של גיבוי ===
+    AUTO_BACKUP_UPLOAD_ENABLED: true,               // האם להפעיל שליחה אוטומטית
+    AUTO_BACKUP_UPLOAD_INTERVAL_MS: 30000,          // מרווח בין שליחות (ברירת מחדל 30 שניות)
+    AUTO_BACKUP_UPLOAD_MAX_DURATION_MS: 5 * 60 * 60 * 1000  // זמן מקסימלי לשליחה אוטומטית (5 שעות)
 };
 
 // סיסמת מנהל

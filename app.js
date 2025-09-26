@@ -56,7 +56,17 @@ const state = {
 
     manualScores: {},
 
-    isEditingScores: false // מצב עריכה
+    isEditingScores: false, // מצב עריכה
+
+    // === שליחה אוטומטית של גיבוי ===
+    autoBackupUpload: {
+        isActive: false,           // האם השליחה האוטומטית פעילה
+        intervalId: null,          // מזהה ה-interval
+        startTime: null,           // זמן התחלת השליחה האוטומטית
+        lastUploadTime: null,      // זמן השליחה האחרונה
+        uploadCount: 0,            // מספר השליחות שבוצעו
+        hasBeenManuallyStopped: false  // האם הופסקה ידנית (לחיצה על "שלח קובץ למנהל")
+    }
 
 };
 
@@ -317,6 +327,13 @@ function loadState() {
                 console.log('🛡️ שחזור מספר קבוצה לאחר initializeAllData:', preservedGroup);
             }
 
+        }
+
+        // NEW: המשך שליחה אוטומטית אחרי רענון עמוד
+        if (window.autoBackupManager) {
+            setTimeout(() => {
+                window.autoBackupManager.resume();
+            }, 1000); // המתנה קצרה כדי לוודא שכל המערכות נטענו
         }
 
     } catch (e) {
@@ -791,6 +808,12 @@ function validateAndStartHeats() {
             // סימון שהתחילו מקצים - זה ינעל עריכות
             state.competitionStarted = true;
             state.currentPage = PAGES.HEATS;
+            
+            // NEW: התחלת שליחה אוטומטית של גיבוי
+            if (window.autoBackupManager) {
+                window.autoBackupManager.start();
+            }
+            
             saveState();
             renderPage();
         }
@@ -1655,6 +1678,11 @@ function onAvatarClick() {
     // תפריט קטן / אישור יציאה
     showModal('יציאה מהמערכת', 'האם לצאת ולמחוק את כל נתוני הגיבוש?', () => {
         try {
+            // NEW: עצירת שליחה אוטומטית לפני יציאה
+            if (window.autoBackupManager) {
+                window.autoBackupManager.stop('יציאה מהמערכת');
+            }
+            
             // ניקוי כל המפתחות הרלוונטיים
             localStorage.removeItem('gibushAuthState');
             localStorage.removeItem('gibushAppState');
@@ -1793,8 +1821,14 @@ function renderPage() {
         if (noRunners && page !== PAGES.RUNNERS && page !== PAGES.AGGREGATED_DASHBOARD) {
             shouldDisable = true;
         }
+        // NEW: חסימה רק אם לא התחילו מקצים, אבל עם חריג לדשבורד למנהלים מורשים
         if (!state.competitionStarted && page !== PAGES.RUNNERS && page !== PAGES.AGGREGATED_DASHBOARD) {
-            shouldDisable = true;
+            // אם זה דשבורד ומשתמש מורשה - לא לחסום
+            if (page === PAGES.AGGREGATED_DASHBOARD && isUserAuthorizedForDashboard()) {
+                shouldDisable = false;
+            } else {
+                shouldDisable = true;
+            }
         }
         tab.classList.toggle('is-disabled', shouldDisable);
         tab.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
@@ -2099,6 +2133,17 @@ function exitRunnerEditMode() {
 
  */
 
+// NEW: פונקציה לבדיקת הרשאת משתמש לדשבורד
+function isUserAuthorizedForDashboard() {
+    try {
+        const email = state?.authState?.googleUserInfo?.email?.toLowerCase?.();
+        const allowedList = (CONFIG.DASHBOARD_ALLOWED_EMAILS || []).map(e => e.toLowerCase());
+        return email && allowedList.includes(email);
+    } catch (e) {
+        return false;
+    }
+}
+
 async function init() {
     try { if ('wakeLock' in navigator) { /* no-op */ }} catch { /* Handle error if needed */ }
 
@@ -2115,10 +2160,15 @@ async function init() {
 
             const nextPage = tab.dataset.page;
             
-            // NEW: חסימת ניווט לפני התחלת מקצים
+            // NEW: חסימת ניווט לפני התחלת מקצים - עם חריג לדשבורד למנהלים מורשים
             if (!state.competitionStarted && nextPage !== PAGES.RUNNERS) {
-                showModal('התחלת מקצים נדרשת', 'לא ניתן לעבור לעמודים אחרים לפני התחלת המקצים. לחץ על "התחל מקצים" בעמוד ניהול הקבוצה.');
-                return;
+                // אם זה דשבורד ומשתמש מורשה - אפשר מעבר
+                if (nextPage === PAGES.AGGREGATED_DASHBOARD && isUserAuthorizedForDashboard()) {
+                    // עבור ישירות לדשבורד ללא חסימה
+                } else {
+                    showModal('התחלת מקצים נדרשת', 'לא ניתן לעבור לעמודים אחרים לפני התחלת המקצים. לחץ על "התחל מקצים" בעמוד ניהול הקבוצה.');
+                    return;
+                }
             }
             
             // NEW: בדיקה אם יש מקצה פעיל שלא הסתיים
@@ -2262,3 +2312,161 @@ function generateRandomRunners(count) {
         console.warn('generateRandomRunners failed', e);
     }
 }
+
+// === מנגנון שליחה אוטומטית של גיבוי ===
+let autoBackupManager = {
+    // פונקציה לשליחת גיבוי אוטומטי
+    async performAutoUpload() {
+        try {
+            console.log('🤖 מבצע שליחה אוטומטית של גיבוי...');
+            
+            // FIXED: שימוש באותה פונקציה כמו הכפתור הידני
+            if (typeof window.CompactBackup?.uploadCompactBackup === 'function') {
+                const result = await window.CompactBackup.uploadCompactBackup();
+                
+                if (result.status === 'success') {
+                    state.autoBackupUpload.lastUploadTime = Date.now();
+                    state.autoBackupUpload.uploadCount++;
+                    console.log('✅ שליחה אוטומטית הצליחה');
+                } else {
+                    console.warn('⚠️ שליחה אוטומטית נכשלה:', result.message);
+                }
+            } else {
+                console.warn('⚠️ מערכת גיבוי קומפקטי לא זמינה');
+            }
+        } catch (error) {
+            console.error('❌ שגיאה בשליחה אוטומטית:', error);
+        }
+    },
+
+    // התחלת שליחה אוטומטית
+    start() {
+        if (!CONFIG.AUTO_BACKUP_UPLOAD_ENABLED) {
+            console.log('🚫 שליחה אוטומטית מושבתת בקונפיגורציה');
+            return;
+        }
+
+        // NEW: חסימת שליחה אוטומטית במצב אורח
+        if (this.isGuestUser()) {
+            console.log('🚫 שליחה אוטומטית לא פעילה במצב אורח');
+            return;
+        }
+
+        if (state.autoBackupUpload.isActive) {
+            console.log('⚠️ שליחה אוטומטית כבר פעילה');
+            return;
+        }
+
+        console.log('🚀 מתחיל שליחה אוטומטית של גיבוי...');
+        
+        state.autoBackupUpload.isActive = true;
+        state.autoBackupUpload.startTime = Date.now();
+        state.autoBackupUpload.hasBeenManuallyStopped = false;
+        state.autoBackupUpload.uploadCount = 0;
+
+        // ביצוע שליחה ראשונה מיד
+        this.performAutoUpload();
+
+        // קביעת interval לשליחות נוספות
+        state.autoBackupUpload.intervalId = setInterval(() => {
+            if (!state.autoBackupUpload.isActive || state.autoBackupUpload.hasBeenManuallyStopped) {
+                this.stop();
+                return;
+            }
+
+            // בדיקת זמן מקסימלי
+            const elapsed = Date.now() - state.autoBackupUpload.startTime;
+            if (elapsed >= CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS) {
+                console.log('⏰ השליחה האוטומטית הגיעה לזמן המקסימלי (5 שעות)');
+                this.stop();
+                
+                // הצגת התראה למשתמש
+                if (typeof showModal === 'function') {
+                    showModal(
+                        'השליחה האוטומטית הופסקה',
+                        'השליחה האוטומטית של קבצי הגיבוי הופסקה לאחר 5 שעות. ניתן להמשיך ידנית באמצעות כפתור "שלח קובץ למנהל".',
+                        null
+                    );
+                }
+                return;
+            }
+
+            this.performAutoUpload();
+        }, CONFIG.AUTO_BACKUP_UPLOAD_INTERVAL_MS);
+
+        saveState();
+    },
+
+    // NEW: פונקציה לבדיקת משתמש אורח
+    isGuestUser() {
+        try {
+            const saved = localStorage.getItem('gibushAuthState');
+            if (!saved) return true;
+            const session = JSON.parse(saved);
+            return session?.authState?.authMethod === 'guest';
+        } catch (e) {
+            return true; // במקרה של שגיאה נחשיב כאורח
+        }
+    },
+
+    // עצירת שליחה אוטומטית
+    stop(reason = 'לא צוין') {
+        if (!state.autoBackupUpload.isActive) {
+            return;
+        }
+
+        console.log('🛑 עוצר שליחה אוטומטית:', reason);
+        
+        if (state.autoBackupUpload.intervalId) {
+            clearInterval(state.autoBackupUpload.intervalId);
+            state.autoBackupUpload.intervalId = null;
+        }
+
+        state.autoBackupUpload.isActive = false;
+        saveState();
+    },
+
+    // סימון שהשליחה הופסקה ידנית
+    markManuallyStopped() {
+        state.autoBackupUpload.hasBeenManuallyStopped = true;
+        this.stop('שליחה ידנית');
+    },
+
+    // המשך שליחה אוטומטית אחרי רענון עמוד
+    resume() {
+        if (!CONFIG.AUTO_BACKUP_UPLOAD_ENABLED) return;
+        
+        // NEW: חסימת שליחה אוטומטית במצב אורח
+        if (this.isGuestUser()) {
+            console.log('🚫 שליחה אוטומטית לא פעילה במצב אורח');
+            return;
+        }
+        
+        // בדיקה אם התחרות התחילה והשליחה לא הופסקה ידנית
+        if (state.competitionStarted && 
+            !state.autoBackupUpload.hasBeenManuallyStopped &&
+            state.autoBackupUpload.startTime) {
+            
+            const elapsed = Date.now() - state.autoBackupUpload.startTime;
+            
+            // אם עדיין בטווח הזמן המותר
+            if (elapsed < CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS) {
+                console.log('🔄 ממשיך שליחה אוטומטית אחרי רענון עמוד');
+                
+                // FIXED: אפסי את isActive כדי לאפשר התחלה מחדש
+                state.autoBackupUpload.isActive = false;
+                state.autoBackupUpload.intervalId = null;
+                
+                this.start();
+            } else {
+                console.log('⏰ שליחה אוטומטית פגה (מעל 5 שעות)');
+                state.autoBackupUpload.hasBeenManuallyStopped = true;
+                state.autoBackupUpload.isActive = false;
+                state.autoBackupUpload.intervalId = null;
+                saveState();
+            }
+        }
+    }
+};
+
+window.autoBackupManager = autoBackupManager;

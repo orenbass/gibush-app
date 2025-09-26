@@ -325,19 +325,35 @@
       }
       sessionStorage.setItem('reportDriveApproved','1');
     }
+    
     const original = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'מכין קובץ...';
+    btn.textContent = 'מכין קבצים...';
+    
     try {
+      // NEW: עצירת שליחה אוטומטית מכיוון שעכשיו שולחים ידנית
+      if (window.autoBackupManager) {
+        window.autoBackupManager.markManuallyStopped();
+      }
+      
+      // שליחת דוח אקסל
       if (typeof window.GibushAppExporter?.exportReport === 'function') {
+        btn.textContent = 'שולח דוח...';
         await window.GibushAppExporter.exportReport('drive');
+        
+        // NEW: שליחת קובץ גיבוי נוסף
+        btn.textContent = 'שולח גיבוי...';
+        await sendBackupFile();
+        
         btn.textContent = 'נשלח בהצלחה ✔';
+        showNotification('✅ דוח וגיבוי נשלחו בהצלחה!', 'success');
       } else {
         throw new Error('מערכת הייצוא לא זמינה');
       }
     } catch (e) {
       console.error(e);
       btn.textContent = 'שגיאה - שמירה מקומית';
+      showNotification('❌ שגיאה בשליחה: ' + e.message, 'error');
       try {
         if (typeof window.GibushAppExporter?.exportReport === 'function') {
           await window.GibushAppExporter.exportReport('download');
@@ -347,6 +363,41 @@
       }
     } finally {
       setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1800);
+    }
+  }
+
+  // NEW: פונקציה לשליחת קובץ גיבוי
+  async function sendBackupFile() {
+    try {
+      if (typeof window.CompactBackup?.createBackup === 'function') {
+        const backupData = window.CompactBackup.createBackup();
+        const backupBlob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        
+        const date = new Date().toLocaleDateString('he-IL').replace(/\./g, '-');
+        const time = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, '-');
+        const fileName = `GibushBackup_Manual_${state.groupNumber || 'group'}_${date}_${time}.json`;
+        
+        if (window.GoogleDriveUploader?.upload) {
+          const result = await window.GoogleDriveUploader.upload(backupBlob, fileName, {
+            folder: 'GibushManualBackups',
+            type: 'backup'
+          });
+          
+          if (result.status !== 'success') {
+            console.warn('⚠️ שליחת גיבוי נכשלה:', result.message);
+            throw new Error('שליחת גיבוי נכשלה: ' + result.message);
+          } else {
+            console.log('✅ שליחת גיבוי הצליחה:', fileName);
+          }
+        } else {
+          throw new Error('מערכת העלאה לא זמינה');
+        }
+      } else {
+        throw new Error('מערכת גיבוי קומפקטי לא זמינה');
+      }
+    } catch (error) {
+      console.error('❌ שגיאה בשליחת גיבוי:', error);
+      throw error;
     }
   }
 

@@ -802,6 +802,11 @@ ${hasRunners ? `
         document.getElementById('reset-app-btn')?.addEventListener('click', () => {
             if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
             showModal('איפוס אפליקציה', 'האם אתה בטוח? כל הנתונים יימחקו לצמיתות.', () => {
+                // NEW: עצירת שליחה אוטומטית לפני איפוס האפליקציה
+                if (window.autoBackupManager) {
+                    window.autoBackupManager.stop('איפוס אפליקציה');
+                }
+                
                 localStorage.removeItem(CONFIG.APP_STATE_KEY);
                 state.currentPage = PAGES.RUNNERS;
                 initializeAllData();

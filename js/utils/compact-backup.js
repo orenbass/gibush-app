@@ -182,6 +182,8 @@
     createCompactBackupBlob,
     uploadCompactBackup,
     downloadLocal: downloadCompactBackupLocal,
-    createAndUploadCompactBackup
+    createAndUploadCompactBackup,
+    // NEW: alias for auto backup manager
+    createBackup: buildCompactBackupObject
   };
 })();
