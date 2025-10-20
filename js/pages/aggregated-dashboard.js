@@ -446,13 +446,14 @@
         if (val === null || val === undefined) return;
         if (Array.isArray(val)) { val.forEach(add); return; }
         if (typeof val === 'object') {
-          // Support legacy shapes like {text:"..."}
-            if (typeof val.text === 'string') add(val.text);
-          return; // ignore pure objects without text
+          if (typeof val.text === 'string') add(val.text);
+          return;
         }
         if (typeof val === 'string') {
           const t = val.trim();
-          if (t && t !== '-' && t.toLowerCase() !== 'na') out.push(t);
+          // דילוג על 'לא סיים' גנרי ללא הקשר – נוסיף אותו בהמשך עם פרטי מקצה
+          if (!t || t === '-' || t.toLowerCase() === 'na' || t === 'לא סיים') return;
+          if (!out.includes(t)) out.push(t);
         }
       };
       // Legacy keyed structures
@@ -464,25 +465,66 @@
       if (runner) {
         add(runner.quickComments);
         add(runner.generalComments);
-        (runner.crawlingSprints||[]).forEach(s=> add(s.comment));
-        (runner.sprintHeats||[]).forEach(h=> add(h.comment));
+        // ספרינטים זחילה ברמת הרץ
+        (runner.crawlingSprints||[]).forEach((s,idx)=>{
+          if (!s) return;
+          const comment = (s.comment||'').trim();
+            if (comment === 'לא סיים') {
+              const heatNum = s.heatNumber ?? s.heatIndex ?? s.heat ?? (idx+1);
+              const label = `זחילה מקצה ${heatNum} - לא סיים`;
+              if (!out.includes(label)) out.push(label);
+            } else if (comment) add(comment);
+        });
+        // ספרינטים ריצה ברמת הרץ
+        (runner.sprintHeats||[]).forEach((h,idx)=>{
+          if (!h) return;
+          const comment = (h.comment||'').trim();
+            if (comment === 'לא סיים') {
+              const heatNum = h.heatNumber ?? h.heatIndex ?? h.heat ?? (idx+1);
+              const label = `ספרינט מקצה ${heatNum} - לא סיים`;
+              if (!out.includes(label)) out.push(label);
+            } else if (comment) add(comment);
+        });
       }
+      // NEW: הוספת פריטי DNF עם הקשר מקצה וסוגו לחלון ההערות המאוחד
+      try {
+        // ספרינטים רגילים (מקור evaluator.heats)
+        (evData.heats||[]).forEach((h,hIdx) => {
+          const rec = (h.arrivals||[]).find(a => String(a.shoulderNumber)===sn);
+          if (rec && (!rec.finishTime) && rec.comment === 'לא סיים') {
+            const heatNum = h.heatNumber ?? h.heatIndex ?? h.heat ?? (hIdx+1);
+            const label = `ספרינט מקצה ${heatNum} - לא סיים`;
+            if (!out.includes(label)) out.push(label);
+          }
+        });
+        // ספרינטים זחילה (מקור evaluator.crawlingDrills.sprints)
+        (evData.crawlingDrills?.sprints||[]).forEach((s,sIdx) => {
+          const rec = (s.arrivals||[]).find(a => String(a.shoulderNumber)===sn);
+          if (rec && (!rec.finishTime) && rec.comment === 'לא סיים') {
+            const heatNum = s.heatNumber ?? s.heatIndex ?? s.heat ?? (sIdx+1);
+            const label = `זחילה מקצה ${heatNum} - לא סיים`;
+            if (!out.includes(label)) out.push(label);
+          }
+        });
+      } catch(e){ /* silent */ }
       return out;
     }
 
     _extractHeatTimes(evData, shoulder){
       const heats = evData.heats || evData?.data?.heats || [];
-      return heats.map(h=>{
+      return heats.map((h,i)=>{
         const arr = h.arrivals||[]; const rec = arr.find(a=> String(a.shoulderNumber)===String(shoulder));
-        return { heat: h.heatNumber, time: rec?rec.finishTime:null, comment: rec?rec.comment:null };
+        const heatNum = h.heatNumber ?? h.heatIndex ?? h.heat ?? (i+1);
+        return { heat: heatNum, time: rec?rec.finishTime:null, comment: rec?rec.comment:null };
       }).filter(h=> h.time!==null || h.comment);
     }
 
     _extractCrawling(evData, shoulder){
       const sprints = evData.crawlingDrills?.sprints || [];
-      return sprints.map(s=> {
+      return sprints.map((s,i)=> {
         const arr = s.arrivals||[]; const rec = arr.find(a=> String(a.shoulderNumber)===String(shoulder));
-        return { sprint: s.heatNumber, time: rec?rec.finishTime:null, comment: rec?rec.comment:null };
+        const heatNum = s.heatNumber ?? s.heatIndex ?? s.heat ?? (i+1);
+        return { sprint: heatNum, time: rec?rec.finishTime:null, comment: rec?rec.comment:null };
       }).filter(r=> r.time!==null || r.comment);
     }
 
@@ -905,16 +947,7 @@
         const sprintAvg=this.avg(c.sprint), crawlingAvg=this.avg(c.crawling), stretcherAvg=this.avg(c.stretcher);
         const pts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
         const overallAvg = pts.length? +(pts.reduce((a,b)=>a+b,0)/pts.length).toFixed(2):null;
-        return { 
-          group: c.group, 
-          shoulder: c.shoulder, 
-          sprintAvg, 
-          crawlingAvg, 
-          stretcherAvg, 
-          overallAvg, 
-          evalCount: Math.max(c.sprint.length,c.crawling.length,c.stretcher.length), 
-          hasComments: this._hasComments(c.group, c.shoulder) 
-        };
+        return { group: c.group, shoulder: c.shoulder, sprintAvg, crawlingAvg, stretcherAvg, overallAvg, evalCount: Math.max(c.sprint.length,c.crawling.length,c.stretcher.length), hasComments: this._hasComments(c.group, c.shoulder) };
       }).sort((a,b)=> (b.overallAvg ?? -1) - (a.shoulder - b.shoulder));
     }
   }

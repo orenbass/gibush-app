@@ -63,9 +63,32 @@
 
       // Scores (guard if functions exist)
       let sprintFinal=0, crawlingFinal=0, stretcherFinal=0;
-      try { sprintFinal = (window.calculateSprintFinalScore? window.calculateSprintFinalScore(r):0)||0; } catch(e){}
-      try { crawlingFinal = (window.calculateCrawlingFinalScore? window.calculateCrawlingFinalScore(r):0)||0; } catch(e){}
-      try { stretcherFinal = (window.calculateStretcherFinalScore? window.calculateStretcherFinalScore(r):0)||0; } catch(e){}
+      
+      // NEW: בדיקה אם יש ציונים ידניים - אם כן, להשתמש בהם במקום לחשב מחדש
+      const manualScores = s.manualScores?.[shoulderNumber];
+      
+      if (manualScores) {
+        // שימוש בציונים ידניים אם קיימים
+        sprintFinal = manualScores.sprint ?? 0;
+        crawlingFinal = manualScores.crawl ?? 0;
+        stretcherFinal = manualScores.stretcher ?? 0;
+        
+        // חישוב רק לציונים שלא הוגדרו ידנית
+        if (!manualScores.sprint) {
+          try { sprintFinal = (window.calculateSprintFinalScore? window.calculateSprintFinalScore(r):0)||0; } catch(e){}
+        }
+        if (!manualScores.crawl) {
+          try { crawlingFinal = (window.calculateCrawlingFinalScore? window.calculateCrawlingFinalScore(r):0)||0; } catch(e){}
+        }
+        if (!manualScores.stretcher) {
+          try { stretcherFinal = (window.calculateStretcherFinalScore? window.calculateStretcherFinalScore(r):0)||0; } catch(e){}
+        }
+      } else {
+        // אין ציונים ידניים - חישוב אוטומטי כרגיל
+        try { sprintFinal = (window.calculateSprintFinalScore? window.calculateSprintFinalScore(r):0)||0; } catch(e){}
+        try { crawlingFinal = (window.calculateCrawlingFinalScore? window.calculateCrawlingFinalScore(r):0)||0; } catch(e){}
+        try { stretcherFinal = (window.calculateStretcherFinalScore? window.calculateStretcherFinalScore(r):0)||0; } catch(e){}
+      }
 
       const sackData = sackCarriers[shoulderNumber];
       const sackTotalMs = sackData?.totalTime || 0;

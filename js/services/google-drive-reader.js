@@ -4,7 +4,7 @@
 (function(){
   if (window.GoogleDriveReader) return;
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIwSi6rGnPhHVaaPTsC5GvbVct_LjoHjycJKcrGlFIk_OniKcS7oMJpv2BIe1p1A/exec'; // same as uploader
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxa7PQhm5paLGvvf7bDNjxLHPjMWfXDUso-exppkkzv53-9Hb3waV6Gj2Kepxmizjw/exec'; // same as uploader
 
   async function fetchAggregated({ year, month }) {
     if (!year || !month) throw new Error('חסר שנה או חודש');
@@ -23,5 +23,54 @@
     return json;
   }
 
-  window.GoogleDriveReader = { fetchAggregated };
+  /**
+   * הורדת קובץ הגדרות מערכת מ-Google Drive
+   * @returns {Promise<Object>} - אובייקט הגדרות המערכת
+   */
+  async function fetchSystemSettings() {
+    try {
+      console.log('📥 מוריד קובץ הגדרות מערכת מ-Google Drive...');
+      
+      // השרת מצפה ל-action בשם 'downloadSettingsBackup'
+      const url = `${APPS_SCRIPT_URL}?action=downloadSettingsBackup`;
+      
+      console.log('🌐 שולח בקשה ל:', url);
+      
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        console.warn('⚠️ לא ניתן להוריד הגדרות מהדרייב, משתמש בהגדרות מקומיות');
+        return null;
+      }
+      
+      const txt = await res.text();
+      let json;
+      
+      try { 
+        json = JSON.parse(txt); 
+      } catch(e) { 
+        console.warn('⚠️ JSON של הגדרות לא תקין, משתמש בהגדרות מקומיות');
+        console.error('שגיאת Parse:', e);
+        console.log('תגובה מהשרת:', txt.substring(0, 200));
+        return null;
+      }
+      
+      if (json.error) {
+        console.warn('⚠️ שגיאה בהורדת הגדרות:', json.error);
+        return null;
+      }
+      
+      console.log('✅ קובץ הגדרות הורד בהצלחה מהדרייב');
+      return json;
+      
+    } catch (error) {
+      console.warn('⚠️ שגיאה בהורדת הגדרות:', error.message);
+      return null;
+    }
+  }
+
+  window.GoogleDriveReader = { 
+    fetchAggregated,
+    fetchSystemSettings 
+  };
 })();

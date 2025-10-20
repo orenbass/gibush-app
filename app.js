@@ -35,14 +35,14 @@ const state = {
 
     startTime: 0,            // חותמת זמן של התחלת המקצה/ספרינט הנוכחי
 
-    isTimerRunning: false,       // דגל המציין אם הטיימר הראשי פעיל
+    isTimerRunning: false,       // דגל המציין if הטיימר הראשי פעיל
 
     evaluatorName: '',   // שם המעריך
 
     groupNumber: '',         // מספר הקבוצה
 
     // NEW: מצב נעילת מקצים - מונע עריכת מתמודדים ומעבר בין עמודים
-    competitionStarted: false, // האם לחצו על "התחל מקצים"
+    competitionStarted: false, // הif לחצו על "התחל מקצים"
 
     crawlingDrills: {},      // אובייקט לנתוני תרגילי זחילה (הערות, ספרינטים, נושאי שק)
 
@@ -60,12 +60,12 @@ const state = {
 
     // === שליחה אוטומטית של גיבוי ===
     autoBackupUpload: {
-        isActive: false,           // האם השליחה האוטומטית פעילה
+        isActive: false,           // הif השליחה האוטומטית פעילה
         intervalId: null,          // מזהה ה-interval
         startTime: null,           // זמן התחלת השליחה האוטומטית
         lastUploadTime: null,      // זמן השליחה האחרונה
         uploadCount: 0,            // מספר השליחות שבוצעו
-        hasBeenManuallyStopped: false  // האם הופסקה ידנית (לחיצה על "שלח קובץ למנהל")
+        hasBeenManuallyStopped: false  // הif הופסקה ידנית (לחיצה על "שלח קובץ למנהל")
     }
 
 };
@@ -85,7 +85,7 @@ let tempStateBackup = null; // גיבוי זמני למצב עריכה בדוח
 // Ensure a global page registry exists for external page modules
 window.Pages = window.Pages || {};
 
-// עזר: לוודא שהפניות ל-DOM קיימות (במיוחד אם הסקריפט רץ לפני טעינת ה-DOM)
+// עזר: לוודא שהפניות ל-DOM קיימות (במיוחד if הסקריפט רץ לפני טעינת ה-DOM)
 function ensureDomRefs() {
     if (!contentDiv) contentDiv = document.getElementById('content');
     if (!headerTitle) headerTitle = document.getElementById('header-title');
@@ -221,133 +221,162 @@ function saveState() {
 function loadState() {
     try {
         console.log('🔍 מתחיל טעינת מצב...');
+        const clearedFlag = localStorage.getItem('groupNumberCleared') === '1';
         
-        // בדיקה בכל המקומות האפשריים לפרטי המעריך והקבוצה
+        // **שלב 1: טעינת הגדרות מעודכנות מהדרייב ועדכון CONFIG**
+        try {
+            const downloadedSettings = localStorage.getItem('downloadedSystemSettings');
+            if (downloadedSettings) {
+                const settings = JSON.parse(downloadedSettings);
+                console.log('📦 נמצאו הגדרות שהורדו מהדרייב:', settings);
+                
+                // **עדכון CONFIG מהגדרות דרייב**
+                if (settings.exerciseSettings && window.CONFIG) {
+                    console.log('🔧 מעדכן CONFIG מהדרייב...');
+                    // דריסה מלאה של CONFIG בהגדרות מהדרייב
+                    for (const key in settings.exerciseSettings) {
+                        window.CONFIG[key] = settings.exerciseSettings[key];
+                    }
+                    console.log('✅ CONFIG עודכן:', window.CONFIG);
+                }
+                
+                // **עדכון הגדרות גיבוי**
+                if (settings.backupSettings && window.CONFIG) {
+                    console.log('🔧 מעדכן הגדרות גיבוי מהדרייב...');
+                    if (settings.backupSettings.enabled !== undefined) {
+                        window.CONFIG.AUTO_BACKUP_UPLOAD_ENABLED = settings.backupSettings.enabled;
+                    }
+                    if (settings.backupSettings.intervalMinutes !== undefined) {
+                        window.CONFIG.AUTO_BACKUP_UPLOAD_INTERVAL_MS = settings.backupSettings.intervalMinutes * 60 * 1000;
+                    }
+                    if (settings.backupSettings.stopAfterMinutes !== undefined) {
+                        window.CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS = settings.backupSettings.stopAfterMinutes * 60 * 1000;
+                    }
+                }
+                
+                // **USERS_CONFIG נטען דינמית ואוטומטית, לא צריך לדרוס**
+                console.log('👥 USERS_CONFIG קורא דינמית מהדרייב');
+            } else {
+                console.log('ℹ️ לא נמצאו הגדרות בדרייב, משתמש בברירות מחדל');
+            }
+        } catch (e) {
+            console.warn('⚠️ לא ניתן לטעון הגדרות מהדרייב:', e);
+        }
+        
+        // **שלב 2: טעינת שם המעריך ומספר קבוצה**
         let evaluatorName = '';
         let groupNumber = '';
         
-        // 1. בדיקה במפתח evaluatorDetails הייעודי
+        // 2.1 קודם כל - בדיקה if יש שם מהגדרות (עדיפות עליונה!)
         try {
-            const detailsData = localStorage.getItem('evaluatorDetails');
-            if (detailsData) {
-                const details = JSON.parse(detailsData);
-                console.log('🔍 נמצאו פרטים ב-evaluatorDetails:', details);
-                evaluatorName = details.evaluatorName || '';
-                groupNumber = details.groupNumber || '';
+            const nameFromSettings = localStorage.getItem('evaluatorNameFromSettings');
+            if (nameFromSettings) {
+                evaluatorName = nameFromSettings;
+                console.log('✅ נטען שם מעריך מקובץ הגדרות:', evaluatorName);
             }
-        } catch (e) { console.warn('שגיאה בטעינת evaluatorDetails:', e); }
+        } catch (e) { 
+            console.warn('שגיאה בטעינת evaluatorNameFromSettings:', e); 
+        }
         
-        // 2. בדיקה במצב אימות
+        // 2.2 if לא נמצא שם מהגדרות, נבדוק במצב אימות
         const authSession = localStorage.getItem('gibushAuthState');
         if (authSession) {
             const session = JSON.parse(authSession);
-            console.log('🔍 נמצא מצב אימות:', session);
+            console.log('🔍 נמצא מצב אימות');
             
             if (session.authState && session.authState.isAuthenticated) {
-                if (session.authState.evaluatorName) {
+                // שם מעריך - רק if עדיין אין
+                if (!evaluatorName && session.authState.evaluatorName) {
                     evaluatorName = session.authState.evaluatorName;
-                    console.log('✅ נטען שם מעריך מאימות:', evaluatorName);
+                    console.log('📋 נטען שם מעריך ממצב אימות:', evaluatorName);
                 }
-                if (session.authState.groupNumber) {
+                
+                // לא לשחזר מספר קבוצה if דגל איפוס קיים
+                if (!clearedFlag && session.authState.groupNumber) {
                     groupNumber = session.authState.groupNumber;
-                    console.log('✅ נטען מספר קבוצה מאימות:', groupNumber);
+                    console.log('📋 נטען מספר קבוצה ממצב אימות:', groupNumber);
+                } else if (clearedFlag) {
+                    console.log('🚫 דילוג על שחזור מספר קבוצה (נמחק במפורש)');
                 }
                 
                 if (!state.authState) state.authState = {};
                 state.authState = { ...state.authState, ...session.authState };
             }
-        } else {
-            console.log('⚠️ לא נמצא מצב אימות חדש');
         }
 
-        // עדכון המצב עם הפרטים שנמצאו
+        // עדכון המצב
         if (evaluatorName) {
             state.evaluatorName = evaluatorName;
-            console.log('🎯 עדכון שם מעריך:', state.evaluatorName);
+            console.log('🎯 שם מעריך סופי:', state.evaluatorName);
         }
         if (groupNumber) {
             state.groupNumber = groupNumber;
-            console.log('🎯 עדכון מספר קבוצה:', state.groupNumber);
+            console.log('🎯 מספר קבוצה סופי:', state.groupNumber);
         }
 
+        // **שלב 3: טעינת שאר המצב מ-localStorage**
         const savedData = localStorage.getItem(CONFIG.APP_STATE_KEY);
-        console.log('🔍 בודק נתונים קיימים:', savedData ? 'נמצאו' : 'לא נמצאו');
 
         if (savedData) {
             const fullLoadedState = JSON.parse(savedData);
             
-            // Restore CONFIG if present in saved data
-            if (fullLoadedState.config) {
-                CONFIG = { ...CONFIG, ...fullLoadedState.config };
-            }
+            // לא נעדכן CONFIG כי כבר עדכנו אותו מההגדרות
             
-            // Merge loaded appState into the current state object
+            // טעינת appState
             Object.assign(state, fullLoadedState.appState || fullLoadedState);
 
-            // שמירה על הפרטים החדשים שנמצאו (עדיפות גבוהה)
+            // **שמירה על השם והקבוצה שטענו (עדיפות גבוהה)**
             if (evaluatorName) {
                 state.evaluatorName = evaluatorName;
-                console.log('🔄 כתיבה מחדש של שם מעריך:', state.evaluatorName);
+                console.log('🔄 שמירה על שם מעריך:', state.evaluatorName);
             }
             if (groupNumber) {
                 state.groupNumber = groupNumber;
-                console.log('🔄 כתיבה מחדש של מספר קבוצה:', state.groupNumber);
+                console.log('🔄 שמירה על מספר קבוצה:', state.groupNumber);
             }
 
-            // Re-initialize specific data structures if their lengths don't match CONFIG
-
-            // This handles cases where CONFIG changes or data is corrupted/incomplete
-
+            // אתחול מחדש של מבני נתונים if צריך
             if (!state.heats || state.heats.length !== CONFIG.NUM_HEATS) initializeHeats();
-
             if (!state.crawlingDrills || !state.crawlingDrills.sprints || state.crawlingDrills.sprints.length !== CONFIG.MAX_CRAWLING_SPRINTS) initializeCrawlingDrills();
-
             if (!state.sociometricStretcher || !state.sociometricStretcher.heats || state.sociometricStretcher.heats.length !== CONFIG.NUM_STRETCHER_HEATS) initializeSociometricStretcherHeats();
-
-            // Ensure activeSackCarriers array exists
-
             if (!state.crawlingDrills.activeSackCarriers) state.crawlingDrills.activeSackCarriers = [];
-
-            // V1.1 - Ensure theme exists, default to 'light'
-
             state.theme = state.theme || 'light';
 
         } else {
-
-            // אם אין שמירת מצב קודמת – אל נדרוס פרטים שכבר נטענו מההתחברות
+            // אין נתונים שמורים - אתחול
             const preservedEvaluator = evaluatorName;
             const preservedGroup = groupNumber;
             initializeAllData();
             if (preservedEvaluator) {
                 state.evaluatorName = preservedEvaluator;
-                console.log('🛡️ שחזור שם מעריך לאחר initializeAllData:', preservedEvaluator);
+                console.log('🛡️ שחזור שם מעריך:', preservedEvaluator);
             }
             if (preservedGroup) {
                 state.groupNumber = preservedGroup;
-                console.log('🛡️ שחזור מספר קבוצה לאחר initializeAllData:', preservedGroup);
+                console.log('🛡️ שחזור מספר קבוצה:', preservedGroup);
             }
-
         }
 
-        // NEW: המשך שליחה אוטומטית אחרי רענון עמוד
+        // המשך שליחה אוטומטית
         if (window.autoBackupManager) {
             setTimeout(() => {
                 window.autoBackupManager.resume();
-            }, 1000); // המתנה קצרה כדי לוודא שכל המערכות נטענו
+            }, 1000);
         }
 
+        console.log('📊 מצב סופי:', {
+            evaluatorName: state.evaluatorName,
+            groupNumber: state.groupNumber,
+            CONFIG_NUM_HEATS: CONFIG.NUM_HEATS,
+            CONFIG_MAX_RUNNERS: CONFIG.MAX_RUNNERS,
+            USERS_COUNT: USERS_CONFIG?.users?.length
+        });
+
     } catch (e) {
-
         console.error("Failed to load or parse state. Resetting data.", e);
-
-        // Use custom modal instead of alert
-
         showModal('שגיאת טעינה', 'שגיאה בקריאת הנתונים. ייתכן שהנתונים הקיימים פגומים. האפליקציה תאופס.');
-
-        initializeAllData(); // Reset all data on error
-
+        initializeAllData();
     }
-
 }
 
 
@@ -546,7 +575,7 @@ function showAddRunnersModal() {
     const errorDiv = document.getElementById('add-error');
     const modalRunnerList = document.getElementById('modal-runner-list');
 
-    // Focus על השדה אם כבר פתוח
+    // Focus על השדה if כבר פתוח
     if (hasExistingRunners) {
         shoulderInput.focus();
     }
@@ -722,8 +751,8 @@ function showEditDetailsModal() {
         const groupNumber = document.getElementById('edit-group-number').value.trim();
         const errorDiv = document.getElementById('edit-error');
 
-        if (!evaluatorName || !groupNumber) {
-            errorDiv.textContent = 'יש למלא את שם המעריך ומספר הקבוצה';
+        if (!evaluatorName) {
+            errorDiv.textContent = 'יש להזין שם מעריך';
             errorDiv.classList.remove('hidden');
             return;
         }
@@ -749,9 +778,29 @@ function showEditDetailsModal() {
             newRunners.push({ shoulderNumber });
         }
 
-        // שמירת השינויים
         state.evaluatorName = evaluatorName;
-        state.groupNumber = groupNumber;
+        state.groupNumber = groupNumber; // יכול להיות ריק
+        if (!groupNumber) {
+            state.__justResetGroupNumber = true;
+            localStorage.setItem('groupNumberCleared','1');
+        } else {
+            delete state.__justResetGroupNumber;
+            localStorage.removeItem('groupNumberCleared');
+        }
+
+        // עדכון authState ב-localStorage
+        try {
+            const authRaw = localStorage.getItem('gibushAuthState');
+            if (authRaw) {
+                const session = JSON.parse(authRaw);
+                if (session.authState) {
+                    session.authState.evaluatorName = evaluatorName;
+                    if (groupNumber) session.authState.groupNumber = groupNumber; else delete session.authState.groupNumber;
+                    localStorage.setItem('gibushAuthState', JSON.stringify(session));
+                }
+            }
+        } catch(e){ console.warn('authState update failed', e); }
+
         state.runners = newRunners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
         saveState();
 
@@ -778,7 +827,7 @@ function renderRunnerList() {
 }
 
 function updateMainPageRunnerList() {
-    // בדוק אם אנחנו בעמוד הראשי ויש רשימת רצים
+    // בדוק if אנחנו בעמוד הראשי ויש רשימת רצים
     if (document.getElementById('runner-list')) {
         renderRunnerList();
 
@@ -791,6 +840,13 @@ function updateMainPageRunnerList() {
 }
 // עדכון פונקציית validateAndStartHeats
 function validateAndStartHeats() {
+    // NEW: דרישת מספר קבוצה לפני התחלת מקצים
+    if (!state.groupNumber || String(state.groupNumber).trim() === '') {
+        showModal('חסר מספר קבוצה', 'יש להזין מספר קבוצה לפני התחלת המקצים.', () => {
+            if (typeof showEditBasicDetailsModal === 'function') showEditBasicDetailsModal();
+        });
+        return;
+    }
     if (state.runners.length === 0) {
         showError("יש להוסיף לפחות מועמד אחד כדי להתחיל.");
         return;
@@ -905,7 +961,7 @@ function importBackup(event) {
 
             // Show a confirmation modal before proceeding with import
 
-            showModal('אישור ייבוא נתונים', 'האם אתה בטוח? פעולה זו תחליף את כל הנתונים הנוכחיים בנתונים מהקובץ.', () => {
+            showModal('אישור ייבוא נתונים', 'הif אתה בטוח? פעולה זו תחליף את כל הנתונים הנוכחיים בנתונים מהקובץ.', () => {
 
                 // Restore CONFIG and appState from imported data
 
@@ -1561,49 +1617,24 @@ window.render = renderPage;
 
  */
 function recoverEvaluatorDetailsIfMissing() {
-    if (state.evaluatorName && state.groupNumber) return;
-    console.log('🛠️ ניסיון התאוששות פרטי מעריך/קבוצה חסרים בזמן רינדור');
-    try {
-        const authSession = localStorage.getItem('gibushAuthState');
-        if (authSession) {
-            const session = JSON.parse(authSession);
-            if (!state.evaluatorName && session?.authState?.evaluatorName) {
-                state.evaluatorName = session.authState.evaluatorName;
-                console.log('✅ שוחזר שם מעריך מה-authState:', state.evaluatorName);
+    // UPDATED: only try to recover evaluatorName; do NOT overwrite existing groupNumber unless explicitly cleared
+    const clearedFlag = localStorage.getItem('groupNumberCleared') === '1';
+    if (!state.evaluatorName) {
+        try {
+            const authSession = localStorage.getItem('gibushAuthState');
+            if (authSession) {
+                const session = JSON.parse(authSession);
+                if (session?.authState?.evaluatorName) {
+                    state.evaluatorName = session.authState.evaluatorName;
+                }
             }
-            if (!state.groupNumber && session?.authState?.groupNumber) {
-                state.groupNumber = session.authState.groupNumber;
-                console.log('✅ שוחזר מספר קבוצה מה-authState:', state.groupNumber);
-            }
-        }
-        const savedData = localStorage.getItem(CONFIG.APP_STATE_KEY);
-        if (savedData) {
-            const parsed = JSON.parse(savedData);
-            const appState = parsed.appState || parsed;
-            if (!state.evaluatorName && appState.evaluatorName) {
-                state.evaluatorName = appState.evaluatorName;
-                console.log('✅ שוחזר שם מעריך מה-appState:', state.evaluatorName);
-            }
-            if (!state.groupNumber && appState.groupNumber) {
-                state.groupNumber = appState.groupNumber;
-                console.log('✅ שוחזר מספר קבוצה מה-appState:', state.groupNumber);
-            }
-        }
-        const detailsData = localStorage.getItem('evaluatorDetails');
-        if (detailsData) {
-            const details = JSON.parse(detailsData);
-            if (!state.evaluatorName && details.evaluatorName) {
-                state.evaluatorName = details.evaluatorName;
-                console.log('✅ שוחזר שם מעריך מ-evaluatorDetails:', state.evaluatorName);
-            }
-            if (!state.groupNumber && details.groupNumber) {
-                state.groupNumber = details.groupNumber;
-                console.log('✅ שוחזר מספר קבוצה מ-evaluatorDetails:', state.groupNumber);
-            }
-        }
-    } catch (e) {
-        console.warn('⚠️ שגיאה בהתאוששות פרטי מעריך:', e);
+        } catch (e) { /* silent */ }
     }
+    if (clearedFlag) {
+        // user explicitly cleared group number previously
+        state.groupNumber = '';
+    }
+    // If not clearedFlag we leave state.groupNumber as-is (no auto blanking)
 }
 function ensureUserAvatar() {
     try {
@@ -1676,7 +1707,7 @@ function ensureUserAvatar() {
 
 function onAvatarClick() {
     // תפריט קטן / אישור יציאה
-    showModal('יציאה מהמערכת', 'האם לצאת ולמחוק את כל נתוני הגיבוש?', () => {
+    showModal('יציאה מהמערכת', 'הif לצאת ולמחוק את כל נתוני הגיבוש?', () => {
         try {
             // NEW: עצירת שליחה אוטומטית לפני יציאה
             if (window.autoBackupManager) {
@@ -1688,7 +1719,7 @@ function onAvatarClick() {
             localStorage.removeItem('gibushAppState');
             localStorage.removeItem('evaluatorDetails');
             localStorage.removeItem(CONFIG?.APP_STATE_KEY || 'gibushAppState');
-            // אפשר גם ניקוי כללי אם רוצים אפס מלא:
+            // אפשר גם ניקוי כללי if רוצים אפס מלא:
             localStorage.clear(); // (נמנע כדי לא למחוק דברים אחרים בטעות)
         } catch(e) { console.warn('logout clear error', e); }
         // הפניה לעמוד הנחיתה
@@ -1799,18 +1830,35 @@ function renderPage() {
     // השבתת טאבים כשאין מתמודדים
     const noRunners = !state.runners || state.runners.length === 0;
 
-    // הצגת/הסתרת לשונית דשבורד לפי מייל מורשה
+    // הצגת/הסתרת לשונית דשבורד לפי הרשאת מנהל (לוג משופר + ניסיון חוזר)
     (function(){
         try {
-            // החלפת מזהה הרשאה לדשבורד המאוחד
             const li = document.getElementById('aggregated-dashboard-nav-item');
             if (!li) return;
-            const email = state?.authState?.googleUserInfo?.email?.toLowerCase?.();
-            const allowedList = (CONFIG.DASHBOARD_ALLOWED_EMAILS || []).map(e=>e.toLowerCase());
-            const isAllowed = email && allowedList.includes(email);
-            li.style.display = isAllowed ? '' : 'none';
-            if (!isAllowed && state.currentPage === PAGES.AGGREGATED_DASHBOARD) {
-                state.currentPage = PAGES.RUNNERS;
+            const email = (state?.authState?.googleUserInfo?.email || '').trim().toLowerCase();
+            const isAdminFast = typeof USERS_CONFIG?.isAdmin === 'function' ? USERS_CONFIG.isAdmin(email) : false;
+            const adminEmails = (window.USERS_CONFIG?.getAdminEmails?.() || []).map(e=>String(e||'').toLowerCase());
+            const listEmpty = adminEmails.length === 0; // אם הרשימה ריקה – נניח מצב הגדרה לא נטען עדיין => הצג
+            const isAuthorized = listEmpty || isAdminFast;
+            li.style.display = isAuthorized ? '' : 'none';
+            if (!window.__dashDebugLogged) {
+                console.log('[Dashboard] email=', email, 'adminEmails=', adminEmails, 'listEmpty=', listEmpty, 'isAdminFast=', isAdminFast, 'show=', isAuthorized);
+                window.__dashDebugLogged = true;
+            }
+            // ניסיון חוזר אם אין אימייל עדיין (טעינה מאוחרת) – עד 10 פעמים
+            if (!email && !listEmpty) {
+                let tries = 0;
+                const retry = () => {
+                    const em = (state?.authState?.googleUserInfo?.email || '').trim().toLowerCase();
+                    if (em) {
+                        const ok = listEmpty || USERS_CONFIG.isAdmin(em);
+                        li.style.display = ok ? '' : 'none';
+                        console.log('[Dashboard][retry] email=', em, 'ok=', ok);
+                        return;
+                    }
+                    if (++tries < 10) setTimeout(retry, 300);
+                };
+                setTimeout(retry, 300);
             }
         } catch(e){ console.warn('aggregated dashboard tab toggle failed', e); }
     })();
@@ -1818,28 +1866,26 @@ function renderPage() {
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const page = tab.dataset.page;
         let shouldDisable = false;
-        if (noRunners && page !== PAGES.RUNNERS && page !== PAGES.AGGREGATED_DASHBOARD) {
-            shouldDisable = true;
-        }
-        // NEW: חסימה רק אם לא התחילו מקצים, אבל עם חריג לדשבורד למנהלים מורשים
-        if (!state.competitionStarted && page !== PAGES.RUNNERS && page !== PAGES.AGGREGATED_DASHBOARD) {
-            // אם זה דשבורד ומשתמש מורשה - לא לחסום
-            if (page === PAGES.AGGREGATED_DASHBOARD && isUserAuthorizedForDashboard()) {
-                shouldDisable = false;
-            } else {
-                shouldDisable = true;
-            }
+        const isDash = page === PAGES.AGGREGATED_DASHBOARD;
+        const emailDash = (state?.authState?.googleUserInfo?.email || '').toLowerCase();
+        const adminEmailsDash = (window.USERS_CONFIG?.getAdminEmails?.() || []).map(e=>String(e||'').toLowerCase());
+        const dashAllowed = adminEmailsDash.length===0 || (emailDash && adminEmailsDash.includes(emailDash));
+        // חסימה של עמודים אחרים ללא מתמודדים
+        if (!dashAllowed && !state.runners?.length && page !== PAGES.RUNNERS) shouldDisable = true;
+        // לפני התחלת מקצים – חסום הכל מלבד runners ו dashboard (if מורשה)
+        if (!state.competitionStarted && !isDash && page !== PAGES.RUNNERS) shouldDisable = true;
+        if (!dashAllowed && isDash) {
+            shouldDisable = true; // דשבורד חסום if לא מורשה
         }
         tab.classList.toggle('is-disabled', shouldDisable);
         tab.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
-        tab.style.pointerEvents = shouldDisable ? 'none' : '';
         if (shouldDisable) {
-            if (noRunners) {
-                tab.title = 'יש להוסיף מתמודדים תחילה';
-            } else if (!state.competitionStarted) {
-                tab.title = 'יש להתחיל מקצים (לחיצה על "התחל מקצים")';
-            }
+            tab.style.pointerEvents = 'none';
+            if (isDash && !dashAllowed) tab.title = 'גישה לדשבורד רק למנהל מורשה';
+            else if (!state.competitionStarted && !isDash && page !== PAGES.RUNNERS) tab.title = 'יש להתחיל מקצים';
+            else if (!state.runners?.length && page !== PAGES.RUNNERS) tab.title = 'הוסף מתמודדים תחילה';
         } else {
+            tab.style.pointerEvents = '';
             tab.removeAttribute('title');
         }
     });
@@ -1936,11 +1982,11 @@ function showEditBasicDetailsModal() {
     const backdrop = document.createElement('div');
     backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
     backdrop.id = 'edit-basic-details-modal';
-
+    // UPDATED: show current group number (may be empty)
+    const groupValue = state.groupNumber || '';
     backdrop.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
         <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי הערכה</h3>
-        
         <div class="space-y-4 mb-6">
             <div>
                 <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
@@ -1949,11 +1995,10 @@ function showEditBasicDetailsModal() {
             </div>
             <div>
                 <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
-                <input type="text" id="edit-basic-group-number" value="${state.groupNumber}" 
-                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
+                <input type="text" id="edit-basic-group-number" value="${groupValue}" 
+                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white" placeholder="מספר קבוצה">
             </div>
         </div>
-        
         <div class="flex justify-center gap-4">
             <button id="save-basic-details" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
                 שמור שינויים
@@ -1962,31 +2007,41 @@ function showEditBasicDetailsModal() {
                 ביטול
             </button>
         </div>
-        
         <div id="basic-edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
     </div>`;
-
     document.body.appendChild(backdrop);
-
     document.getElementById('save-basic-details').addEventListener('click', () => {
         const evaluatorName = document.getElementById('edit-basic-evaluator-name').value.trim();
         const groupNumber = document.getElementById('edit-basic-group-number').value.trim();
         const errorDiv = document.getElementById('basic-edit-error');
-
-        if (!evaluatorName || !groupNumber) {
-            errorDiv.textContent = 'יש למלא את שם המעריך ומספר הקבוצה';
+        if (!evaluatorName) {
+            errorDiv.textContent = 'יש למלא את שם המעריך';
             errorDiv.classList.remove('hidden');
             return;
         }
-
         state.evaluatorName = evaluatorName;
-        state.groupNumber = groupNumber;
+        state.groupNumber = groupNumber; // keep what user entered (can be empty)
+        if (!groupNumber) {
+            localStorage.setItem('groupNumberCleared','1');
+        } else {
+            localStorage.removeItem('groupNumberCleared');
+        }
+        // Update auth state (sync both fields)
+        try {
+            const authRaw = localStorage.getItem('gibushAuthState');
+            if (authRaw) {
+                const session = JSON.parse(authRaw);
+                if (session.authState) {
+                    session.authState.evaluatorName = evaluatorName;
+                    if (groupNumber) session.authState.groupNumber = groupNumber; else delete session.authState.groupNumber;
+                    localStorage.setItem('gibushAuthState', JSON.stringify(session));
+                }
+            }
+        } catch(e){ console.warn('failed to update authState', e); }
         saveState();
-
         document.body.removeChild(backdrop);
         renderPage();
     });
-
     document.getElementById('cancel-basic-details').addEventListener('click', () => {
         document.body.removeChild(backdrop);
     });
@@ -2136,9 +2191,10 @@ function exitRunnerEditMode() {
 // NEW: פונקציה לבדיקת הרשאת משתמש לדשבורד
 function isUserAuthorizedForDashboard() {
     try {
-        const email = state?.authState?.googleUserInfo?.email?.toLowerCase?.();
-        const allowedList = (CONFIG.DASHBOARD_ALLOWED_EMAILS || []).map(e => e.toLowerCase());
-        return email && allowedList.includes(email);
+        const email = state?.authState?.googleUserInfo?.email;
+        if (!email) return false;
+        if (window.USERS_CONFIG?.isAdmin) return USERS_CONFIG.isAdmin(email);
+        return false;
     } catch (e) {
         return false;
     }
@@ -2155,14 +2211,14 @@ async function init() {
             if (!tab) return;
             e.preventDefault(); // מונע קפיצה/רענון של <a>
 
-            // אל תלחץ אם מושבת
+            // אל תלחץ if מושבת
             if (tab.classList.contains('is-disabled') || tab.getAttribute('aria-disabled') === 'true') return;
 
             const nextPage = tab.dataset.page;
             
             // NEW: חסימת ניווט לפני התחלת מקצים - עם חריג לדשבורד למנהלים מורשים
             if (!state.competitionStarted && nextPage !== PAGES.RUNNERS) {
-                // אם זה דשבורד ומשתמש מורשה - אפשר מעבר
+                // if זה דשבורד ומשתמש מורשה - אפשר מעבר
                 if (nextPage === PAGES.AGGREGATED_DASHBOARD && isUserAuthorizedForDashboard()) {
                     // עבור ישירות לדשבורד ללא חסימה
                 } else {
@@ -2171,7 +2227,7 @@ async function init() {
                 }
             }
             
-            // NEW: בדיקה אם יש מקצה פעיל שלא הסתיים
+            // NEW: בדיקה if יש מקצה פעיל שלא הסתיים
             if (state.currentPage === PAGES.HEATS && nextPage !== PAGES.HEATS) {
                 const currentHeat = state.heats[state.currentHeatIndex];
                 if (currentHeat && currentHeat.started && !currentHeat.finished) {
@@ -2374,21 +2430,12 @@ let autoBackupManager = {
                 return;
             }
 
-            // בדיקת זמן מקסימלי
             const elapsed = Date.now() - state.autoBackupUpload.startTime;
-            if (elapsed >= CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS) {
-                console.log('⏰ השליחה האוטומטית הגיעה לזמן המקסימלי (5 שעות)');
-                this.stop();
-                
-                // הצגת התראה למשתמש
-                if (typeof showModal === 'function') {
-                    showModal(
-                        'השליחה האוטומטית הופסקה',
-                        'השליחה האוטומטית של קבצי הגיבוי הופסקה לאחר 5 שעות. ניתן להמשיך ידנית באמצעות כפתור "שלח קובץ למנהל".',
-                        null
-                    );
-                }
-                return;
+            const maxMs = CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS;
+            if (elapsed >= maxMs) {
+                // במקום לעצור מיד – הצג חלון בחירה
+                this._showExtendOrStopModal();
+                return; // ממתין להחלטת המשתמש
             }
 
             this.performAutoUpload();
@@ -2442,14 +2489,14 @@ let autoBackupManager = {
             return;
         }
         
-        // בדיקה אם התחרות התחילה והשליחה לא הופסקה ידנית
+        // בדיקה if התחרות התחילה והשליחה לא הופסקה ידנית
         if (state.competitionStarted && 
             !state.autoBackupUpload.hasBeenManuallyStopped &&
             state.autoBackupUpload.startTime) {
             
             const elapsed = Date.now() - state.autoBackupUpload.startTime;
             
-            // אם עדיין בטווח הזמן המותר
+            // if עדיין בטווח הזמן המותר
             if (elapsed < CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS) {
                 console.log('🔄 ממשיך שליחה אוטומטית אחרי רענון עמוד');
                 
@@ -2466,6 +2513,49 @@ let autoBackupManager = {
                 saveState();
             }
         }
+    },
+
+    _showExtendOrStopModal() {
+        // הגנה נגד פתיחת מודאל כפול
+        if (document.getElementById('auto-backup-extend-modal')) return;
+        const backdrop = document.createElement('div');
+        backdrop.id = 'auto-backup-extend-modal';
+        backdrop.style.position = 'fixed';
+        backdrop.style.inset = '0';
+        backdrop.style.background = 'rgba(0,0,0,0.55)';
+        backdrop.style.zIndex = '9999';
+        backdrop.style.display = 'flex';
+        backdrop.style.alignItems = 'center';
+        backdrop.style.justifyContent = 'center';
+        const minutesConfigured = Math.round(CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS / 60000);
+        backdrop.innerHTML = `
+          <div style="background:#fff;color:#0f172a;border-radius:20px;box-shadow:0 12px 38px -10px rgba(0,0,0,.35);padding:26px 30px;max-width:430px;width:100%;font-family:system-ui,Segoe UI,sans-serif;display:flex;flex-direction:column;gap:18px;">
+            <h3 style="margin:0;font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;color:#0d9488;">⏰ סיום גיבוי אוטומטי</h3>
+            <p style="margin:0;font-size:14px;line-height:1.45;font-weight:500;white-space:pre-line;">
+הגיבוי האוטומטי פעל ${minutesConfigured} דקות ומוכן להפסיק.
+להמשיך לעוד 5 שעות (300 דקות) או להפסיק עכשיו?</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
+              <button id="auto-backup-stop-btn" style="background:#ef4444;color:#fff;font-weight:700;border:none;border-radius:12px;padding:10px 20px;font-size:14px;cursor:pointer;">הפסק</button>
+              <button id="auto-backup-extend-btn" style="background:linear-gradient(90deg,#0d9488,#059669);color:#fff;font-weight:700;border:none;border-radius:12px;padding:10px 20px;font-size:14px;cursor:pointer;">המשך 5 שעות</button>
+            </div>
+          </div>`;
+        document.body.appendChild(backdrop);
+        const stopBtn = backdrop.querySelector('#auto-backup-stop-btn');
+        const extendBtn = backdrop.querySelector('#auto-backup-extend-btn');
+        stopBtn.onclick = () => {
+            this.stop('המשתמש בחר להפסיק');
+            try { backdrop.remove(); } catch(e){}
+            showNotification?.('🔴 הגיבוי האוטומטי הופסק', 'warning');
+        };
+        extendBtn.onclick = () => {
+            // הארכת זמן: איפוס זמן התחלה + קביעת מקסימום חדש ל-5 שעות
+            state.autoBackupUpload.startTime = Date.now();
+            CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS = 5 * 60 * 60 * 1000; // 5 שעות
+            if (CONFIG.AUTO_BACKUP_SETTINGS) CONFIG.AUTO_BACKUP_SETTINGS.stopAfterMinutes = 300; // עדכון תצוגה עתידי
+            saveState?.();
+            try { backdrop.remove(); } catch(e){}
+            showNotification?.('✅ הגיבוי האוטומטי הוארך לעוד 5 שעות', 'success');
+        };
     }
 };
 

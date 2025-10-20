@@ -24,10 +24,17 @@
   display: block;
   font-family: inherit;
   /* variable for columns so header+rows always match */
-  --arrival-cols: 50px 80px 1fr 100px;
+  /* ברירת מחדל: עם מיקום */
+  --arrival-cols: 60px 100px 1fr 130px;
 }
 .arrival-section.hide-comments { /* no comments column */
-  --arrival-cols: 50px 80px 100px;
+  --arrival-cols: 60px 100px 130px;
+}
+.arrival-section.hide-rank { /* no rank column - for crawling group page */
+  --arrival-cols: 100px 1fr 130px;
+}
+.arrival-section.hide-comments.hide-rank { /* both hidden */
+  --arrival-cols: 100px 130px;
 }
 /* OLD: body.editing-order .arrival-section rule was redundant, rely on .hide-comments class */
 
@@ -39,7 +46,7 @@
   display: grid;
   grid-template-columns: var(--arrival-cols);
   align-items: center;
-  column-gap: 16px;
+  column-gap: 12px;
   font-weight: 600;
   font-size: 13px;
   border-bottom: 1px solid #334155;
@@ -55,7 +62,7 @@
 
 /* עמודת מיקום סטטית - עיצוב מינימלי */
 .arrival-header .h-cell.static-position {
-  width: 50px;
+  width: 60px;
   text-align: center;
   flex-shrink: 0;
   background: transparent;
@@ -66,6 +73,12 @@
   font-size: 13px;
 }
 
+/* הסתרת עמודת מיקום כאשר יש מחלקת hide-rank */
+.arrival-section.hide-rank .h-cell.static-position,
+.arrival-section.hide-rank .static-position {
+  display: none !important;
+}
+
 /* שורות התוכן */
 .arrival-row {
   background: #1e293b;
@@ -74,7 +87,7 @@
   display: grid;
   grid-template-columns: var(--arrival-cols);
   align-items: center;
-  column-gap: 16px;
+  column-gap: 12px;
   border-bottom: 1px solid #334155;
   min-height: 60px;
   direction: rtl;
@@ -86,34 +99,50 @@
 /* הסרת העמודה השמאלית */
 .arrival-position { display: none; }
 
-.shoulder-cell { width: 80px; text-align: center; font-size: 16px; font-weight: 600; color: white; flex-shrink: 0; margin-left: 0; }
+.shoulder-cell { 
+  width: 100px; 
+  text-align: center; 
+  font-size: 16px; 
+  font-weight: 600; 
+  color: white; 
+  flex-shrink: 0;
+}
 
 .comment-cell { /* grid cell */
   flex: 1;
   display: flex;
   justify-content: center;
+  align-items: center;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0;
 }
 
 /* Hide comments column when class applied */
 .arrival-section.hide-comments .comment-cell,
 .arrival-section.hide-comments .h-cell.comment { display: none !important; }
 
-.time-cell { width: 100px; text-align: center; font-size: 14px; font-weight: 600; color: white; font-family: monospace; flex-shrink: 0; }
+.time-cell { 
+  width: 130px; 
+  text-align: center; 
+  font-size: 14px; 
+  font-weight: 600; 
+  color: white; 
+  font-family: monospace; 
+  flex-shrink: 0;
+}
 
 /* תא מיקום סטטי - עיצוב מינימלי */
 .static-position {
-  width: 50px;
-  height: 24px;
+  width: 60px;
+  height: 26px;
   background: #64748b;
   color: white;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 13px;
   flex-shrink: 0;
   border: none;
   box-shadow: none;
@@ -124,6 +153,15 @@
 /* ==================================================
    מצב עריכת סדר (פושט) - שימוש במחלקה hide-comments בלבד להסתרת הערות
    ================================================== */
+
+/* במצב עריכה - התאמת רשת העמודות להסתיר הערות */
+.arrival-section.editing-order {
+  --arrival-cols: 60px 100px 130px; /* מיקום + כתף + זמן (הערות מוסתרות) */
+}
+.arrival-section.editing-order.hide-rank {
+  --arrival-cols: 100px 130px; /* רק כתף + זמן (אין מיקום, אין הערות) */
+}
+
 .editing-order .arrival-row { background: #1e293b; }
 .editing-order .arrival-row:hover { background: #334155; }
 
@@ -183,47 +221,53 @@
 
 @media (max-width: 768px) {
   .arrival-section { /* adjust variable instead of per-element grids */
-    --arrival-cols: 40px 70px 1fr 90px;
+    --arrival-cols: 50px 85px 1fr 110px;
   }
   .arrival-section.hide-comments,
-  body.editing-order .arrival-section { /* mobile no comments */
-    --arrival-cols: 40px 70px 90px;
+  .arrival-section.editing-order { /* mobile no comments */
+    --arrival-cols: 50px 85px 110px;
   }
-  /* remove explicit grid-template-columns inside media queries (they inherit var) */
+  .arrival-section.hide-rank { /* mobile no rank */
+    --arrival-cols: 85px 1fr 110px;
+  }
+  .arrival-section.hide-comments.hide-rank,
+  .arrival-section.editing-order.hide-rank { /* both hidden mobile */
+    --arrival-cols: 85px 110px;
+  }
+  
   .arrival-header {
     padding: 8px 12px;
     font-size: 12px;
-    gap: 12px;
+    column-gap: 8px;
   }
   
   .arrival-row {
     padding: 8px 12px;
-    gap: 12px;
+    column-gap: 8px;
     min-height: 50px;
   }
   
   .arrival-position {
-    width: 50px;
+    width: 40px;
     height: 28px;
     font-size: 13px;
   }
   
   .shoulder-cell {
-    width: 70px;
-    font-size: 14px;
-    margin-left: 0;
+    width: 85px;
+    font-size: 15px;
   }
   
   .time-cell {
-    width: 90px;
+    width: 110px;
     font-size: 13px;
   }
   
   .arrival-row .comment-btn {
     height: 32px;
     font-size: 12px;
-    padding: 6px 12px;
-    max-width: 150px;
+    padding: 6px 10px;
+    max-width: none;
   }
   
   .drag-handle {
@@ -237,13 +281,66 @@
   }
   
   .arrival-header .h-cell.static-position {
-    width: 40px;
-    font-size: 11px;
+    width: 50px;
+    font-size: 12px;
   }
   
   .static-position {
-    width: 40px;
-    height: 20px;
+    width: 50px;
+    height: 24px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .arrival-section {
+    --arrival-cols: 45px 70px 1fr 100px;
+  }
+  .arrival-section.hide-comments,
+  .arrival-section.editing-order {
+    --arrival-cols: 45px 70px 100px;
+  }
+  .arrival-section.hide-rank {
+    --arrival-cols: 70px 1fr 100px;
+  }
+  .arrival-section.hide-comments.hide-rank,
+  .arrival-section.editing-order.hide-rank {
+    --arrival-cols: 70px 100px;
+  }
+  
+  .arrival-header {
+    padding: 6px 8px;
+    column-gap: 6px;
+  }
+  
+  .arrival-row {
+    padding: 6px 8px;
+    column-gap: 6px;
+  }
+  
+  .shoulder-cell {
+    width: 70px;
+    font-size: 14px;
+  }
+  
+  .time-cell {
+    width: 100px;
+    font-size: 12px;
+  }
+  
+  .arrival-row .comment-btn {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  
+  .static-position {
+    width: 45px;
+    height: 22px;
+    font-size: 11px;
+  }
+  
+  .arrival-header .h-cell.static-position {
+    width: 45px;
     font-size: 11px;
   }
 }
@@ -306,3 +403,15 @@
 body.editing-order .arrival-header .h-cell,
 body.editing-order .arrival-row .shoulder-cell,
 body.editing-order .arrival-row .time-cell { text-align:center; }
+
+/* Visual feedback for drag operation */
+.editing-order .arrival-row {
+  position: relative;
+  padding-right: 50px !important; /* NEW: מקום לאייקון הגרירה */
+  transition: all 0.2s ease;
+}
+
+/* במצב עריכה - הכותרת צריכה גם padding ימני כמו השורות */
+.editing-order .arrival-header {
+  padding-right: 50px !important; /* מקום לאייקון הגרירה - מיושר עם השורות */
+}

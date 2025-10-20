@@ -28,10 +28,13 @@
       }
       .dark .report-header-bar h2{color:#f1f5f9}
 
-      /* כפתורי תחתית */
+      /* כפתורי תחתית (פריסה חדשה) */
       .report-bottom-actions{
-        display:flex;
-        justify-content:space-between;
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+        grid-template-areas: 
+          'finish finish'
+          'upload export';
         gap:12px;
         max-width:980px;
         margin:28px auto 8px;
@@ -43,21 +46,53 @@
         border:1px solid #cbd5e1;
         background:transparent;
         color:#334155;
-        border-radius:10px;
-        padding:9px 18px;
+        border-radius:12px;
+        padding:11px 22px;
         cursor:pointer;
         display:inline-flex;
         align-items:center;
-        gap:6px;
+        justify-content:center;
+        gap:8px;
         white-space:nowrap;
-        transition:.15s;
+        transition:.18s;
+        position:relative;
+        overflow:hidden;
       }
       .report-bottom-actions .report-btn:hover{background:#e2e8f0}
       .dark .report-bottom-actions .report-btn{color:#e2e8f0;border-color:#475569}
       .dark .report-bottom-actions .report-btn:hover{background:#374151}
+
+      /* כפתור סיום גיבוש מודגש */
+      #finish-gibush-btn{
+        grid-area:finish;
+        font-size:15px;
+        padding:18px 26px;
+        font-weight:700;
+        letter-spacing:.5px;
+        background:linear-gradient(90deg,#0d9488,#059669); /* was red */
+        color:#fff;
+        border:1px solid #0d9488;
+        box-shadow:0 6px 18px -6px rgba(13,148,136,.55),0 2px 6px rgba(0,0,0,.15);
+      }
+      #finish-gibush-btn:hover{background:linear-gradient(90deg,#059669,#047857);} /* was red hover */
+      #finish-gibush-btn:after{
+        content:'';
+        position:absolute;
+        inset:0;
+        background:radial-gradient(circle at 85% 20%,rgba(255,255,255,.28),transparent 65%);
+        pointer-events:none;
+      }
+      .dark #finish-gibush-btn{background:linear-gradient(90deg,#0d9488,#065f46);border-color:#065f46;} /* dark variant */
+      .dark #finish-gibush-btn:hover{background:linear-gradient(90deg,#047857,#064e3b);} /* dark hover */
+
+      #upload-drive-btn{grid-area:upload;}
+      #export-excel-btn{grid-area:export;}
+
       @media (max-width:650px){
-        .report-bottom-actions{flex-direction:column}
-        .report-bottom-actions .report-btn{width:100%;justify-content:center}
+        .report-bottom-actions{
+          grid-template-areas: 'finish' 'upload' 'export';
+        }
+        #finish-gibush-btn{font-size:16px;}
       }
 
       .export-hint{font-size:11px;opacity:.6;text-align:center;margin:18px auto 4px;max-width:980px}
@@ -295,6 +330,7 @@
       <div class="export-hint">עדכון ציון: יציאה מהשדה שומר. עריכת הערה: לחיצה על כפתור ההערה.</div>
 
       <div class="report-bottom-actions">
+        <button id="finish-gibush-btn" class="report-btn">🏁 סיים גיבוש</button>
         <button id="upload-drive-btn" class="report-btn">📤 שלח קובץ למנהל</button>
         <button id="export-excel-btn" class="report-btn">💾 הורדת אקסל</button>
       </div>
@@ -429,10 +465,10 @@
     contentDiv.addEventListener('click', async (e) => {
       const uploadBtn = e.target.closest('#upload-drive-btn');
       if (uploadBtn) return await handleDriveUploadClick(uploadBtn);
-      
       const exportBtn = e.target.closest('#export-excel-btn');
       if (exportBtn) return handleExcelDownloadClick(e);
-
+      const finishBtn = e.target.closest('#finish-gibush-btn');
+      if (finishBtn) return startFinishGibushFlow(finishBtn);
       const commentBtn = e.target.closest('[data-comment-btn]');
       if (commentBtn) return localOpenHandler(commentBtn.dataset.commentBtn, commentBtn);
     });
@@ -460,5 +496,120 @@
 
   window.handleDriveUploadClick = handleDriveUploadClick;
   window.handleExcelDownloadClick = handleExcelDownloadClick;
+
+  function startFinishGibushFlow(btn){
+    if (window.__finishingGibush) return;
+    const msg = 'סיום הגיבוש ישלח את קובץ האקסל והגיבוי למנהל, יעצור העלאה אוטומטית ויאפס את האפליקציה כדי להתחיל גיבוש חדש. להמשיך?';
+    if (typeof showModal === 'function') {
+      showModal('סיום גיבוש', msg, () => runFinishGibushSequence(btn));
+    } else {
+      if (confirm(msg)) runFinishGibushSequence(btn);
+    }
+  }
+
+  function createFinishProgressModal(){
+    const existing = document.getElementById('finish-gibush-progress-modal');
+    if (existing) return existing;
+    const wrap = document.createElement('div');
+    wrap.id = 'finish-gibush-progress-modal';
+    wrap.style.position='fixed';
+    wrap.style.inset='0';
+    wrap.style.zIndex='9999';
+    wrap.style.display='flex';
+    wrap.style.alignItems='center';
+    wrap.style.justifyContent='center';
+    wrap.style.background='rgba(0,0,0,.55)';
+    wrap.innerHTML = `<div style="min-width:320px;max-width:420px;background:#ffffff;box-shadow:0 12px 40px -8px rgba(0,0,0,.4);border-radius:20px;padding:24px 26px;display:flex;flex-direction:column;gap:18px;font-family:system-ui,Segoe UI,sans-serif;">
+      <h3 style="margin:0;font-size:20px;font-weight:800;color:#0d9488;display:flex;align-items:center;gap:8px;">🏁 סיום גיבוש</h3>
+      <div id="finish-progress-status" style="font-size:14px;font-weight:600;color:#334155;min-height:34px;line-height:1.3;white-space:pre-line"></div>
+      <div id="finish-progress-bar-wrap" style="height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;position:relative;">
+        <div id="finish-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#0d9488,#059669);transition:width .4s ease"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button id="finish-progress-cancel" style="display:none;background:#ef4444;color:#fff;font-weight:700;font-size:12px;border:none;border-radius:10px;padding:8px 16px;cursor:pointer;">בטל</button>
+        <button id="finish-progress-close" style="display:none;background:#0d9488;color:#fff;font-weight:700;font-size:12px;border:none;border-radius:10px;padding:8px 18px;cursor:pointer;">סגור</button>
+      </div>
+    </div>`;
+    document.body.appendChild(wrap);
+    return wrap;
+  }
+  function updateFinishProgress(msg, pct){
+    const stEl = document.getElementById('finish-progress-status');
+    const bar = document.getElementById('finish-progress-bar');
+    if (stEl) stEl.textContent = msg;
+    if (bar && typeof pct==='number') bar.style.width = pct+"%";
+  }
+
+  async function runFinishGibushSequence(btn){
+    if (window.__finishingGibush) return; window.__finishingGibush = true;
+    const original = btn.textContent; btn.disabled = true;
+    const modal = createFinishProgressModal();
+    updateFinishProgress('שולח אקסל...', 10);
+    try {
+      if (typeof window.GibushAppExporter?.exportReport !== 'function') throw new Error('מערכת ייצוא לא זמינה');
+      await window.GibushAppExporter.exportReport('drive');
+      updateFinishProgress('שולח גיבוי...', 40);
+      await sendBackupFile();
+      updateFinishProgress('עוצר העלאה אוטומטית...', 55);
+      if (window.autoBackupManager) { try { window.autoBackupManager.stop('סיום גיבוש'); } catch(e){} }
+      // אין איפוס כאן – נדחה לאחר לחיצה על סגירה
+      updateFinishProgress('מכין לסיום... (האיפוס יבוצע אחרי סגירה)', 75);
+      const preservedEvaluator = state.evaluatorName || '';
+      window.__pendingFinishResetEvaluator = preservedEvaluator; // שמירת שם המעריך לדחייה
+      updateFinishProgress('הגיבוש הסתיים בהצלחה! לחץ על סגור להתחלת גיבוש חדש.', 100);
+      btn.disabled=false; btn.textContent=original; window.__finishingGibush=false;
+      const closeBtn = document.getElementById('finish-progress-close');
+      if (closeBtn){
+        closeBtn.style.display='inline-block';
+        closeBtn.onclick = ()=> {
+          const preserved = window.__pendingFinishResetEvaluator || '';
+          modal.remove();
+          // שלב 1: מעבר לדף הרצים עם הנתונים הישנים
+          state.currentPage = PAGES.RUNNERS;
+          renderPage?.();
+          // שלב 2: איפוס מלא לאחר מעבר (עם השהייה קטנה לציור)
+          setTimeout(()=>{
+            try {
+              initializeAllData?.();
+              state.evaluatorName = preserved; // שחזור שם המעריך
+              state.groupNumber = '';
+              localStorage.setItem('groupNumberCleared','1');
+              // עדכון authState (הסרת מספר קבוצה ושמירת שם מעריך)
+              try {
+                const raw = localStorage.getItem('gibushAuthState');
+                if (raw){
+                  const session = JSON.parse(raw);
+                  if (session.authState){
+                    session.authState.evaluatorName = preserved;
+                    delete session.authState.groupNumber;
+                    localStorage.setItem('gibushAuthState', JSON.stringify(session));
+                  }
+                }
+              } catch(e){ console.warn('authState update after finish failed', e); }
+              saveState?.();
+              renderPage?.();
+              // פתיחת חלון פרטי הערכה להזנת מספר קבוצה חדש
+              if (typeof showEditBasicDetailsModal==='function') showEditBasicDetailsModal();
+            } finally {
+              delete window.__pendingFinishResetEvaluator;
+            }
+          }, 250);
+        };
+      }
+    } catch(err){
+      const reason = err?.message || 'שגיאה לא ידועה';
+      console.error(err);
+      updateFinishProgress('סיום גיבוש נכשל: '+reason+'\nלא בוצע איפוס.', 100);
+      const closeBtn = document.getElementById('finish-progress-close');
+      if (closeBtn){ closeBtn.style.display='inline-block'; closeBtn.onclick = ()=> modal.remove(); }
+      btn.disabled=false; btn.textContent=original; window.__finishingGibush=false;
+      showNotification('❌ סיום גיבוש נכשל: '+reason,'error');
+      if (typeof showModal === 'function') {
+        showModal('סיום גיבוש נכשל', 'התהליך הופסק. סיבה: '+reason+'\nלא נמחקו נתונים.', ()=>{});
+      }
+    }
+  }
+
+  window.startFinishGibushFlow = startFinishGibushFlow;
 
 })();
