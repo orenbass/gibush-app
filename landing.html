@@ -7,7 +7,7 @@
     
     <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script id="gsi-script" src="https://accounts.google.com/gsi/client" async defer onload="window.__gsiLoaded=true;console.log('GSI script loaded');"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,11 @@
     <meta name="mobile-web-app-capable" content="yes">
     
     <!-- Config -->
-    <script src="./landing-config.js"></script>
+    <script src="./users-config.js"></script>
+    <script src="./config.js"></script>
+    
+    <!-- Google Drive Services -->
+    <script src="./js/services/google-drive-reader.js"></script>
     
     <style>
         * {

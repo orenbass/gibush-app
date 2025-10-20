@@ -460,7 +460,8 @@
             showHeader: true,
             labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן נשיאה' },
             listId: 'sack-arrival-list', // CHANGED: unique id to avoid collisions with heat page
-            hideCommentsColumn: false
+            hideCommentsColumn: false,
+            hideRankColumn: true // NEW: הסתרת עמודת המיקום בטבלת זחילות קבוצתית
         });
 
         contentDiv.innerHTML = `

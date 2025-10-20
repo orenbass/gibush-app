@@ -1,7 +1,7 @@
 (function() {
   if (window.GoogleDriveUploader) return;
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyIwSi6rGnPhHVaaPTsC5GvbVct_LjoHjycJKcrGlFIk_OniKcS7oMJpv2BIe1p1A/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxa7PQhm5paLGvvf7bDNjxLHPjMWfXDUso-exppkkzv53-9Hb3waV6Gj2Kepxmizjw/exec';
 
   function blobToBase64(blob) {
     return new Promise((resolve, reject) => {

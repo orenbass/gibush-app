@@ -208,7 +208,7 @@
         const todayDate = new Date().toLocaleDateString('he-IL');
         const currentTime = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
-        const hasRunners = state.runners && state.runners.length > 0;
+        const hasRunners = Array.isArray(state.runners) && state.runners.some(r => r && String(r.shoulderNumber).trim() !== ''); // FIXED: רק מתמודדים עם מספר תקף
         const manualAddMode = state.__manualAddMode === true;
 
         contentDiv.innerHTML = `
@@ -247,43 +247,6 @@
     </div>
 </div>
 
-${!hasRunners ? `
-    ${!manualAddMode ? `
-    <div id="no-runners-actions" class="mb-6 flex flex-col gap-4 max-w-md mx-auto">
-        <button id="no-runners-random-btn" class="flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow text-lg">
-            <span class="text-2xl">🎲</span>
-            <span>הוספה רנדומלית (${CONFIG.MAX_RUNNERS})</span>
-        </button>
-        <button id="no-runners-manual-btn" class="flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl shadow text-lg">
-            <span class="text-2xl">✍️</span>
-            <span>הוספה ידנית</span>
-        </button>
-    </div>
-    ` : `
-    <div id="manual-add-wrapper" class="max-w-3xl mx-auto mb-6">
-        <div class="flex flex-col gap-2 mb-3">
-            <div class="flex flex-wrap items-center gap-2 justify-center sm:justify-between">
-                <div class="flex items-center gap-2 order-2 sm:order-1">
-                    <button id="finish-manual-add-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md text-xs sm:text-sm shadow-sm">סיום</button>
-                    <button id="cancel-manual-add-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md text-xs sm:text-sm shadow-sm">ביטול</button>
-                </div>
-                <div class="order-1 sm:order-2 text-center sm:text-left text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">
-                    נוספו <span id="manual-added-count">${state.runners.length}</span> / ${CONFIG.MAX_RUNNERS}
-                </div>
-            </div>
-            <div id="manual-add-error" class="hidden text-center text-red-600 font-semibold text-xs sm:text-sm"></div>
-        </div>
-        <div id="manual-add-grid" class="auto-grid stretcher-grid"></div>
-        <div class="flex justify-center mt-4">
-            <button id="manual-add-new-card-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg shadow w-full max-w-sm flex items-center justify-center gap-2 text-sm">
-                <span class="text-lg">➕</span><span>הוסף מועמד</span>
-            </button>
-        </div>
-        <div class="mt-3 text-center text-[0.6rem] text-gray-500 dark:text-gray-400">הקלד מספר כתף (עד 3 ספרות). אין כפילויות. מחיקה בלחיצה על כפתור מחק בכרטיס.</div>
-    </div>
-    `}
-` : ''}
-
 ${hasRunners ? `
     <!-- רשימת מועמדים קיימים עם כפתור עריכה -->
     <div class="relative mb-6 ${manualAddMode ? 'opacity-40 pointer-events-none' : ''}">
@@ -312,10 +275,25 @@ ${hasRunners ? `
             <div class="text-sm text-blue-600 dark:text-blue-400">המקצים התחילו - לא ניתן לערוך מתמודדים</div>
         </div>
     </div>` : ''}
+` : state.__autoEnterEditRunners ? `
+    <div class="relative mb-6">
+        <h2 class="text-xl font-semibold mb-4 text-center text-blue-500">מועמדי הקבוצה (0)</h2>
+        <div id="runner-list" class="space-y-2"></div>
+        <div class="flex justify-center mt-6">
+            <button id="add-runner-inline-btn" class="bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-3 px-6 rounded-lg shadow-lg w-full" style="display: none;">+ הוסף מועמד</button>
+        </div>
+    </div>
 ` : `
-    <div class="text-center text-gray-500 dark:text-gray-400 py-8">
-        <p class="text-lg mb-2">🏃‍♂️ אין עדיין מועמדים בקבוצה</p>
-        <p>אנא הוסף מועמדים רנדומלית או ידנית</p>
+    <div id="no-runners-actions" class="mb-6 flex flex-col gap-4 max-w-md mx-auto">
+        <div class="text-center text-gray-600 dark:text-gray-300 text-sm mb-1">בחר שיטת הוספה למתמודדים</div>
+        <button id="no-runners-random-btn" class="flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow text-lg">
+            <span class="text-2xl">🎲</span>
+            <span>הוספה רנדומלית (${CONFIG.MAX_RUNNERS})</span>
+        </button>
+        <button id="no-runners-manual-btn" class="flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl shadow text-lg">
+            <span class="text-2xl">✍️</span>
+            <span>הוספה ידנית</span>
+        </button>
     </div>
 `}
 
@@ -395,34 +373,55 @@ ${hasRunners ? `
         // --- פונקציות מצב עריכה אינלייני ---
         function enterInlineEditMode() {
             if (runnerCardEdit.active) return;
-            const grid = document.querySelector('#runner-list .auto-grid');
-            if (!grid) return;
+            // NEW: יצירת גריד ריק אם אין אחד (כלומר מצב עריכה ראשוני ללא מתמודדים)
+            let grid = document.querySelector('#runner-list .auto-grid');
+            let createdBar = false; // מעקב האם הסרגל נוצר עכשיו
+            if (!grid) {
+                const runnerListEl = document.getElementById('runner-list');
+                if (runnerListEl) {
+                    if (!document.getElementById('runner-inline-edit-bar')) {
+                        runnerListEl.insertAdjacentHTML('beforebegin', `
+                            <div id="runner-inline-edit-bar" class="hidden flex flex-wrap justify-center gap-2 mb-3">
+                                <button id="save-inline-runners-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">שמור</button>
+                                <button id="cancel-inline-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg text-sm">בטל</button>
+                            </div>
+                            <div id="runner-inline-edit-error" class="hidden text-center text-red-600 font-semibold text-sm mb-2"></div>
+                        `);
+                        createdBar = true;
+                    }
+                    runnerListEl.innerHTML = '<div class="auto-grid stretcher-grid"></div>';
+                    grid = runnerListEl.querySelector('.auto-grid');
+                }
+            } else {
+                const runnerListEl = document.getElementById('runner-list');
+                if (runnerListEl && !document.getElementById('runner-inline-edit-bar')) {
+                    runnerListEl.insertAdjacentHTML('beforebegin', `
+                        <div id="runner-inline-edit-bar" class="hidden flex flex-wrap justify-center gap-2 mb-3">
+                            <button id="save-inline-runners-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">שמור</button>
+                            <button id="cancel-inline-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg text-sm">בטל</button>
+                        </div>
+                        <div id="runner-inline-edit-error" class="hidden text-center text-red-600 font-semibold text-sm mb-2"></div>
+                    `);
+                    createdBar = true;
+                }
+            }
+            if (!grid) return; // ביטחון
             runnerCardEdit.original = JSON.parse(JSON.stringify(state.runners || []));
             runnerCardEdit.active = true;
 
             document.getElementById('runner-inline-edit-bar')?.classList.remove('hidden');
             const editBtn = document.getElementById('edit-runners-btn');
-            if (editBtn) {
-                editBtn.disabled = true;
-                editBtn.classList.add('opacity-60', 'cursor-not-allowed');
-            }
+            if (editBtn) { editBtn.disabled = true; editBtn.classList.add('opacity-60', 'cursor-not-allowed'); }
 
-            // UPDATED: החלפת כפתור התחל מקצים בכפתור הוסף מועמד
             const startHeatsBtn = document.getElementById('start-heats-btn');
-            if (startHeatsBtn) {
-                startHeatsBtn.style.display = 'none';
-            }
-            
+            if (startHeatsBtn) startHeatsBtn.style.display = 'none';
             const addRunnerBtn = document.getElementById('add-runner-inline-btn');
-            if (addRunnerBtn) {
-                addRunnerBtn.style.display = '';
-            }
+            if (addRunnerBtn) addRunnerBtn.style.display = '';
 
             grid.querySelectorAll('.runner-card').forEach(card => {
                 const numEl = card.querySelector('.text-xl');
                 if (!numEl) return;
                 const current = numEl.textContent.trim();
-                // שמירת גודל/עיצוב: מחליף תוכן למכולה עם אינפוט שקוף רקע
                 numEl.innerHTML = `
                     <input data-shoulder-input
                            type="tel"
@@ -433,7 +432,6 @@ ${hasRunners ? `
                            class="runner-inline-input w-16 text-center font-bold text-gray-800 dark:text-gray-100 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
                            value="${current}" data-original="${current}" />
                 `;
-                // כפתור מחיקה מוצמד
                 if (!card.querySelector('.runner-delete-btn')) {
                     card.insertAdjacentHTML('beforeend', `
                         <button type="button" class="runner-delete-btn mt-2 text-[0.60rem] font-semibold px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md shadow focus:outline-none focus:ring-2 focus:ring-rose-300">
@@ -442,8 +440,15 @@ ${hasRunners ? `
                     `);
                 }
             });
-            // NEW: החלת מקלדת מספרים על האינפוטים החדשים
             applyNumericEnhancements(grid);
+
+            // NEW: רישום מאזינים אם הסרגל נוצר דינמית (אחרת אולי נרשמו קודם)
+            if (createdBar) {
+                const saveBtn = document.getElementById('save-inline-runners-btn');
+                const cancelBtn = document.getElementById('cancel-inline-runners-btn');
+                if (saveBtn && !saveBtn.__bound) { saveBtn.addEventListener('click', () => exitInlineEditMode(true)); saveBtn.__bound = true; }
+                if (cancelBtn && !cancelBtn.__bound) { cancelBtn.addEventListener('click', () => { if (!confirm('לבטל שינויים?')) return; exitInlineEditMode(false); }); cancelBtn.__bound = true; }
+            }
         }
         // חשיפה גלובלית להפעלה מבחוץ (למשל אחרי לחיצה על הוספה ידנית במודאל)
         window.enterRunnersEditMode = enterInlineEditMode;
@@ -675,7 +680,14 @@ ${hasRunners ? `
                 refreshRelatedPages();
                 try { window.dispatchEvent(new CustomEvent('runnersChanged', { detail: { runners: state.runners.map(r => ({ ...r })) } })); } catch (e) { /* silent */ }
             } else {
-                if (runnerCardEdit.original) { state.runners = JSON.parse(JSON.stringify(runnerCardEdit.original)); }
+                // ביטול - שחזור מהגיבוי
+                if (runnerCardEdit.original) { 
+                    state.runners = JSON.parse(JSON.stringify(runnerCardEdit.original)); 
+                }
+                // FIXED: אם אחרי השחזור אין מועמדים, למחוק את המערך לחלוטין כדי לחזור למסך הבחירה
+                if (!state.runners || state.runners.length === 0) {
+                    state.runners = [];
+                }
             }
             if (errorEl) { errorEl.classList.add('hidden'); errorEl.textContent = ''; }
             runnerCardEdit.active = false;
@@ -802,16 +814,34 @@ ${hasRunners ? `
         document.getElementById('reset-app-btn')?.addEventListener('click', () => {
             if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
             showModal('איפוס אפליקציה', 'האם אתה בטוח? כל הנתונים יימחקו לצמיתות.', () => {
-                // NEW: עצירת שליחה אוטומטית לפני איפוס האפליקציה
+                // עצירת שליחה אוטומטית לפני איפוס
                 if (window.autoBackupManager) {
-                    window.autoBackupManager.stop('איפוס אפליקציה');
+                    try { window.autoBackupManager.stop('איפוס אפליקציה'); } catch(e){}
                 }
-                
-                localStorage.removeItem(CONFIG.APP_STATE_KEY);
+                try { localStorage.removeItem(CONFIG.APP_STATE_KEY); } catch(e){}
+                try { sessionStorage.clear(); } catch(e){}
                 state.currentPage = PAGES.RUNNERS;
                 initializeAllData();
                 saveState();
-                render();
+                // HARD REFRESH: הסרת Service Workers + ניקוי caches ואז רילוד עם פרמטר ייחודי
+                (async ()=>{
+                    try {
+                        if ('serviceWorker' in navigator) {
+                            const regs = await navigator.serviceWorker.getRegistrations();
+                            await Promise.all(regs.map(r=>r.unregister()));
+                        }
+                    } catch(e) { /* silent */ }
+                    try {
+                        if (window.caches) {
+                            const keys = await caches.keys();
+                            await Promise.all(keys.map(k => caches.delete(k)));
+                        }
+                    } catch(e){ /* silent */ }
+                    // פינוי pending fetch / timers אופציונלי כאן אם צריך
+                    const url = location.origin + location.pathname + '?hard=' + Date.now();
+                    // שימוש ב replace כדי לאפשר back נקי
+                    location.replace(url);
+                })();
             });
         });
         
@@ -941,26 +971,21 @@ ${hasRunners ? `
         }
 
         // NEW: מאזינים לכפתורי הוספת מתמודדים במצב ללא רצים (רנדומלי / ידני)
-        if (!hasRunners && !manualAddMode) {
+        if (!hasRunners && !state.__autoEnterEditRunners) { // FIXED תנאי חדש
             const randBtn = document.getElementById('no-runners-random-btn');
             const manualBtn = document.getElementById('no-runners-manual-btn');
             randBtn?.addEventListener('click', () => {
                 console.log('[Runners] random add button click');
                 if (state.competitionStarted) { showModal('נעול', 'לא ניתן להוסיף לאחר התחלת המקצים'); return; }
                 try { (window.generateRandomRunners||generateRandomRunners)(); } catch(e){ console.warn('generateRandomRunners failed', e); showModal('שגיאה','שגיאה בהוספה רנדומלית'); }
-                state.__manualAddMode = false;
                 saveState();
                 render();
             });
             manualBtn?.addEventListener('click', () => {
                 console.log('[Runners] manual add mode button click');
                 if (state.competitionStarted) { showModal('נעול', 'לא ניתן להוסיף לאחר התחלת המקצים'); return; }
-                // כניסה ישירה למצב עריכה: יצירת placeholder אם אין רשומות
-                if (!Array.isArray(state.runners) || state.runners.length === 0) {
-                    state.runners = [{ shoulderNumber: '' }];
-                }
-                delete state.__manualAddMode; // לא משתמשים יותר במצב נפרד
-                state.__autoEnterEditRunners = true; // דגל להפעלה אחרי render
+                if (!Array.isArray(state.runners)) state.runners = [];
+                state.__autoEnterEditRunners = true; // כניסה מידית למצב עריכה ריק
                 saveState();
                 render();
             });

@@ -40,12 +40,13 @@
       listId = 'arrival-list',
       onCommentClick,
       hideCommentsColumn = false,
+      hideRankColumn = false, // NEW: הסתרת עמודת מיקום
       headerTitle // NEW: כותרת מותאמת מעל שורת הכותרת של הטבלה
     } = opts;
 
     const headerHtml = (showHeader && arrivals.length) ? `
       <div class="arrival-header">
-        <span class="h-cell static-position">מיקום</span>
+        ${!hideRankColumn ? `<span class="h-cell static-position">מיקום</span>` : ''}
         <span class="h-cell shoulder">מס' כתף</span>
         ${!hideCommentsColumn ? `<span class="h-cell comment">${labels.comment}</span>` : ''}
         <span class="h-cell time">${labels.time}</span>
@@ -73,9 +74,11 @@
             </button>
           </span>`;
 
+      const rankCell = hideRankColumn ? '' : `<span class="static-position">${staticPosition}</span>`;
+
       return `
         <div class="arrival-row ${variant}" data-shoulder-number="${sn}">
-          <span class="static-position">${staticPosition}</span>
+          ${rankCell}
           <span class="shoulder-cell">${sn}</span>
           ${commentCell}
           <span class="time-cell">${timeText}</span>
@@ -83,10 +86,10 @@
     }).join('');
 
     return `
-      <div class="arrival-section${hideCommentsColumn ? ' hide-comments' : ''}">
+      <div class="arrival-section${hideCommentsColumn ? ' hide-comments' : ''}${hideRankColumn ? ' hide-rank' : ''}">
         ${headerTitleHtml}
         ${headerHtml}
-        <div id="${listId}" class="${hideCommentsColumn ? 'hide-comments' : ''}">
+        <div id="${listId}" class="${hideCommentsColumn ? 'hide-comments' : ''}${hideRankColumn ? ' hide-rank' : ''}">
           ${rowsHtml}
         </div>
       </div>`;

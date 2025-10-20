@@ -184,7 +184,7 @@ class LandingAuthManager {
     /**
      * טיפול בתגובה מGoogle
      */
-    handleGoogleCallback(response) {
+    async handleGoogleCallback(response) {
         try {
             console.log('📨 התקבלה תגובה מGoogle');
             this.showLoading(true);
@@ -216,6 +216,11 @@ class LandingAuthManager {
                 verified: userInfo.email_verified
             });
             
+            // **שלב חדש: הורדת וטעינת הגדרות המערכת לפני בדיקת הרשאות**
+            console.log('⏳ מוריד קובץ הגדרות מערכת לפני בדיקת הרשאות...');
+            await this.downloadAndUpdateSettings();
+            
+            // עכשיו מעבד את המשתמש עם ההגדרות המעודכנות
             this.processGoogleUser(userInfo);
             
         } catch (error) {
@@ -223,6 +228,107 @@ class LandingAuthManager {
             this.showError('שגיאה בעיבוד פרטי ההתחברות מGoogle');
             this.showLoading(false);
         }
+    }
+
+    /**
+     * הורדה ועדכון הגדרות המערכת מ-Google Drive
+     */
+    async downloadAndUpdateSettings() {
+        try {
+            console.log('🔄 מתחיל הורדת הגדרות מערכת...');
+            
+            // בדיקה אם השירות קיים
+            if (!window.GoogleDriveReader || !window.GoogleDriveReader.fetchSystemSettings) {
+                console.warn('⚠️ GoogleDriveReader לא זמין, ממשיך עם הגדרות מקומיות');
+                return false;
+            }
+            
+            // הורדת ההגדרות
+            const settings = await window.GoogleDriveReader.fetchSystemSettings();
+            
+            if (!settings) {
+                console.log('ℹ️ לא נמצאו הגדרות בדרייב, ממשיך עם הגדרות מקומיות');
+                return false;
+            }
+            
+            console.log('📦 הגדרות שהורדו:', settings);
+            
+            // עדכון הגדרות תרגילים
+            if (settings.exerciseSettings && window.CONFIG) {
+                console.log('🔧 מעדכן הגדרות תרגילים...');
+                Object.assign(window.CONFIG, settings.exerciseSettings);
+            }
+            
+            // עדכון הגדרות גיבוי
+            if (settings.backupSettings && window.CONFIG) {
+                console.log('🔧 מעדכן הגדרות גיבוי...');
+                if (settings.backupSettings.enabled !== undefined) {
+                    window.CONFIG.AUTO_BACKUP_UPLOAD_ENABLED = settings.backupSettings.enabled;
+                }
+                if (settings.backupSettings.intervalMinutes !== undefined) {
+                    window.CONFIG.AUTO_BACKUP_UPLOAD_INTERVAL_MS = settings.backupSettings.intervalMinutes * 60 * 1000;
+                }
+                if (settings.backupSettings.stopAfterMinutes !== undefined) {
+                    window.CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS = settings.backupSettings.stopAfterMinutes * 60 * 1000;
+                }
+            }
+            
+            // **עדכון משתמשים מורשים - ההגדרות כבר נשמרו ב-localStorage**
+            // USERS_CONFIG קורא אותם דינמית דרך getter, אין צורך בדריסה
+            // שימו לב: המבנה יכול להיות settings.userManagement.authorizedUsers או settings.users
+            let usersArray = null;
+            
+            if (settings.userManagement && Array.isArray(settings.userManagement.authorizedUsers)) {
+                usersArray = settings.userManagement.authorizedUsers;
+            } else if (Array.isArray(settings.users)) {
+                usersArray = settings.users;
+            }
+            
+            if (usersArray) {
+                console.log('👥 משתמשים מורשים זמינים - USERS_CONFIG יקרא אותם דינמית');
+                console.log('📋 כמות משתמשים מהדרייב:', usersArray.length);
+                
+                // אימות שה-getter עובד
+                if (window.USERS_CONFIG) {
+                    const currentUsers = window.USERS_CONFIG.users;
+                    console.log('✅ אימות: USERS_CONFIG.users מחזיר', currentUsers.length, 'משתמשים');
+                    console.log('👥 רשימת משתמשים:', currentUsers.map(u => `${u.name} (${u.email})`).join(', '));
+                }
+            } else {
+                console.warn('⚠️ לא נמצאו משתמשים בהגדרות שהורדו');
+            }
+            
+            // שמירת ההגדרות המעודכנות ב-localStorage
+            try {
+                localStorage.setItem('downloadedSystemSettings', JSON.stringify(settings));
+                localStorage.setItem('settingsLastUpdated', new Date().toISOString());
+                console.log('💾 הגדרות נשמרו ב-localStorage');
+            } catch (e) {
+                console.warn('⚠️ לא ניתן לשמור הגדרות ב-localStorage:', e);
+            }
+            
+            console.log('✅ כל ההגדרות עודכנו בהצלחה');
+            console.log('📋 CONFIG מעודכן:', window.CONFIG);
+            console.log('👥 USERS_CONFIG מעודכן:', window.USERS_CONFIG);
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ שגיאה בהורדה ועדכון הגדרות:', error);
+            return false;
+        }
+    }
+
+    /**
+     * קבלת שם המשתמש מקובץ ההגדרות על פי המייל
+     * @param {string} email - כתובת המייל
+     * @returns {string|null} - השם של המשתמש או null
+     */
+    getUserNameFromSettings(email) {
+        if (!email || !window.USERS_CONFIG) return null;
+        
+        const user = window.USERS_CONFIG.getUserByEmail(email);
+        return user ? user.name : null;
     }
 
     /**
@@ -443,9 +549,24 @@ class LandingAuthManager {
         const session = JSON.parse(savedSession);
         const authState = session.authState;
 
-        // אם יש מידע ממשתמש Google, מלא את שם המעריך
-        if (authState.googleUserInfo && authState.googleUserInfo.name) {
-            evaluatorNameInput.value = authState.googleUserInfo.name;
+        // **שינוי: מילוי אוטומטי של שם המעריך מקובץ ההגדרות**
+        // סדר עדיפות: 1. קובץ הגדרות מהדרייב, 2. שדה ריק להזנה ידנית
+        if (authState.googleUserInfo && authState.googleUserInfo.email) {
+            const userNameFromSettings = this.getUserNameFromSettings(authState.googleUserInfo.email);
+            if (userNameFromSettings) {
+                evaluatorNameInput.value = userNameFromSettings;
+                console.log('👤 שם המעריך הוגדר מקובץ ההגדרות:', userNameFromSettings);
+                
+                // **חדש: שמירה מיידית של השם ב-localStorage כדי שיהיה זמין לאפליקציה**
+                try {
+                    localStorage.setItem('evaluatorNameFromSettings', userNameFromSettings);
+                    console.log('💾 שם המעריך נשמר ב-localStorage');
+                } catch (e) {
+                    console.warn('⚠️ לא ניתן לשמור שם מעריך:', e);
+                }
+            } else {
+                console.log('ℹ️ לא נמצא שם בהגדרות, השדה יישאר ריק');
+            }
         }
 
         // הגבלת הזנה למספרי קבוצה (מספרים בלבד עד 999)
@@ -539,6 +660,9 @@ class LandingAuthManager {
                 return;
             }
 
+            // **שימוש בשם שהמשתמש הזין (או השם מהדרייב שהוצג כברירת מחדל)**
+            console.log('💾 שומר פרטי קבוצה:', { evaluatorNameValue, groupNumberValue });
+
             // עדכון מצב האימות
             authState.evaluatorName = evaluatorNameValue;
             authState.groupNumber = groupNumberValue;
@@ -550,6 +674,14 @@ class LandingAuthManager {
                 authState: authState
             };
             localStorage.setItem('gibushAuthState', JSON.stringify(updatedSession));
+
+            // **שמירה גם במקום הייעודי לשם מהגדרות**
+            try {
+                localStorage.setItem('evaluatorNameFromSettings', evaluatorNameValue);
+                console.log('✅ שם מעריך נשמר גם ב-evaluatorNameFromSettings');
+            } catch (e) {
+                console.warn('⚠️ לא ניתן לשמור evaluatorNameFromSettings:', e);
+            }
 
             // שמירת הפרטים גם ב-localStorage הרגיל של האפליקציה
             try {
