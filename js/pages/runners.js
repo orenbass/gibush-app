@@ -818,17 +818,22 @@ ${hasRunners ? `
                 if (window.autoBackupManager) {
                     try { window.autoBackupManager.stop('איפוס אפליקציה'); } catch(e){}
                 }
+                // מחיקת נתוני מצב קיימים
                 try { localStorage.removeItem(CONFIG.APP_STATE_KEY); } catch(e){}
+                try { localStorage.removeItem('downloadedSystemSettings'); } catch(e){}
                 try { sessionStorage.clear(); } catch(e){}
+
+                // איפוס מצב בזיכרון
+                if (typeof initializeAllData === 'function') initializeAllData();
                 state.currentPage = PAGES.RUNNERS;
-                initializeAllData();
-                saveState();
-                // HARD REFRESH: הסרת Service Workers + ניקוי caches ואז רילוד עם פרמטר ייחודי
-                (async ()=>{
+                if (typeof saveState === 'function') saveState();
+
+                // ניסיון לנקות service workers ו-caches (לא חובה)
+                (async () => {
                     try {
                         if ('serviceWorker' in navigator) {
                             const regs = await navigator.serviceWorker.getRegistrations();
-                            await Promise.all(regs.map(r=>r.unregister()));
+                            await Promise.all(regs.map(r => r.unregister()));
                         }
                     } catch(e) { /* silent */ }
                     try {
@@ -837,11 +842,15 @@ ${hasRunners ? `
                             await Promise.all(keys.map(k => caches.delete(k)));
                         }
                     } catch(e){ /* silent */ }
-                    // פינוי pending fetch / timers אופציונלי כאן אם צריך
-                    const url = location.origin + location.pathname + '?hard=' + Date.now();
-                    // שימוש ב replace כדי לאפשר back נקי
-                    location.replace(url);
                 })();
+
+                // רינדור מחדש ואז פתיחת מודאל עריכת פרטי הקבוצה
+                if (typeof render === 'function') render();
+                setTimeout(() => {
+                    if (typeof showEditBasicDetailsModal === 'function') {
+                        try { showEditBasicDetailsModal(); } catch(e){ console.warn('פתיחת מודאל פרטי משתמש נכשלה', e); }
+                    }
+                }, 60);
             });
         });
         
