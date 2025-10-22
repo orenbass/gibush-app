@@ -298,19 +298,7 @@ ${hasRunners ? `
 `}
 
 <div id="runner-error" class="mt-4 text-red-500 text-center font-bold hidden"></div>
-
-<!-- ניהול נתונים -->
-<div class="mt-8 border-t pt-4 border-gray-300 dark:border-gray-600">
-    <h3 class="text-lg font-semibold mb-3 text-center text-gray-700 dark:text-gray-300">ניהול נתונים</h3>
-    <div class="flex justify-center gap-4 flex-wrap">
-        <button id="admin-settings-btn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg text-sm">הגדרות מנהל</button>
-        <button id="reset-app-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm">אפס אפליקציה</button>
-        <button id="compact-backup-upload-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-sm">שלח גיבוי למנהל</button>
-        <button id="compact-backup-download-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg text-sm">הורד גיבוי</button>
-        <button id="compact-backup-import-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg text-sm">טען גיבוי</button>
-        <input type="file" id="compact-backup-import-input" class="hidden" accept="application/json,.json" />
-    </div>
-</div>`;
+`;
 
         // רענון סרגל הערות מהירות לאחר חישוב פעילים
         if (window.QuickComments?.renderBar && document.getElementById('quick-comment-bar-container')) {
@@ -810,48 +798,40 @@ ${hasRunners ? `
             if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
             validateAndStartHeats();
         });
-        document.getElementById('admin-settings-btn')?.addEventListener('click', handleAdminSettingsClick);
-        document.getElementById('reset-app-btn')?.addEventListener('click', () => {
+        
+        // NEW: כפתור ניקוי Cache
+        document.getElementById('clear-cache-btn')?.addEventListener('click', async () => {
             if (runnerCardEdit.active && !confirm('יש שינויים שלא נשמרו. להמשיך בלי לשמור?')) return;
-            showModal('איפוס אפליקציה', 'האם אתה בטוח? כל הנתונים יימחקו לצמיתות.', () => {
-                // עצירת שליחה אוטומטית לפני איפוס
-                if (window.autoBackupManager) {
-                    try { window.autoBackupManager.stop('איפוס אפליקציה'); } catch(e){}
-                }
-                // מחיקת נתוני מצב קיימים
-                try { localStorage.removeItem(CONFIG.APP_STATE_KEY); } catch(e){}
-                try { localStorage.removeItem('downloadedSystemSettings'); } catch(e){}
-                try { sessionStorage.clear(); } catch(e){}
-
-                // איפוס מצב בזיכרון
-                if (typeof initializeAllData === 'function') initializeAllData();
-                state.currentPage = PAGES.RUNNERS;
-                if (typeof saveState === 'function') saveState();
-
-                // ניסיון לנקות service workers ו-caches (לא חובה)
-                (async () => {
-                    try {
-                        if ('serviceWorker' in navigator) {
-                            const regs = await navigator.serviceWorker.getRegistrations();
-                            await Promise.all(regs.map(r => r.unregister()));
-                        }
-                    } catch(e) { /* silent */ }
-                    try {
-                        if (window.caches) {
-                            const keys = await caches.keys();
-                            await Promise.all(keys.map(k => caches.delete(k)));
-                        }
-                    } catch(e){ /* silent */ }
-                })();
-
-                // רינדור מחדש ואז פתיחת מודאל עריכת פרטי הקבוצה
-                if (typeof render === 'function') render();
-                setTimeout(() => {
-                    if (typeof showEditBasicDetailsModal === 'function') {
-                        try { showEditBasicDetailsModal(); } catch(e){ console.warn('פתיחת מודאל פרטי משתמש נכשלה', e); }
+            
+            if (!confirm('לנקות את כל ה-Cache של האפליקציה? פעולה זו תרענן את האפליקציה ותבטיח שכל העדכונים יוצגו.')) return;
+            
+            const btn = document.getElementById('clear-cache-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '🔄 מנקה...';
+            
+            try {
+                if (window.PWA?.forceRefreshApp) {
+                    await window.PWA.forceRefreshApp();
+                } else {
+                    // Fallback אם PWA לא זמין
+                    if (window.caches) {
+                        const cacheNames = await caches.keys();
+                        await Promise.all(cacheNames.map(name => caches.delete(name)));
                     }
-                }, 60);
-            });
+                    if (navigator.serviceWorker) {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all(registrations.map(reg => reg.unregister()));
+                    }
+                    sessionStorage.clear();
+                    window.location.reload(true);
+                }
+            } catch (error) {
+                console.error('שגיאה בניקוי Cache:', error);
+                alert('שגיאה בניקוי Cache. נסה לרענן ידנית (Ctrl+Shift+R)');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
         });
         
         // Compact backup buttons (renamed)
