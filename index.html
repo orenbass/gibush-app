@@ -509,9 +509,26 @@
         function logout() {
             if (confirm('האם אתה בטוח שברצונך לצאת מהמערכת?')) {
                 try {
+                    // ניקוי מלא של כל הנתונים
                     localStorage.removeItem('gibushAuthState');
                     localStorage.removeItem('gibushAppState');
-                    console.log('🚪 יציאה מהמערכת');
+                    
+                    // ניקוי נתוני state אם CONFIG זמין
+                    if (typeof CONFIG !== 'undefined' && CONFIG.APP_STATE_KEY) {
+                        localStorage.removeItem(CONFIG.APP_STATE_KEY);
+                    }
+                    
+                    // ניקוי כללי של כל מפתחות האפליקציה
+                    const keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && (key.startsWith('gibush') || key.startsWith('sprintAppState'))) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    keysToRemove.forEach(key => localStorage.removeItem(key));
+                    
+                    console.log('🚪 יציאה מהמערכת - כל הנתונים נמחקו');
                     window.location.href = './landing.html';
                 } catch (error) {
                     console.error('שגיאה ביציאה:', error);
