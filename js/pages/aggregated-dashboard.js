@@ -22,7 +22,8 @@
       this.state = {
         raw: null, // המערך המקורי של האובייקטים (מעריכים)
         groups: new Map(), // groupNumber -> { evaluators: Map(evaluatorName -> dataObject) }
-        selected: { group: null, evaluator: null }
+        selected: { group: null, evaluator: null },
+        scoreFilters: new Set() // מסנן ציונים - סט של ציונים לסינון (1, 2, 3, 4, 5)
       };
       this.lastQuery = null; // שמירת חודש/שנה לריענון
       this.ensureMount();
@@ -155,6 +156,7 @@
           <div class="agg-header-left">
             <button id="aggExitBtn" class="agg-btn agg-btn-secondary" title="יציאה">🚪 יציאה</button>
             <button id="aggRefreshBtn" class="agg-btn agg-btn-primary" title="ריענון">🔄 ריענון</button>
+            <button id="aggExportExcelBtn" class="agg-btn agg-btn-success" title="הורד אקסל מאוחד">📥 הורד אקסל</button>
             <div class="agg-subtitle agg-inline-stats">סה"כ מעריכים: <strong>${this.countEvaluators()}</strong> | סה"כ קבוצות: <strong>${this.state.groups.size}</strong></div>
           </div>
           <div class="agg-header-right">
@@ -171,6 +173,29 @@
                 <option value="" ${this.state.selected.evaluator? '':'selected'}>כל המעריכים</option>
                 ${(this.state.selected.group? this._evaluatorNamesByGroup(this.state.selected.group): evaluatorsAll).map(n=>`<option value="${n}" ${this.state.selected.evaluator===n?'selected':''}>${n}</option>`).join('')}
               </select>
+              <div class="score-filter-dropdown">
+                <button id="aggScoreFilterBtn" class="agg-btn agg-btn-filter" title="סנן לפי ציונים">
+                  🎯 ציונים ${this.state.scoreFilters.size > 0 ? `(${this.state.scoreFilters.size})` : ''}
+                </button>
+                <div id="aggScoreFilterMenu" class="score-filter-menu" style="display: none;">
+                  <div class="score-filter-header">
+                    <span>בחר ציונים לסינון:</span>
+                    <button class="score-clear-all" id="aggScoreClearAll">נקה הכל</button>
+                  </div>
+                  <div class="score-checkboxes">
+                    ${[1, 2, 3, 4, 5, 6, 7].map(score => `
+                      <label class="score-checkbox-label">
+                        <input type="checkbox" class="score-checkbox" data-score="${score}" ${this.state.scoreFilters.has(score) ? 'checked' : ''}>
+                        <span>ציון ${score}</span>
+                      </label>
+                    `).join('')}
+                  </div>
+                  <div class="score-filter-actions">
+                    <button id="aggScoreApply" class="agg-btn agg-btn-primary agg-btn-sm">החל</button>
+                    <button id="aggScoreCancel" class="agg-btn agg-btn-secondary agg-btn-sm">ביטול</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>`;
@@ -179,19 +204,70 @@
       body.innerHTML = `<section class="agg-content" id="aggContent" aria-live="polite"></section>`;
       this.root.appendChild(header);
       this.root.appendChild(body);
+      
+      // Event listeners
       header.querySelector('#aggExitBtn').addEventListener('click', () => this.renderDatePicker());
       header.querySelector('#aggRefreshBtn').addEventListener('click', () => this.refreshCurrent());
+      header.querySelector('#aggExportExcelBtn').addEventListener('click', () => this.exportAggregatedExcel());
       header.querySelector('#aggGroupSelect').addEventListener('change', (e)=>{
         const v = e.target.value || null;
         this.state.selected.group = v;
         this.state.selected.evaluator = null;
-        this._updateFilters(); // עדכון דינמי של הפילטרים
+        this._updateFilters();
       });
       header.querySelector('#aggEvaluatorSelect').addEventListener('change', (e)=>{
         const v = e.target.value || null;
         this.state.selected.evaluator = v;
-        this._updateFilters(); // עדכון דינמי של הפילטרים
+        this._updateFilters();
       });
+      
+      // Score filter events
+      const scoreFilterBtn = header.querySelector('#aggScoreFilterBtn');
+      const scoreFilterMenu = header.querySelector('#aggScoreFilterMenu');
+      const scoreApply = header.querySelector('#aggScoreApply');
+      const scoreCancel = header.querySelector('#aggScoreCancel');
+      const scoreClearAll = header.querySelector('#aggScoreClearAll');
+      
+      scoreFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = scoreFilterMenu.style.display === 'block';
+        scoreFilterMenu.style.display = isVisible ? 'none' : 'block';
+      });
+      
+      scoreApply.addEventListener('click', () => {
+        const checkboxes = scoreFilterMenu.querySelectorAll('.score-checkbox');
+        this.state.scoreFilters.clear();
+        checkboxes.forEach(cb => {
+          if (cb.checked) {
+            this.state.scoreFilters.add(parseInt(cb.dataset.score));
+          }
+        });
+        scoreFilterMenu.style.display = 'none';
+        scoreFilterBtn.innerHTML = `🎯 ציונים ${this.state.scoreFilters.size > 0 ? `(${this.state.scoreFilters.size})` : ''}`;
+        this.renderCurrentView();
+      });
+      
+      scoreCancel.addEventListener('click', () => {
+        // Restore checkboxes to match current state
+        const checkboxes = scoreFilterMenu.querySelectorAll('.score-checkbox');
+        checkboxes.forEach(cb => {
+          cb.checked = this.state.scoreFilters.has(parseInt(cb.dataset.score));
+        });
+        scoreFilterMenu.style.display = 'none';
+      });
+      
+      scoreClearAll.addEventListener('click', () => {
+        const checkboxes = scoreFilterMenu.querySelectorAll('.score-checkbox');
+        checkboxes.forEach(cb => cb.checked = false);
+      });
+      
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!scoreFilterBtn.contains(e.target) && !scoreFilterMenu.contains(e.target)) {
+          scoreFilterMenu.style.display = 'none';
+        }
+      });
+      
       const searchInput = header.querySelector('#aggSearchInput');
       const searchClear = header.querySelector('#aggSearchClear');
       if (searchInput) {
@@ -417,9 +493,9 @@
       gData.evaluators.forEach(evalData => {
         (evalData.runners||[]).forEach(r => {
           const key = r.shoulderNumber;
-            if (!map.has(key)) map.set(key,{ group: evalData.groupNumber, shoulder: r.shoulderNumber, sprint: [], crawling: [], stretcher: [] });
-            const entry = map.get(key);
-            if (r.finalScores) ['sprint','crawling','stretcher'].forEach(k=> { if (typeof r.finalScores[k]==='number') entry[k].push(r.finalScores[k]); });
+          if (!map.has(key)) map.set(key,{ group: evalData.groupNumber, shoulder: r.shoulderNumber, sprint: [], crawling: [], stretcher: [] });
+          const entry = map.get(key);
+          if (r.finalScores) ['sprint','crawling','stretcher'].forEach(k=> { if (typeof r.finalScores[k]==='number') entry[k].push(r.finalScores[k]); });
         });
       });
       return Array.from(map.values()).map(c=> {
@@ -427,7 +503,13 @@
         const pts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
         const overallAvg = pts.length? +(pts.reduce((a,b)=>a+b,0)/pts.length).toFixed(2):null;
         return { group: c.group, shoulder: c.shoulder, sprintAvg, crawlingAvg, stretcherAvg, overallAvg, evalCount: Math.max(c.sprint.length,c.crawling.length,c.stretcher.length), hasComments: this._hasComments(c.group, c.shoulder) };
-      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.shoulder - b.shoulder));
+      }).sort((a,b)=> {
+        // מיון נכון: ציון כולל גבוה קודם
+        const scoreA = a.overallAvg ?? -Infinity;
+        const scoreB = b.overallAvg ?? -Infinity;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return a.shoulder - b.shoulder;
+      });
     }
 
     renderEvaluatorView(container, evalData) {
@@ -735,10 +817,34 @@
     buildCandidatesCards(list, opts={}){
       // פריסה חדשה: שורה אחת דחוסה לכל מתמודד + שורת כותרות
       const clickable = opts.clickable !== false;
+      
+      // מיון ראשוני לפי ציון כולל
       const sortedList = [...list].sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder-b.shoulder);
-      const withPos = sortedList.map((item,i)=> ({...item, position: i+1}));
+      
+      // סינון לפי ציון כולל מעוגל בלבד
+      let filteredList = sortedList;
+      if (this.state.scoreFilters.size > 0) {
+        filteredList = sortedList.filter(candidate => {
+          // בדיקה של הציון הכולל בלבד לאחר עיגול
+          if (candidate.overallAvg === null || candidate.overallAvg === undefined) {
+            return false;
+          }
+          const roundedScore = Math.round(candidate.overallAvg);
+          return this.state.scoreFilters.has(roundedScore);
+        });
+      }
+      
+      // מיספור מיקומים מחדש אחרי הסינון
+      const withPos = filteredList.map((item,i)=> ({...item, position: i+1}));
       const wrap = document.createElement('div');
       wrap.className='agg-mobile-lines';
+      
+      // הצגת הודעה אם אין תוצאות
+      if (withPos.length === 0) {
+        wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:#64748b;font-size:.85rem;">לא נמצאו מתמודדים התואמים לסינון</div>';
+        return wrap;
+      }
+      
       // שורת כותרות - סדר חדש: מיקום, כתף, קבוצה
       const headerRow = `<div class="candidate-row candidate-row-header" aria-hidden="true">
         <div class="col col-pos">מיקום</div>
@@ -785,9 +891,14 @@
     }
 
     countEvaluators() {
-      let count=0; 
-      this.state.groups.forEach(g=> count += g.evaluators.size); 
-      return count;
+      // ספירה נכונה - מעריך ייספר רק פעם אחת גם אם הערך כמה קבוצות
+      const uniqueEvaluators = new Set();
+      this.state.groups.forEach(gData => {
+        gData.evaluators.forEach((_, evaluatorName) => {
+          uniqueEvaluators.add(evaluatorName);
+        });
+      });
+      return uniqueEvaluators.size;
     }
 
     refreshCurrent() {
@@ -847,7 +958,14 @@
           evalCount: Math.max(c.sprint.length, c.crawling.length, c.stretcher.length),
           hasComments: this._hasComments(c.group, c.shoulder)
         };
-      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder-b.shoulder);
+      }).sort((a,b)=> {
+        // מיון נכון: ציון כולל גבוה קודם
+        const scoreA = a.overallAvg ?? -Infinity;
+        const scoreB = b.overallAvg ?? -Infinity;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        if (a.group !== b.group) return parseInt(a.group) - parseInt(b.group);
+        return a.shoulder - b.shoulder;
+      });
     }
 
     aggregateEvaluatorAcrossAll(name){
@@ -875,7 +993,14 @@
           }
         });
       });
-      return rows.sort((a,b)=> (b.overallAvg ?? -1) - (a.overallAvg ?? -1) || parseInt(a.group)-parseInt(b.group) || a.shoulder - b.shoulder);
+      return rows.sort((a,b)=> {
+        // מיון נכון: ציון כולל גבוה קודם
+        const scoreA = a.overallAvg ?? -Infinity;
+        const scoreB = b.overallAvg ?? -Infinity;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        if (a.group !== b.group) return parseInt(a.group) - parseInt(b.group);
+        return a.shoulder - b.shoulder;
+      });
     }
 
     aggregateGroup(gData) {
@@ -893,7 +1018,38 @@
         const pts=[sprintAvg,crawlingAvg,stretcherAvg].filter(v=> typeof v==='number');
         const overallAvg = pts.length? +(pts.reduce((a,b)=>a+b,0)/pts.length).toFixed(2):null;
         return { group: c.group, shoulder: c.shoulder, sprintAvg, crawlingAvg, stretcherAvg, overallAvg, evalCount: Math.max(c.sprint.length,c.crawling.length,c.stretcher.length), hasComments: this._hasComments(c.group, c.shoulder) };
-      }).sort((a,b)=> (b.overallAvg ?? -1) - (a.shoulder - b.shoulder));
+      }).sort((a,b)=> {
+        // מיון נכון: ציון כולל גבוה קודם
+        const scoreA = a.overallAvg ?? -Infinity;
+        const scoreB = b.overallAvg ?? -Infinity;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return a.shoulder - b.shoulder;
+      });
+    }
+
+    // ============================================
+    // פונקציה ליצירת קובץ אקסל מאוחד - קוראת לקובץ החיצוני
+    // ============================================
+    async exportAggregatedExcel() {
+      const btn = this.root.querySelector('#aggExportExcelBtn');
+      if (!btn) return;
+      
+      try {
+        btn.disabled = true;
+        btn.textContent = '⏳ מייצר אקסל...';
+        
+        // קריאה לפונקציית הייצוא החיצונית
+        await window.AggregatedExcelExporter.exportToExcel(this);
+        
+      } catch (error) {
+        console.error('❌ שגיאה ביצירת קובץ אקסל:', error);
+        alert('שגיאה ביצירת קובץ האקסל: ' + error.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '📥 הורד אקסל';
+        }
+      }
     }
   }
 

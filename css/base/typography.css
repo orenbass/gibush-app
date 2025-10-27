@@ -1,0 +1,53 @@
+/* ========================================
+   טיפוגרפיה - Typography
+   ======================================== */
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text);
+  font-family: var(--hebrew-font);
+  margin: 0;
+  padding: 0;
+}
+
+h2 {
+  letter-spacing: 0.2px;
+}
+
+/* תיקון טקסט עברי */
+.hebrew-text,
+body,
+h1, h2, h3, h4, h5, h6,
+.form-label,
+.form-input,
+.btn,
+.card,
+.error-message {
+  font-family: var(--hebrew-font) !important;
+  font-weight: 400;
+  letter-spacing: 0;
+  word-spacing: normal;
+}
+
+/* מיקום והצגה של מספרים באנגלית */
+.number-input,
+input[type="number"],
+input[inputmode="numeric"] {
+  font-family: var(--english-font);
+  direction: ltr;
+  text-align: center;
+}
+
+/* Required fields */
+.required-field::after {
+  content: '*';
+  color: var(--danger);
+  margin-right: 4px;
+}
+
+/* Timer display */
+.timer-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(59,130,246,.35);
+}

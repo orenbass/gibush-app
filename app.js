@@ -1651,20 +1651,8 @@ function ensureUserAvatar() {
         if (!avatarBtn) {
             avatarBtn = document.createElement('button');
             avatarBtn.id = 'user-avatar-btn';
+            avatarBtn.className = 'avatar-btn-fixed'; // הוספת class במקום inline styles
             avatarBtn.title = 'תפריט משתמש';
-            avatarBtn.style.width = '40px';
-            avatarBtn.style.height = '40px';
-            avatarBtn.style.minWidth = '40px';
-            avatarBtn.style.borderRadius = '50%';
-            avatarBtn.style.overflow = 'hidden';
-            avatarBtn.style.border = '2px solid rgba(37, 99, 235, 0.3)';
-            avatarBtn.style.display = 'flex';
-            avatarBtn.style.alignItems = 'center';
-            avatarBtn.style.justifyContent = 'center';
-            avatarBtn.style.background = 'linear-gradient(135deg,#2563eb,#1e3a8a)';
-            avatarBtn.style.cursor = 'pointer';
-            avatarBtn.style.transition = 'all 0.2s ease';
-            avatarBtn.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.2)';
             avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
             
             // הוספת אפקט hover

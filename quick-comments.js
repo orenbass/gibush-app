@@ -249,7 +249,7 @@
             ${runnerOptions}
           </select>
           <button id="group-comments-trigger" type="button" class="qc-group-trigger" aria-haspopup="dialog" aria-expanded="false">
-            <span>הערות מוכנות מראש</span><span style="font-size:15px;">📝</span>
+            הערות מוכנות מראש 📝
           </button>
         </div>
         <div class="qc-row qc-row-input">
@@ -428,10 +428,15 @@
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null, isRecording = false;
-    const isApple = /iP(hone|ad|od)|Mac/i.test(navigator.userAgent);
-    if (isApple && micBtn) {
+    
+    // הסתרת המיקרופון רק במכשירי iOS (לא Mac!) כי Safari iOS לא תומך ב-Web Speech API
+    const isIOS = /iP(hone|ad|od)/i.test(navigator.userAgent);
+    
+    if (isIOS && micBtn) {
+      // במכשירי iOS - מסתירים לגמרי את כפתור המיקרופון
       micBtn.style.display = 'none';
     } else if (SR) {
+      // יש תמיכה ב-Web Speech API - מפעילים הקלטה
       recognition = new SR();
       recognition.lang = 'he-IL';
       recognition.continuous = false;
@@ -457,6 +462,7 @@
       micBtn.addEventListener('touchstart', startRec, { passive: false });
       micBtn.addEventListener('touchend', stopRec);
     } else if (micBtn) {
+      // אין תמיכה ב-Web Speech API - מציגים הודעה
       micBtn.title = "הקלטה קולית דורשת דפדפן תומך ו-HTTPS.";
     }
 

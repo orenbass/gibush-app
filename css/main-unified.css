@@ -1,0 +1,84 @@
+/* ========================================
+   קובץ CSS ראשי מאוחד - Main Stylesheet
+   מייבא את כל הקבצים המסודרים לפי קטגוריות
+   ======================================== */
+
+/* Base - סגנונות בסיס */
+@import url('./base/variables.css');
+@import url('./base/reset.css');
+@import url('./base/typography.css');
+
+/* Components - רכיבים */
+@import url('./components/buttons.css');
+@import url('./components/cards.css');
+@import url('./components/forms.css');
+@import url('./components/modals.css');
+@import url('./components/quick-comments.css');
+
+/* Pages - עמודים */
+@import url('./arrival-rows.css');
+@import url('./pages/runners.css');
+@import url('./pages/status-management.css');
+@import url('./pages/heat.css');
+@import url('./pages/crawling-comments.css');
+@import url('./pages/crawling-sprint.css');
+@import url('./pages/stretcher-heat.css');
+@import url('./pages/report.css');
+
+/* Utils - עזרים */
+@import url('./utils/animations.css');
+@import url('./utils/responsive.css');
+@import url('./utils/dark-mode.css');
+
+/* ========================================
+   Admin Settings Styles
+   ======================================== */
+
+.admin-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 3px solid transparent;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 0.375rem 0.375rem 0 0;
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+.admin-nav-tab.compact {
+  padding: 0.375rem 0.625rem;
+  font-size: 0.8rem;
+}
+
+.admin-nav-tab:hover {
+  background: #f3f4f6;
+  border-bottom-color: #9ca3af;
+  color: #374151;
+}
+
+.admin-nav-tab.active {
+  border-bottom-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .admin-nav-tab {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.5rem;
+  }
+}
+
+/* ========================================
+   Legacy Support - תמיכה בקוד ישן
+   ======================================== */
+
+/* אם יש סגנונות נוספים שעדיין לא הועברו, 
+   ניתן להוסיף אותם כאן באופן זמני */

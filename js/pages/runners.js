@@ -216,10 +216,8 @@
 <div class="evaluation-info relative max-w-md mx-auto mb-4 rounded-lg border border-blue-200/80 dark:border-blue-800/60
             bg-white text-gray-800 dark:bg-slate-900/55 p-3 shadow">
     <!-- NEW: נעילת כפתור עריכה אם התחרות התחילה -->
-    <button id="edit-details-btn"
-            class="absolute top-2 left-2 bg-gray-600/85 hover:bg-gray-700 text-white font-medium py-0.5 px-2.5 rounded text-[0.65rem] shadow-sm ${state.competitionStarted ? 'opacity-50 cursor-not-allowed' : ''}"
-            ${state.competitionStarted ? 'disabled' : ''}>
-        ערוך
+    <button id="edit-details-btn" ${state.competitionStarted ? 'disabled' : ''}>
+        ${state.competitionStarted ? 'נעול' : 'ערוך'}
     </button>
     <h2 class="text-center text-base md:text-lg font-bold text-gray-800 dark:text-blue-300 mb-2 leading-snug">
         פרטי הערכה

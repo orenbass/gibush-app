@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <title>מערכת גיבוש חת"מ</title>
-    <link rel="stylesheet" href="styles.css">
+    <!-- Updated: קובץ CSS חדש מאורגן -->
+    <link rel="stylesheet" href="css/main-unified.css">
     <link rel="manifest" href="./manifest.webmanifest">
     <meta name="theme-color" content="#0f172a">
     <meta name="application-name" content="Gibush">
@@ -33,6 +34,7 @@
     <script src="./js/utils/modal.js"></script>
     <script src="js/utils/scoring.js"></script>
     <script src="js/utils/unified-export.js"></script>
+    <script src="js/utils/aggregated-excel-exporter.js"></script>
     <script src="js/utils/compact-backup.js"></script>
     <script src="js/utils/pwa.js"></script>
     <script src="js/utils/comment-mic.js"></script>
@@ -71,54 +73,21 @@
         }
     </style>
     
-    <!-- Quick comment sticky styles -->
+    <!-- Quick Comments - נותר רק הקוד הדרוש למיקום sticky ולהסתרה -->
     <style>
         #quick-comment-bar-container.quick-comment-sticky {
-          position: sticky;
+            position: sticky;
             top: calc(var(--safe-area-top, 0px));
             z-index: 60;
-            background: rgba(17,24,39,.0);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-radius: 0.1rem;
         }
-        .dark #quick-comment-bar-container.quick-comment-sticky {
-            background: rgba(44,54,117,0);
-        }
-        body.hide-quick-comments #quick-comment-bar-container { display: none; }
         
-        html, body { touch-action: manipulation; }
+        body.hide-quick-comments #quick-comment-bar-container { 
+            display: none; 
+        }
     </style>
     
-    <!-- Navigation tab styling -->
+    <!-- Navigation Icons - רק הגדרות אייקונים -->
     <style>
-        .nav-tab {
-            border-bottom: 2px solid transparent;
-            border-radius: .65rem;
-            padding: .62rem .70rem;
-            min-height: 46px;
-            font-weight: 600;
-            line-height: 1.05;
-            display: inline-flex;
-            align-items: center;
-            gap: .35rem;
-            transition: background .18s, color .18s, border-color .18s, box-shadow .18s, transform .18s;
-        }
-        .nav-tab.is-active {
-            background: linear-gradient(145deg,#2563eb,#1d4ed8);
-            color:#fff!important;
-            box-shadow: 0 3px 6px rgba(0,0,0,.22);
-            transform: translateY(-1px);
-        }
-        .dark .nav-tab.is-active {
-            background: linear-gradient(145deg,#1d4ed8,#1e40af);
-        }
-        .nav-tab > span:first-child { font-size: 1.05rem; line-height: 1; }
-        .nav-tab > span:last-child { margin-top: 2px; font-size:.70rem; }
-        .nav-tab.is-active > span:first-child { transform: translateY(-1px); }
-        @media (min-width: 480px){
-            .nav-tab > span:last-child { font-size: .75rem; }
-        }
         .nav-icon-team,
         .nav-icon-status,
         .nav-icon-stretcher,
@@ -127,11 +96,12 @@
         .nav-icon-crawl-sprint,
         .nav-icon-socio-stretcher,
         .nav-icon-report {
-            width:30px;
-            height:30px;
-            display:block;
-            transform:translateY(1px);
+            width: 30px;
+            height: 30px;
+            display: block;
+            transform: translateY(1px);
         }
+        
         .nav-tab.is-active .nav-icon-team,
         .nav-tab.is-active .nav-icon-status,
         .nav-tab.is-active .nav-icon-stretcher,
@@ -140,31 +110,8 @@
         .nav-tab.is-active .nav-icon-crawl-sprint,
         .nav-tab.is-active .nav-icon-socio-stretcher,
         .nav-tab.is-active .nav-icon-report {
-            filter:brightness(1.15);
+            filter: brightness(1.15);
         }
-        
-        /* כפתור יציאה - הוסר */
-        /* .logout-btn {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 8px 16px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-        }
-        .logout-btn:hover {
-            background: #dc2626;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
-        } */
     </style>
     
     <!-- PWA and zoom prevention scripts -->
@@ -290,75 +237,70 @@
             <nav class="w-full max-w-6xl bg-white rounded-lg shadow-md overflow-x-auto mb-1">
                 <ul class="flex justify-start md:justify-center gap-x-1 text-sm font-semibold text-gray-600 px-1 py-1">
                     <li class="flex-shrink-0">
-                        <button class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                                data-page="runners">
+                        <button class="nav-tab" data-page="runners">
                             <span>
                                 <img src="./icons/sport-team-shirt.svg" alt="קבוצה" class="nav-icon-team" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">קבוצה</span>
+                            <span>קבוצה</span>
                         </button>
                     </li>
                     <li class="flex-shrink-0">
-                        <button
-                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="status-management">
+                        <button class="nav-tab" data-page="status-management">
                             <span>
                                 <img src="./icons/status_icon.svg" alt="סטטוס" class="nav-icon-status" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">סטטוס</span>
+                            <span>סטטוס</span>
                         </button>
                     </li>
                     <li class="flex-shrink-0">
-                        <button
-                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="heats">
+                        <button class="nav-tab" data-page="heats">
                             <span>
                                 <img src="./icons/sprint_icon.svg" alt="ספרינטים" class="nav-icon-sprint" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">ספרינטים</span>
+                            <span>ספרינטים</span>
                         </button>
                     </li>
-                    <li class="flex-shrink-0"><button
-                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="crawling-drills-comments">
+                    <li class="flex-shrink-0">
+                        <button class="nav-tab" data-page="crawling-drills-comments">
                             <span>
                                 <img src="./icons/crawl_group_icon.svg" alt="זחילה קבוצתית" class="nav-icon-crawl" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">זחילה קב'</span>
-                    </button></li>
-                    <li class="flex-shrink-0"><button
-                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="crawling-sprint">
+                            <span>זחילה קב'</span>
+                        </button>
+                    </li>
+                    <li class="flex-shrink-0">
+                        <button class="nav-tab" data-page="crawling-sprint">
                             <span>
                                 <img src="./icons/crawl_sprint_icon.svg" alt="זחילות" class="nav-icon-crawl-sprint" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">זחילות</span>
-                    </button></li>
-                    <li class="flex-shrink-0"><button
-                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="sociometric-stretcher-heat">
+                            <span>זחילות</span>
+                        </button>
+                    </li>
+                    <li class="flex-shrink-0">
+                        <button class="nav-tab" data-page="sociometric-stretcher-heat">
                             <span>
                                 <img src="./icons/sociometric_stretcher_icon.svg" alt="אלונקה סוציומטרית" class="nav-icon-socio-stretcher" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">אלונקות</span>
-                    </button></li>
-                    <li class="flex-shrink-0"><button
-                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="report">
+                            <span>אלונקות</span>
+                        </button>
+                    </li>
+                    <li class="flex-shrink-0">
+                        <button class="nav-tab" data-page="report">
                             <span>
                                 <img src="./icons/report_page_icon.svg" alt="סיכום" class="nav-icon-report" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">סיכום</span>
-                    </button></li>
+                            <span>סיכום</span>
+                        </button>
+                    </li>
                     <!-- דשבורד מאוחד - מוצג רק למיילים מורשים -->
-                    <li id="aggregated-dashboard-nav-item" class="flex-shrink-0" style="display:none"><button
-                            class="nav-tab flex items-center py-1 px-2 transition-colors duration-200 border-b-2 border-transparent"
-                            data-page="aggregated-dashboard" title="דשבורד">
+                    <li id="aggregated-dashboard-nav-item" class="flex-shrink-0" style="display:none">
+                        <button class="nav-tab" data-page="aggregated-dashboard" title="דשבורד">
                             <span>
                                 <img src="./icons/sports_team_icon.svg" alt="דשבורד" class="nav-icon-report" aria-hidden="true">
                             </span>
-                            <span class="text-xs mt-1">דשבורד</span>
-                    </button></li>
+                            <span>דשבורד</span>
+                        </button>
+                    </li>
                 </ul>
             </nav>
             

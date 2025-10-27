@@ -1,0 +1,37 @@
+/* ========================================
+   עמוד Crawling Sprint - זחילות
+   ======================================== */
+
+/* Heat Bar for Sprint */
+.heat-bar.heat-bar-sprint {
+  background: rgba(17,24,39,.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+/* Sprint specific timer */
+.crawling-sprint .timer-center {
+  margin: 24px 0;
+}
+
+/* Sprint runner buttons */
+.crawling-sprint .runner-btn {
+  min-height: 68px;
+  font-size: 1.3rem;
+}
+
+/* Sprint actions layout */
+.crawling-sprint .heat-actions {
+  margin: 24px 0;
+}
+
+@media (max-width: 768px) {
+  .crawling-sprint .runner-btn {
+    min-height: 56px;
+    font-size: 1.1rem;
+  }
+}
