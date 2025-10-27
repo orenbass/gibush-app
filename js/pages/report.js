@@ -1,168 +1,5 @@
 (function () {
   window.Pages = window.Pages || {};
-  
-  function ensureReportCss() {
-    let st = document.getElementById('report-cards-style');
-    if(!st){
-      st = document.createElement('style');
-      st.id = 'report-cards-style';
-      document.head.appendChild(st);
-    }
-    st.textContent = `
-      .report-header-bar{
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:center; /* מרכוז אופקי */
-        gap:6px;
-        margin:8px 0 32px; /* רווח שורה מתחת לכותרת */
-        width:100%;
-        text-align:center;
-      }
-      .report-header-bar h2{
-        margin:0;
-        font-size:26px;
-        font-weight:700;
-        color:#1e293b;
-        line-height:1.25;
-      }
-      .dark .report-header-bar h2{color:#f1f5f9}
-
-      /* כפתורי תחתית (פריסה חדשה) */
-      .report-bottom-actions{
-        display:grid;
-        grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-        grid-template-areas: 
-          'finish finish'
-          'upload export';
-        gap:12px;
-        max-width:980px;
-        margin:28px auto 8px;
-        width:100%;
-      }
-      .report-bottom-actions .report-btn{
-        font-size:13px;
-        font-weight:600;
-        border:1px solid #cbd5e1;
-        background:transparent;
-        color:#334155;
-        border-radius:12px;
-        padding:11px 22px;
-        cursor:pointer;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        gap:8px;
-        white-space:nowrap;
-        transition:.18s;
-        position:relative;
-        overflow:hidden;
-      }
-      .report-bottom-actions .report-btn:hover{background:#e2e8f0}
-      .dark .report-bottom-actions .report-btn{color:#e2e8f0;border-color:#475569}
-      .dark .report-bottom-actions .report-btn:hover{background:#374151}
-
-      /* כפתור סיום גיבוש מודגש */
-      #finish-gibush-btn{
-        grid-area:finish;
-        font-size:15px;
-        padding:18px 26px;
-        font-weight:700;
-        letter-spacing:.5px;
-        background:linear-gradient(90deg,#0d9488,#059669); /* was red */
-        color:#fff;
-        border:1px solid #0d9488;
-        box-shadow:0 6px 18px -6px rgba(13,148,136,.55),0 2px 6px rgba(0,0,0,.15);
-      }
-      #finish-gibush-btn:hover{background:linear-gradient(90deg,#059669,#047857);} /* was red hover */
-      #finish-gibush-btn:after{
-        content:'';
-        position:absolute;
-        inset:0;
-        background:radial-gradient(circle at 85% 20%,rgba(255,255,255,.28),transparent 65%);
-        pointer-events:none;
-      }
-      .dark #finish-gibush-btn{background:linear-gradient(90deg,#0d9488,#065f46);border-color:#065f46;} /* dark variant */
-      .dark #finish-gibush-btn:hover{background:linear-gradient(90deg,#047857,#064e3b);} /* dark hover */
-
-      #upload-drive-btn{grid-area:upload;}
-      #export-excel-btn{grid-area:export;}
-
-      @media (max-width:650px){
-        .report-bottom-actions{
-          grid-template-areas: 'finish' 'upload' 'export';
-        }
-        #finish-gibush-btn{font-size:16px;}
-      }
-
-      .export-hint{font-size:11px;opacity:.6;text-align:center;margin:18px auto 4px;max-width:980px}
-      .report-cards-grid{display:flex;flex-direction:column;gap:10px;max-width:980px;margin:0 auto 34px;padding:0}
-      .runner-card-r{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px 12px 12px 16px;display:flex;flex-direction:column;gap:12px;position:relative;padding-right:60px}
-      .runner-card-r:hover{box-shadow:0 2px 8px -2px rgba(0,0,0,.12)}
-      .dark .runner-card-r{background:#1f2937;border-color:#334155}
-      .rank-badge{position:absolute;top:0;right:0;width:50px;height:100%;border-radius:0 14px 14px 0;background:#6b7280;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:-2px 0 6px rgba(0,0,0,.15);z-index:10;flex-direction:column;gap:2px}
-      .runner-card-r.gold .rank-badge{background:linear-gradient(180deg,#fbbf24,#d97706);color:#1f2937}
-      .runner-card-r.silver .rank-badge{background:linear-gradient(180deg,#e5e7eb,#9ca3af);color:#1f2937}
-      .runner-card-r.bronze .rank-badge{background:linear-gradient(180deg,#cd7c0f,#92400e);color:#fff}
-      .rank-number{font-size:16px;font-weight:700;line-height:1}
-      .rank-medal{font-size:24px;line-height:1}
-      .shoulder-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#fff;border:2px solid #e2e8f0;border-radius:8px;padding:3px 10px;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15)}
-      .dark .shoulder-badge{background:#1f2937;border-color:#334155;color:#f1f5f9}
-      .runner-number-big{font-size:16px;font-weight:800;color:#0f172a;line-height:1;margin:0}
-      .dark .runner-number-big{color:#f1f5f9}
-      .scores-inline{display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;justify-content:start;max-width:100%}
-      .score-item{display:flex;flex-direction:column;align-items:center;gap:6px}
-      .score-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;text-align:center}
-      .dark .score-label{color:#94a3b8}
-      .score-input{width:48px;height:36px;border:2px solid #e2e8f0;border-radius:12px;text-align:center;font-size:15px;font-weight:700;background:#f8fafc;color:#1e293b;transition:all .2s ease;outline:none;box-shadow:0 1px 2px rgba(0,0,0,0.08)}
-      .score-input:focus,.score-input:not([readonly]){border-color:#3b82f6;background:#fff;box-shadow:0 0 0 2px rgba(59,130,246,.1)}
-      .dark .score-input{background:#374151;border-color:#475569;color:#f1f5f9}
-      .dark .score-input:focus,.dark .score-input:not([readonly]){border-color:#60a5fa;background:#1f2937}
-      .comment-trigger{display:flex;justify-content:center;margin-top:8px}
-      .inactive-panel{max-width:980px;margin:34px auto 0}
-      .inactive-grid{display:flex;flex-wrap:wrap;gap:8px}
-      .inactive-chip{background:#e2e8f0;color:#334155;font-weight:600;padding:6px 12px;border-radius:24px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
-      .dark .inactive-chip{background:#374151;color:#e2e8f0}
-      .runner-card-r.gold{box-shadow:0 0 0 2px #fbbf24 inset,0 2px 10px -3px rgba(251,191,36,.45)}
-      .runner-card-r.silver{box-shadow:0 0 0 2px #9ca3af inset,0 2px 10px -3px rgba(156,163,175,.4)}
-      .runner-card-r.bronze{box-shadow:0 0 0 2px #cd7c0f inset,0 2px 10px -3px rgba(205,124,15,.4)}
-      .runner-card-r.gold .shoulder-badge{border-color:#fbbf24}
-      .runner-card-r.silver .shoulder-badge{border-color:#9ca3af}
-      .runner-card-r.bronze .shoulder-badge{border-color:#cd7c0f}
-      .runner-card-r.gold .rank-badge,
-      .runner-card-r.silver .rank-badge,
-      .runner-card-r.bronze .rank-badge{
-        font-size:34px;
-      }
-      @media (max-width:750px){
-        .runner-card-r{padding-right:50px;gap:10px}
-        .scores-inline{gap:8px}
-        .score-input{width:42px;height:32px;font-size:14px}
-        .score-label{font-size:10px}
-        .rank-badge{width:40px}
-        .runner-number-big{font-size:14px}
-        .report-header-bar{flex-direction:column;align-items:flex-start}
-        .runner-card-r.gold .rank-badge,
-        .runner-card-r.silver .rank-badge,
-        .runner-card-r.bronze .rank-badge{
-          font-size:28px;
-        }
-      }
-      @media (max-width:400px){
-        .runner-card-r{padding-right:45px}
-        .scores-inline{gap:6px}
-        .score-input{width:38px;height:30px;font-size:13px}
-        .score-label{font-size:9px}
-        .rank-badge{width:35px}
-        .runner-number-big{font-size:13px}
-        .runner-card-r.gold .rank-badge,
-        .runner-card-r.silver .rank-badge,
-        .runner-card-r.bronze .rank-badge{
-          font-size:24px;
-        }
-      }
-    `;
-  }
 
   function safeScore(fnName, runner) {
     try { if (typeof window[fnName] === 'function') return window[fnName](runner); } catch(e){ console.warn(e); }
@@ -263,8 +100,6 @@
 
     const contentDiv = document.getElementById('content');
     if (!contentDiv) return console.error("renderReportPage: לא נמצא האלמנט #content");
-    
-    ensureReportCss();
 
     state.manualScores = state.manualScores || {};
     state.generalComments = state.generalComments || {};
@@ -272,7 +107,7 @@
 
     const allRunners = runnersArr.map(r => {
       const status = state.crawlingDrills?.runnerStatuses?.[r.shoulderNumber] || 'פעיל';
-      let sprintScore = 0, crawlingScore = 0, stretcherScore = 0, totalScore = -1;
+      let sprintScore = 0, crawlingScore = 0, stretcherScore = 0, totalScore = -1, averageScore = 0;
       if (status === 'פעיל') {
         const manual = state.manualScores[r.shoulderNumber];
         sprintScore = manual?.sprint ?? safeScore('calculateSprintFinalScore', r);
@@ -280,8 +115,10 @@
         crawlingScore = manual?.crawl ?? safeScore('calculateCrawlingFinalScore', r);
         stretcherScore = manual?.stretcher ?? safeScore('calculateStretcherFinalScore', r);
         totalScore = sprintScore + crawlingScore + stretcherScore;
+        // NEW: חישוב ממוצע (מעוגל לספרה אחת אחרי הנקודה)
+        averageScore = Math.round((totalScore / 3) * 10) / 10;
       }
-      return { ...r, sprintScore, crawlingScore, stretcherScore, status, totalScore };
+      return { ...r, sprintScore, crawlingScore, stretcherScore, status, totalScore, averageScore };
     });
 
     const active = allRunners.filter(r => r.status === 'פעיל').sort((a, b) => b.totalScore - a.totalScore);
@@ -313,6 +150,10 @@
                 <div class="score-item">
                   <div class="score-label">${(CONFIG?.STRETCHER_PAGE_LABEL || 'אלונקה').replace('אלונקה','אלונקות')}</div>
                   <input class="score-input" type="tel" value="${r.stretcherScore}" data-shoulder="${r.shoulderNumber}" data-type="stretcher">
+                </div>
+                <div class="score-item score-item-average">
+                  <div class="score-label">ממוצע</div>
+                  <div class="score-display score-display-average" title="ממוצע כל הציונים">${r.averageScore.toFixed(1)}</div>
                 </div>
               </div>
               <div class="comment-trigger">${buildCommentButton(r.shoulderNumber)}</div>

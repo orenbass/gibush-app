@@ -1,5 +1,5 @@
 // גרסת האפליקציה - עדכן מספר זה כל פעם שיש שינויים
-const APP_VERSION = 'v2.2.0';
+const APP_VERSION = 'v2.2.1';
 const CACHE_NAME = `gibush-cache-${APP_VERSION}`;
 
 const ASSETS = [

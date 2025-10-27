@@ -1,0 +1,290 @@
+/* ========================================
+   עמוד Runners - ניהול קבוצה
+   ======================================== */
+
+/* Evaluation Info Card - התאמה מלאה למצב בהיר וכהה */
+.evaluation-info {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e0e7ff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.evaluation-info h2 {
+  color: #1f2937;
+}
+
+.evaluation-info .text-gray-500 {
+  color: #6b7280;
+}
+
+.evaluation-info .text-gray-600 {
+  color: #4b5563;
+}
+
+.evaluation-info .text-gray-800 {
+  color: #1f2937;
+}
+
+.evaluation-info .bg-blue-100 {
+  background-color: #dbeafe;
+  color: #1e3a8a;
+}
+
+.evaluation-info .bg-indigo-100 {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.evaluation-info .border-blue-100 {
+  border-color: #dbeafe;
+}
+
+.evaluation-info .border-blue-200 {
+  border-color: #bfdbfe;
+}
+
+.evaluation-info .bg-blue-200 {
+  background-color: #bfdbfe;
+}
+
+/* Dark mode overrides */
+.dark .evaluation-info {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dark .evaluation-info h2 {
+  color: #93c5fd;
+}
+
+.dark .evaluation-info .text-gray-500 {
+  color: #9ca3af;
+}
+
+.dark .evaluation-info .text-gray-600 {
+  color: #9ca3af;
+}
+
+.dark .evaluation-info .text-gray-800 {
+  color: #e5e7eb;
+}
+
+.dark .evaluation-info .bg-blue-100 {
+  background-color: rgba(37, 99, 235, 0.25);
+  color: #93c5fd;
+}
+
+.dark .evaluation-info .bg-indigo-100 {
+  background-color: rgba(79, 70, 229, 0.25);
+  color: #a5b4fc;
+}
+
+.dark .evaluation-info .border-blue-100 {
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.dark .evaluation-info .border-blue-200 {
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.dark .evaluation-info .bg-blue-200 {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+/* כפתור ערוך מינימליסטי - גודל וסטיילינג קבועים */
+#edit-details-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 0.65rem !important;
+  padding: 4px 10px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  height: 24px !important;
+  background: transparent !important;
+  color: #6b7280 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  z-index: 10;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+#edit-details-btn:hover:not(:disabled) {
+  color: #374151 !important;
+  background: rgba(243, 244, 246, 0.5) !important;
+  transform: translateY(-1px) !important;
+}
+
+#edit-details-btn:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+
+.dark #edit-details-btn {
+  color: #9ca3af !important;
+}
+
+.dark #edit-details-btn:hover:not(:disabled) {
+  color: #d1d5db !important;
+  background: rgba(55, 65, 81, 0.3) !important;
+}
+
+/* Runner Cards Grid - כרטיסי מספרי כתף */
+.runner-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+}
+
+.runner-card .text-xl {
+  color: #111827;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.runner-card .text-emerald-600 {
+  color: #059669;
+}
+
+.runner-card .text-rose-700 {
+  color: #be123c;
+}
+
+.runner-card .text-amber-700 {
+  color: #b45309;
+}
+
+/* Dark mode for runner cards */
+.dark .runner-card {
+  background: rgba(55, 65, 81, 0.6);
+  border-color: rgba(107, 114, 128, 0.6);
+}
+
+.dark .runner-card .text-xl {
+  color: #f9fafb;
+}
+
+.dark .runner-card .text-emerald-600 {
+  color: #34d399;
+}
+
+.dark .runner-card .text-rose-700 {
+  color: #fda4af;
+}
+
+.dark .runner-card .text-amber-700 {
+  color: #fbbf24;
+}
+
+/* Status badges in runner cards */
+.runner-card .text-gray-800 {
+  color: #1f2937;
+}
+
+.dark .runner-card .text-gray-800 {
+  color: #f3f4f6;
+}
+
+.dark .runner-card .text-gray-100 {
+  color: #f9fafb;
+}
+
+/* Runner Section Title - כותרת "מספרי כתף" */
+span.text-gray-700 {
+  color: #111827;
+}
+
+.dark span.text-gray-700 {
+  color: #e5e7eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #edit-details-btn {
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    top: 6px;
+    left: 6px;
+  }
+}
+
+/* ========================================
+   כפתורים ספציפיים לעמוד הרצים
+   ======================================== */
+
+/* כפתור האווטר */
+.avatar-btn-fixed {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.avatar-btn-fixed:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
+}
+
+.avatar-btn-fixed:active {
+  transform: scale(0.98) !important;
+}
+
+/* כפתור מצב כהה/בהיר */
+#theme-toggle-btn {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 50% !important;
+  font-size: 24px !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+}
+
+#theme-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+#theme-toggle-btn:active {
+  transform: scale(0.95) !important;
+}
+
+.dark #theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+#theme-toggle-btn #theme-icon {
+  display: block;
+  line-height: 1;
+  pointer-events: none;
+}

@@ -222,7 +222,6 @@
         </div>
       `;
       
-      addAdminStyles();
       renderSubPage();
       attachEventListeners();
     };
@@ -732,54 +731,8 @@
     };
 
     const addAdminStyles = () => {
-      if (document.getElementById('admin-settings-styles')) return;
-      
-      const style = document.createElement('style');
-      style.id = 'admin-settings-styles';
-      style.textContent = `
-        .admin-nav-tab {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 0.75rem;
-          border-bottom: 3px solid transparent;
-          font-weight: 500;
-          font-size: 0.875rem;
-          transition: all 0.2s;
-          cursor: pointer;
-          background: none;
-          border: none;
-          border-radius: 0.375rem 0.375rem 0 0;
-          white-space: nowrap;
-          color: #6b7280;
-        }
-        
-        .admin-nav-tab.compact {
-          padding: 0.375rem 0.625rem;
-          font-size: 0.8rem;
-        }
-        
-        .admin-nav-tab:hover {
-          background: #f3f4f6;
-          border-bottom-color: #9ca3af;
-          color: #374151;
-        }
-        
-        .admin-nav-tab.active {
-          border-bottom-color: #2563eb;
-          color: #2563eb;
-          background: #eff6ff;
-          font-weight: 600;
-        }
-        
-        @media (max-width: 640px) {
-          .admin-nav-tab {
-            font-size: 0.75rem;
-            padding: 0.375rem 0.5rem;
-          }
-        }
-      `;
-      document.head.appendChild(style);
+      // REMOVED: הסרת יצירת <style> דינמי - הסגנונות כבר צריכים להיות בקובץ CSS גלובלי
+      // אם אין להם קובץ ייעודי, נוסיף אותם ל-main-unified.css
     };
 
     renderMainLayout();
