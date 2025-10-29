@@ -2,38 +2,15 @@
    כרטיסים - Cards
    ======================================== */
 
-/* כרטיסי ריצה כלליים - לא לדרוס את הסטטוס */
-.runner-card:not(.runner-card) {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.12));
-  border: 1px solid rgba(255,255,255,.06);
-  border-radius: var(--radius);
-  overflow: hidden;
-  padding: 12px;
-}
+/* כרטיסי ריצה כלליים - REMOVED old .runner-card:not(.runner-card) definition */
+/* הוסר כדי למנוע דריסות - כל דף מגדיר את runner-card עצמו */
 
-/* כרטיסי אלונקות קומפקטיים */
-.stretcher-grid .runner-card:not([data-status]) {
-  padding: 6px !important;
-  border-radius: calc(var(--radius) - 6px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04);
-}
-
-.stretcher-grid .runner-card .text-3xl {
-  font-size: 1.05rem !important;
-  line-height: 1.1;
-}
-
-/* שורת כפתורי משימות */
+/* שורת כפתורי משימות - הגדרה כללית בלבד */
 .task-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  display: flex;
+  gap: 8px;
   width: 100%;
+  justify-content: center;
 }
 
 /* הדגשות בדוח */

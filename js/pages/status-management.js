@@ -1,102 +1,77 @@
-(function () {
+(function(){
     window.Pages = window.Pages || {};
-    window.Pages.renderStatusManagementPage = function renderStatusManagementPage() {
-        // REMOVED: הסרת יצירת <style> דינמי - כל הסגנונות עברו ל-css/pages/status-management.css
-
-        const activeRunners = state.runners
-            .filter(runner => runner.shoulderNumber && !state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
-            .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-        const inactiveRunners = state.runners
-            .filter(runner => runner.shoulderNumber && state.crawlingDrills.runnerStatuses[runner.shoulderNumber])
-            .sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-        const activeCardsHtml = activeRunners.map(runner => {
+    window.Pages.renderStatusManagementPage = function renderStatusManagementPage(){
+        const allRunners = (state.runners||[])
+            .filter(r=>r && r.shoulderNumber!=null && String(r.shoulderNumber).trim()!=='')
+            .sort((a,b)=>Number(a.shoulderNumber)-Number(b.shoulderNumber));
+        const statuses = state.crawlingDrills?.runnerStatuses || (state.crawlingDrills.runnerStatuses = {});
+        const active = allRunners.filter(r=> !statuses[r.shoulderNumber]);
+        const inactive = allRunners.filter(r=> statuses[r.shoulderNumber]);
+        // Build active cards (with action buttons)
+        const activeCardsHtml = active.map(r=>{
+            const sn = r.shoulderNumber;
             return `
-            <div class="runner-card">
-                <div>${runner.shoulderNumber}</div>
-                <div class="status-actions-flex">
-                    <button 
-                        class="status-btn status-btn-square btn-temp-removed"
-                        data-shoulder-number="${runner.shoulderNumber}" 
-                        data-status="temp_removed"
-                        title="יצא לבדיקה">
-                        <span>⚠️</span>
-                        <span>בדיקה</span>
+            <div class="status-card is-active" data-shoulder="${sn}">
+                <div class="status-number">${sn}</div>
+                <div class="status-actions" dir="rtl">
+                    <button type="button" class="status-btn btn-temp-removed" data-action="temp_removed" aria-label="העבר ${sn} לבדיקה">
+                        <span class="icon">⚠️</span><span class="text">בדיקה</span>
                     </button>
-                    <button 
-                        class="status-btn status-btn-square btn-retired"
-                        data-shoulder-number="${runner.shoulderNumber}" 
-                        data-status="retired"
-                        title="פרש">
-                        <span>⛔</span>
-                        <span>פרש</span>
+                    <button type="button" class="status-btn btn-retired" data-action="retired" aria-label="העבר ${sn} לפרש">
+                        <span class="icon">⛔</span><span class="text">פרש</span>
                     </button>
                 </div>
             </div>`;
         }).join('');
-
-        const inactiveCardsHtml = inactiveRunners.map(runner => {
-            const status = state.crawlingDrills.runnerStatuses[runner.shoulderNumber];
-            const isRetired = status === 'retired';
-            const statusClass = isRetired ? 'status-retired' : 'status-temp-removed';
-            const statusIcon = isRetired ? '⛔' : '⚠️';
-            const statusText = isRetired ? 'פרש' : 'בדיקה';
-
+        // Build inactive cards (status label only)
+        const inactiveCardsHtml = inactive.map(r=>{
+            const sn = r.shoulderNumber;
+            const st = statuses[sn];
+            const isRetired = st === 'retired';
+            const icon = isRetired ? '⛔' : '⚠️';
+            const label = isRetired ? 'פרש' : 'בדיקה';
+            const cls = isRetired ? 'is-retired' : 'is-temp-removed';
             return `
-            <div class="runner-card inactive ${statusClass}">
-                <div>${runner.shoulderNumber}</div>
-                <div>
-                    <div>
-                        <span>${statusIcon}</span>
-                        <div>${statusText}</div>
-                    </div>
-                    <button 
-                        class="status-btn"
-                        data-shoulder-number="${runner.shoulderNumber}" 
-                        data-status="active"
-                        title="השב לפעילות">
-                        <span>✅</span>
-                        <span>השב</span>
-                    </button>
-                </div>
+            <div class="status-card ${cls}" data-shoulder="${sn}">
+                <div class="status-number">${sn}</div>
+                <div class="inactive-status-pill"><span class="icon">${icon}</span><span class="pill-text">${label}</span></div>
+                <button type="button" class="status-btn btn-restore" data-action="restore" aria-label="השב ${sn} לפעילות">
+                    <span class="icon">✅</span><span class="text">השב</span>
+                </button>
             </div>`;
         }).join('');
-
+        // Page markup
         contentDiv.innerHTML = `
-        <div class="space-y-6">
-            ${activeRunners.length > 0 ? `
-            <div>
-                <h2 class="text-xl font-semibold mb-4 text-center text-emerald-600 dark:text-emerald-400">
-                    מועמדים פעילים (${activeRunners.length})
-                </h2>
-                <div class="auto-grid stretcher-grid">
-                    ${activeCardsHtml}
-                </div>
-            </div>
-            ` : ''}
-            
-            ${inactiveRunners.length > 0 ? `
-            <div>
-                <h2 class="text-xl font-semibold mb-4 text-center text-slate-600 dark:text-slate-300">
-                    מועמדים לא פעילים (${inactiveRunners.length})
-                </h2>
-                <div class="auto-grid stretcher-grid">
-                    ${inactiveCardsHtml}
-                </div>
-            </div>
-            ` : ''}
-
-            ${activeRunners.length === 0 && inactiveRunners.length === 0 ? `
-            <div class="text-center text-gray-500 dark:text-gray-400 py-8">
-                <p class="text-lg mb-2">👥 אין מועמדים בקבוצה</p>
-                <p>נדרש להוסיף מועמדים תחילה</p>
-            </div>
-            ` : ''}
+        <div class="status-page-wrapper">
+            <h2 class="status-page-title">ניהול סטטוס מתמודדים (${allRunners.length})</h2>
+            ${active.length? `<div class="status-section"><h3 class="section-title">פעילים (${active.length})</h3><div class="status-grid status-grid-active">${activeCardsHtml}</div></div>`:''}
+            ${inactive.length? `<div class="status-section inactive-section"><h3 class="section-title">בבדיקה / פרשו (${inactive.length})</h3><div class="status-grid status-grid-inactive">${inactiveCardsHtml}</div></div>`:''}
+            ${(!active.length && !inactive.length)? `<div class='status-empty'>אין מתמודדים להצגה</div>`:''}
         </div>`;
-
-        document.querySelectorAll('.status-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => handleGlobalStatusChange(e, null));
+        // Delegate clicks only from active grid
+        contentDiv.querySelector('.status-grid-active')?.addEventListener('click', (e)=>{
+            const btn = e.target.closest('.status-btn');
+            if(!btn) return;
+            const card = btn.closest('.status-card');
+            if(!card) return;
+            const sn = Number(card.dataset.shoulder);
+            const action = btn.dataset.action; // temp_removed | retired
+            if(!sn || !action) return;
+            statuses[sn] = action;
+            saveState?.();
+            renderStatusManagementPage();
+        });
+        // NEW: restore inactive runner
+        contentDiv.querySelector('.status-grid-inactive')?.addEventListener('click', (e)=>{
+            const btn = e.target.closest('.btn-restore');
+            if(!btn) return;
+            const card = btn.closest('.status-card');
+            if(!card) return;
+            const sn = Number(card.dataset.shoulder);
+            if(!sn) return;
+            delete statuses[sn]; // remove status -> active
+            saveState?.();
+            renderStatusManagementPage();
         });
     };
 })();

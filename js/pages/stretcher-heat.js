@@ -24,9 +24,8 @@
     const selections = heat.selections;
 
     const PAGE_LABEL = 'מקצה';
-    if (window.headerTitle) {
-      headerTitle.textContent = `${PAGE_LABEL} – מקצה ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}`;
-    }
+    // הוסר עדכון headerTitle כדי ליישר קו עם עמודי הספרינטים המשתמשים ב-heat-bar פנימי
+    // if (window.headerTitle) { headerTitle.textContent = `${PAGE_LABEL} – מקצה ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}`; }
 
     const activeRunners = (state.runners || [])
       .filter(r => r.shoulderNumber && !state.crawlingDrills.runnerStatuses[r.shoulderNumber])
@@ -42,7 +41,7 @@
       const sel = selections[sn];
       const isStretcher = sel === 'stretcher';
       const isJerrican  = sel === 'jerrican';
-      const cardCls = ['runner-card'];
+      const cardCls = ['stretcher-card'];
       if (isStretcher) cardCls.push('selected-stretcher');
       if (isJerrican) cardCls.push('selected-jerrican');
 
@@ -50,41 +49,38 @@
       const disableJerrican  = !isJerrican && (isStretcher || jerricanFull);
 
       return `
-        <div class="${cardCls.join(' ')}" data-sn="${sn}">
-          <div class="runner-number">${sn}</div>
-          <div class="task-row">
+        <div class="${cardCls.join(' ')}" data-sn="${sn}" data-selected="${sel||''}">
+          <div class="st-number">${sn}</div>
+          <div class="stretcher-actions" dir="rtl">
             <button
               data-shoulder-number="${sn}"
               data-type="stretcher"
-              class="task-btn ${isStretcher ? 'active' : ''}"
+              class="task-btn st-btn st-btn-stretcher ${isStretcher ? 'active' : ''}"
               ${disableStretcher ? 'disabled' : ''}
               title="נשיאת אלונקה" aria-label="נשיאת אלונקה">
-              ${window.Icons?.stretcher ? window.Icons.stretcher() : ''}
+              ${window.Icons?.stretcher ? window.Icons.stretcher() : '🛏️'}
+              <span class="st-btn-text">אלונקה</span>
             </button>
             <button
               data-shoulder-number="${sn}"
               data-type="jerrican"
-              class="task-btn ${isJerrican ? 'active' : ''}"
+              class="task-btn st-btn st-btn-jerrican ${isJerrican ? 'active' : ''}"
               ${disableJerrican ? 'disabled' : ''}
               title="נשיאת ג'ריקן" aria-label="נשיאת ג'ריקן">
-              ${window.Icons?.jerrican ? window.Icons.jerrican() : ''}
+              ${window.Icons?.jerrican ? window.Icons.jerrican() : '🧴'}
+              <span class="st-btn-text">ג'ריקן</span>
             </button>
           </div>
         </div>`;
     }).join('');
 
     const topNavHtml = `
-      <div id="stretcher-heat-nav" class="heat-nav">
-        <button id="stretcher-heat-prev"
-          class="nav-heat-btn"
-          ${heatIndex === 0 ? 'disabled' : ''}>הקודם</button>
-        <div class="heat-indicator">
-          ${PAGE_LABEL} ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}
+      <div class="heat-bar">
+        <div class="heat-bar-row top">
+          <button id="stretcher-heat-prev" class="heat-bar-btn" ${heatIndex === 0 ? 'disabled' : ''}>קודם</button>
+          <div class="heat-bar-title">${PAGE_LABEL} ${heatIndex + 1}/${CONFIG.NUM_STRETCHER_HEATS}</div>
+          <button id="stretcher-heat-next" class="heat-bar-btn">${heatIndex === CONFIG.NUM_STRETCHER_HEATS - 1 ? 'לדוחות' : 'הבא'}</button>
         </div>
-        <button id="stretcher-heat-next"
-          class="nav-heat-btn">
-          ${heatIndex === CONFIG.NUM_STRETCHER_HEATS - 1 ? 'לדוחות' : 'הבא'}
-        </button>
       </div>`;
 
     const instructionsHtml = `
@@ -93,12 +89,14 @@
       </div>`;
 
     contentDiv.innerHTML = `
-      ${topNavHtml}
-      ${instructionsHtml}
-      <div id="stretcher-grid" class="auto-grid stretcher-grid">
-        ${runnerCardsHtml}
+      <div id="stretcher-heat-page">
+        ${topNavHtml}
+        ${instructionsHtml}
+        <div id="stretcher-grid" class="auto-grid stretcher-grid">
+          ${runnerCardsHtml}
+        </div>
+        <div id="selection-summary" class="selection-summary-wrapper"></div>
       </div>
-      <div id="selection-summary" class="selection-summary-wrapper"></div>
     `;
 
     function updateSelectionSummary(){
@@ -107,17 +105,24 @@
       ensureSelectionOrderBackfill();
       const orderSt = heat.selectionOrder.stretcher || [];
       const orderJe = heat.selectionOrder.jerrican || [];
-      const lineHtml = (arr,label) => arr.length ? arr.map((sn,i)=>`<div class="summary-line"><span>${label} <strong>${i+1}</strong>:</span><span>מס' כתף <strong>${sn}</strong></span></div>`).join('') : '<div class="summary-line"><span>—</span></div>';
+      const lineHtml = (arr,label) => arr.length ? arr.map((sn,i)=>`<div class="summary-line" data-rank="${i+1}">
+          <span class="rank-label">${i+1}</span>
+          <span class="line-text">מס' כתף <strong>${sn}</strong></span>
+        </div>`).join('') : '<div class="summary-line empty"><span class="line-text">אין בחירות</span></div>';
       wrap.innerHTML = `
         <div class="selection-summary-box">
-          <h4>סיכום סדר בחירה (דינמי)</h4>
-          <div class="summary-lines">
-            <div style="font-weight:600;text-align:center;margin-bottom:4px">אלונקה</div>
-            ${lineHtml(orderSt,'מקום')}
-            <div style="font-weight:600;text-align:center;margin:8px 0 4px">ג'ריקן</div>
-            ${lineHtml(orderJe,'מקום')}
+          <h4 class="summary-title">סיכום סדר בחירה</h4>
+          <div class="summary-groups">
+            <div class="summary-group">
+              <div class="group-title">אלונקה</div>
+              <div class="summary-lines">${lineHtml(orderSt,'אלונקה')}</div>
+            </div>
+            <div class="summary-group">
+              <div class="group-title">ג'ריקן</div>
+              <div class="summary-lines">${lineHtml(orderJe,'ג\'ריקן')}</div>
+            </div>
           </div>
-          <div class="summary-note">הסדר מתעדכן אוטומטית לפי סדר הלחיצות. הסרה תשמור על הרצף למעט הנמחק.</div>
+          <div class="summary-note"><strong>שימו לב:</strong> סדר הבחירה משפיע ישירות על הציון הסופי. הסדר מתעדכן מיד עם כל לחיצה; ביטול מסיר את הבחירה מהרשימה.</div>
         </div>`;
     }
     updateSelectionSummary();

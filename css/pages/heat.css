@@ -5,13 +5,18 @@
 /* Heat Bar - ניווט בין מקצים */
 .heat-bar {
   width: 100%;
-  background: rgba(17,24,39,.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,.06);
+  background: #e5e7eb !important;
+  border: 1px solid #d1d5db !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   border-radius: var(--radius);
   padding: 12px 16px;
   margin-bottom: 16px;
+}
+
+.dark .heat-bar {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
 }
 
 .heat-bar-row {
@@ -27,6 +32,16 @@
   color: var(--text);
   text-align: center;
   flex: 1;
+  display: inline-block;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  color: #1e293b !important;
+  font-weight: 700;
+}
+
+.dark .heat-bar-title {
+  color: #f1f5f9 !important;
 }
 
 .heat-bar-btn {
@@ -170,6 +185,10 @@
   transition: background-color 0.2s ease;
 }
 
+/* === התאמות אחידות מול עמוד הזחילות === */
+.runner-btn { min-height:68px !important; font-size:1.3rem !important; }
+@media (max-width:768px){ .runner-btn { min-height:56px !important; font-size:1.1rem !important; } }
+
 .runner-btn:hover {
   background-color: #2563eb;
 }
@@ -209,5 +228,120 @@
   
   .timer-display.small {
     font-size: 36px;
+  }
+}
+
+/* Grid System - ספציפי לעמוד Heat */
+#heat-page .auto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+  gap: 8px;
+  justify-items: stretch;
+  align-items: stretch;
+}
+
+#heat-page .auto-grid > * {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  #heat-page .auto-grid {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (min-width: 1024px) {
+  #heat-page .auto-grid {
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1280px) {
+  #heat-page .auto-grid {
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  #heat-page .auto-grid {
+    grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
+    gap: 6px;
+  }
+}
+
+/* Navigation Tabs - ספציפי לעמוד Heat */
+#heat-page .nav-tab {
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0.65rem !important;
+  padding: 0.4rem 0.3rem !important;
+  min-height: 60px !important;
+  max-height: 60px !important;
+  height: 60px !important;
+  min-width: 50px !important;
+  max-width: 85px !important;
+  width: auto !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.2rem !important;
+  white-space: nowrap !important;
+  transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s !important;
+  touch-action: manipulation !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+}
+
+#heat-page .nav-tab:hover {
+  transform: none !important;
+}
+
+#heat-page .nav-tab.is-active {
+  background: linear-gradient(145deg, #2563eb, #1d4ed8) !important;
+  color: #fff !important;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.22) !important;
+  transform: translateY(-1px) !important;
+}
+
+.dark #heat-page .nav-tab.is-active {
+  background: linear-gradient(145deg, #1d4ed8, #1e40af) !important;
+}
+
+#heat-page .nav-tab > span:first-child {
+  font-size: 1.05rem !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+}
+
+#heat-page .nav-tab > span:last-child {
+  font-size: 0.68rem !important;
+  line-height: 1.1 !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 16px !important;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #heat-page .nav-tab {
+    padding: 0.4rem 0.3rem !important;
+    min-height: 60px !important;
+    max-height: 60px !important;
+    height: 60px !important;
   }
 }

@@ -1,125 +1,7 @@
 /* ========================================
    Responsive & Mobile - התאמות נייד
+   ⚠️ קובץ זה מכיל רק הגדרות כלליות - ללא עיצובים ספציפיים לעמודים
    ======================================== */
-
-/* Grid System */
-.auto-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
-  gap: 12px;
-  justify-items: stretch;
-  align-items: stretch;
-}
-
-.auto-grid > * {
-  width: 100%;
-}
-
-/* Stretcher Grid - compact for more items */
-.auto-grid.stretcher-grid {
-  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-  gap: 3px;
-}
-
-/* Navigation Tabs - סגנונות מאוחדים */
-.nav-tab {
-  border-bottom: 2px solid transparent !important;
-  border-radius: 0.65rem !important;
-  padding: 0.4rem 0.3rem !important;
-  min-height: 60px !important;
-  max-height: 60px !important;
-  height: 60px !important;
-  min-width: 50px !important;
-  max-width: 85px !important;
-  width: auto !important;
-  font-weight: 600 !important;
-  display: inline-flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.2rem !important;
-  white-space: nowrap !important;
-  transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s !important;
-  touch-action: manipulation !important;
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
-  transform: none !important;
-}
-
-.nav-tab:hover {
-  transform: none !important;
-}
-
-.nav-tab.is-active {
-  background: linear-gradient(145deg, #2563eb, #1d4ed8) !important;
-  color: #fff !important;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.22) !important;
-  transform: translateY(-1px) !important;
-  min-height: 60px !important;
-  max-height: 60px !important;
-  height: 60px !important;
-}
-
-.dark .nav-tab.is-active {
-  background: linear-gradient(145deg, #1d4ed8, #1e40af) !important;
-}
-
-.nav-tab > span:first-child {
-  font-size: 1.05rem !important;
-  line-height: 1 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-  width: 100% !important;
-  height: 30px !important;
-  min-height: 30px !important;
-  max-height: 30px !important;
-}
-
-.nav-tab > span:last-child {
-  font-size: 0.68rem !important;
-  line-height: 1.1 !important;
-  text-align: center !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  flex-shrink: 0 !important;
-  width: 100% !important;
-  height: auto !important;
-  min-height: 16px !important;
-}
-
-.nav-tab.is-active > span:first-child {
-  transform: translateY(0) !important;
-}
-
-/* Media Queries */
-@media (min-width: 480px) {
-  .auto-grid.stretcher-grid {
-    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-    gap: 3px;
-  }
-  
-  .nav-tab > span:last-child {
-    font-size: 0.68rem !important;
-  }
-}
-
-@media (min-width: 768px) {
-  .auto-grid {
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 14px;
-  }
-  
-  .auto-grid.stretcher-grid {
-    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-    gap: 3px;
-  }
-  
-  .nav-tab {
-    padding: 0.4rem 0.3rem !important;
-  }
-}
 
 /* PWA Optimizations */
 @media (display-mode: standalone) {
@@ -142,16 +24,15 @@
   }
 }
 
-/* Touch Optimizations */
-@media (hover: none) and (pointer: coarse) {
-  /* הוסר: כלל גלובלי לכל button */
-  /* כל כפתור מוגדר בקובץ הספציפי שלו עם גדלים מתאימים למגע */
-  
-  .nav-tab {
-    padding: 0.4rem 0.3rem !important;
-    min-height: 60px !important;
-    max-height: 60px !important;
-    height: 60px !important;
+/* iPhone PWA: צמצום רווח בין סרגל ניווט לקומפוננטת הערות מהירות */
+@media (display-mode: standalone) and (max-width: 480px) {
+  nav { margin-bottom: 0.25rem !important; }
+  .container { padding-top: 0.25rem !important; }
+  #quick-comment-bar-container, .quickbar { margin-top: 0 !important; }
+}
+@supports(padding: env(safe-area-inset-top)) {
+  @media (display-mode: standalone) and (max-width: 480px) {
+    body { padding-top: calc(env(safe-area-inset-top) + 4px) !important; }
   }
 }
 
@@ -178,8 +59,10 @@
   button {
     border: 2px solid currentColor;
   }
-  
-  .runner-btn {
-    border: 2px solid;
-  }
 }
+
+/* ========================================
+   ⚠️ הערה חשובה:
+   כל עיצוב ספציפי לעמוד (auto-grid, nav-tab, וכו') 
+   מוגדר בקובץ ה-CSS של העמוד עצמו
+   ======================================== */
