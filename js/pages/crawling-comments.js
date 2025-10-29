@@ -33,6 +33,9 @@
         // בדיקה מחזורית לשינויים (גיבוי)
         let lastRunnersHash = '';
         setInterval(() => {
+            // בדיקה אם state כבר מוגדר
+            if (typeof state === 'undefined' || !state) return;
+            
             if (state.currentPage === PAGES.CRAWLING_COMMENTS) {
                 const currentHash = JSON.stringify(state.runners || []);
                 if (currentHash !== lastRunnersHash) {

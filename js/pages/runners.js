@@ -1,6 +1,368 @@
 (function () {
     window.Pages = window.Pages || {};
 
+    // === פונקציות עזר להוספה/עריכה של מתמודדים ===
+    
+    /**
+     * הצגת חלון הוספת רצים (הועבר מ-app.js)
+     */
+    function showAddRunnersModal() {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
+        backdrop.id = 'add-runners-modal';
+
+        const hasExistingRunners = state.runners && state.runners.length > 0;
+
+        backdrop.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
+            <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">הוספת מועמדים לקבוצה</h3>
+            
+            ${!hasExistingRunners ? `
+            <div class="space-y-4 mb-6">
+                <button id="random-runners-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg">
+                    הוספה רנדומלית (${CONFIG.MAX_RUNNERS} מועמדים)
+                </button>
+                <button id="manual-runners-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg">
+                    הוספה ידנית
+                </button>
+            </div>
+            ` : ''}
+            
+            <!-- אזור הוספה ידנית -->
+            <div id="manual-input-area" class="${hasExistingRunners ? '' : 'hidden'}">
+                <div class="${hasExistingRunners ? '' : 'border-t pt-4'} mb-4">
+                    <div class="flex gap-2 mb-3">
+                        <input type="number" id="manual-shoulder-input" placeholder="מספר כתף" 
+                               class="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-700 dark:text-white" min="1" max="999">
+                        <button id="add-single-runner" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium">
+                            הוסף
+                        </button>
+                    </div>
+                    <div class="text-center mb-3">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">מועמדים בקבוצה: <span id="runner-count">${state.runners.length}</span>/${CONFIG.MAX_RUNNERS}</span>
+                    </div>
+                    
+                    <!-- הצגת רצים שנוספו במודל -->
+                    <div id="modal-runner-list" class="max-h-40 overflow-y-auto mb-3">
+                        ${state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber).map((runner, index) => `
+                            <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-600 rounded mb-1">
+                                <span class="text-sm">${index + 1}.</span>
+                                <span class="font-medium">${runner.shoulderNumber}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-center gap-4">
+                <button id="finish-adding" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                    סיום
+                </button>
+                <button id="cancel-adding" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
+                    ביטול
+                </button>
+            </div>
+            
+            <div id="add-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
+        </div>`;
+
+        document.body.appendChild(backdrop);
+
+        const manualArea = document.getElementById('manual-input-area');
+        const shoulderInput = document.getElementById('manual-shoulder-input');
+        const runnerCountSpan = document.getElementById('runner-count');
+        const errorDiv = document.getElementById('add-error');
+        const modalRunnerList = document.getElementById('modal-runner-list');
+
+        if (hasExistingRunners) {
+            shoulderInput.focus();
+        }
+
+        document.getElementById('random-runners-btn')?.addEventListener('click', () => {
+            (window.generateRandomRunners || generateRandomRunners)();
+            closeModal();
+        });
+
+        document.getElementById('manual-runners-btn')?.addEventListener('click', () => {
+            manualArea.classList.remove('hidden');
+            shoulderInput.focus();
+        });
+
+        document.getElementById('add-single-runner').addEventListener('click', addSingleRunner);
+        document.getElementById('finish-adding').addEventListener('click', closeModal);
+        document.getElementById('cancel-adding').addEventListener('click', closeModal);
+
+        shoulderInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addSingleRunner();
+            }
+        });
+
+        function addSingleRunner() {
+            const shoulderNumber = parseInt(shoulderInput.value);
+
+            if (!shoulderNumber || shoulderNumber <= 0) {
+                showAddError('יש להזין מספר כתף תקין');
+                return;
+            }
+
+            if (state.runners.length >= CONFIG.MAX_RUNNERS) {
+                showAddError(`לא ניתן להוסיף יותר מ-${CONFIG.MAX_RUNNERS} מועמדים`);
+                return;
+            }
+
+            if (state.runners.some(r => r.shoulderNumber === shoulderNumber)) {
+                showAddError('מספר כתף זה כבר קיים');
+                return;
+            }
+
+            state.runners.push({ shoulderNumber });
+            state.runners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+            saveState();
+
+            shoulderInput.value = '';
+            runnerCountSpan.textContent = state.runners.length;
+            updateModalRunnerList();
+            errorDiv.classList.add('hidden');
+            shoulderInput.focus();
+        }
+
+        function updateModalRunnerList() {
+            const sortedRunners = state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+            modalRunnerList.innerHTML = sortedRunners.map((runner, index) => `
+                <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-600 rounded mb-1">
+                    <span class="text-sm">${index + 1}.</span>
+                    <span class="font-medium">${runner.shoulderNumber}</span>
+                </div>
+            `).join('');
+        }
+
+        function showAddError(message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.body.removeChild(backdrop);
+            render();
+        }
+    }
+
+    /**
+     * הצגת חלון עריכת פרטים מלא (הועבר מ-app.js)
+     */
+    function showEditDetailsModal() {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
+        backdrop.id = 'edit-details-modal';
+
+        backdrop.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-2xl mx-4 text-right max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי קבוצה</h3>
+            
+            <!-- פרטי מעריך וקבוצה -->
+            <div class="space-y-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div>
+                    <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
+                    <input type="text" id="edit-evaluator-name" value="${state.evaluatorName}" 
+                           class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
+                    <input type="tel" id="edit-group-number" value="${state.groupNumber}" 
+                           class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white" 
+                           inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+            
+            <!-- רשימת רצים לעריכה -->
+            <div class="mb-6">
+                <h4 class="text-lg font-semibold mb-3 text-center">רצי הקבוצה</h4>
+                <div id="edit-runner-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+            </div>
+            
+            <div class="flex justify-center gap-4">
+                <button id="save-edit-details" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                    שמור שינויים
+                </button>
+                <button id="cancel-edit-details" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
+                    ביטול
+                </button>
+            </div>
+            
+            <div id="edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
+        </div>`;
+
+        document.body.appendChild(backdrop);
+
+        renderEditRunnerList();
+
+        document.getElementById('save-edit-details').addEventListener('click', saveEditDetails);
+        document.getElementById('cancel-edit-details').addEventListener('click', () => {
+            document.body.removeChild(backdrop);
+        });
+
+        function renderEditRunnerList() {
+            const listDiv = document.getElementById('edit-runner-list');
+            listDiv.innerHTML = state.runners.map((runner, index) => `
+                <div class="flex items-center gap-3 p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500 runner-edit-row" data-index="${index}">
+                    <span class="w-10 text-center font-semibold text-gray-600 dark:text-gray-300">${index + 1}.</span>
+                    <input type="number" class="runner-edit-input flex-1 p-2 border border-gray-300 dark:border-gray-500 rounded-lg text-center text-lg bg-white dark:bg-gray-700 dark:text-white" 
+                           value="${runner.shoulderNumber}" data-index="${index}" min="1" max="999" placeholder="מספר כתף">
+                    <button class="remove-edit-runner bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors min-w-[60px] flex-shrink-0" data-index="${index}">
+                        מחק
+                    </button>
+                </div>
+            `).join('');
+
+            listDiv.querySelectorAll('.remove-edit-runner').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    state.runners.splice(index, 1);
+                    saveState();
+                    renderEditRunnerList();
+                });
+            });
+        }
+
+        function saveEditDetails() {
+            const evaluatorName = document.getElementById('edit-evaluator-name').value.trim();
+            const groupNumber = document.getElementById('edit-group-number').value.trim();
+            const errorDiv = document.getElementById('edit-error');
+
+            if (!evaluatorName) {
+                errorDiv.textContent = 'יש להזין שם מעריך';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            const runnerInputs = document.querySelectorAll('.runner-edit-input');
+            const newRunners = [];
+            const usedNumbers = new Set();
+
+            for (const input of runnerInputs) {
+                const shoulderNumber = parseInt(input.value);
+                if (!shoulderNumber || shoulderNumber <= 0) {
+                    errorDiv.textContent = 'כל מספרי הכתף חייבים להיות מספרים חיוביים';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                if (usedNumbers.has(shoulderNumber)) {
+                    errorDiv.textContent = 'נמצאו מספרי כתף כפולים';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                usedNumbers.add(shoulderNumber);
+                newRunners.push({ shoulderNumber });
+            }
+
+            state.evaluatorName = evaluatorName;
+            state.groupNumber = groupNumber;
+            if (!groupNumber) {
+                state.__justResetGroupNumber = true;
+                localStorage.setItem('groupNumberCleared','1');
+            } else {
+                delete state.__justResetGroupNumber;
+                localStorage.removeItem('groupNumberCleared');
+            }
+
+            try {
+                const authRaw = localStorage.getItem('gibushAuthState');
+                if (authRaw) {
+                    const session = JSON.parse(authRaw);
+                    if (session.authState) {
+                        session.authState.evaluatorName = evaluatorName;
+                        if (groupNumber) session.authState.groupNumber = groupNumber; else delete session.authState.groupNumber;
+                        localStorage.setItem('gibushAuthState', JSON.stringify(session));
+                    }
+                }
+            } catch(e){ console.warn('authState update failed', e); }
+
+            state.runners = newRunners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
+            saveState();
+
+            document.body.removeChild(backdrop);
+            render();
+        }
+    }
+
+    /**
+     * הצגת מודאל עריכת פרטים בסיסיים (הועבר מ-app.js)
+     */
+    function showEditBasicDetailsModal() {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
+        backdrop.id = 'edit-basic-details-modal';
+        const groupValue = state.groupNumber || '';
+        backdrop.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
+            <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי הערכה</h3>
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
+                    <input type="text" id="edit-basic-evaluator-name" value="${state.evaluatorName}" 
+                           class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
+                    <input type="tel" id="edit-basic-group-number" value="${groupValue}" 
+                           class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white" 
+                           placeholder="מספר קבוצה" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            </div>
+            <div class="flex justify-center gap-4">
+                <button id="save-basic-details" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                    שמור שינויים
+                </button>
+                <button id="cancel-basic-details" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
+                    ביטול
+                </button>
+            </div>
+            <div id="basic-edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
+        </div>`;
+        document.body.appendChild(backdrop);
+        document.getElementById('save-basic-details').addEventListener('click', () => {
+            const evaluatorName = document.getElementById('edit-basic-evaluator-name').value.trim();
+            const groupNumber = document.getElementById('edit-basic-group-number').value.trim();
+            const errorDiv = document.getElementById('basic-edit-error');
+            if (!evaluatorName) {
+                errorDiv.textContent = 'יש למלא את שם המעריך';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            state.evaluatorName = evaluatorName;
+            state.groupNumber = groupNumber;
+            if (!groupNumber) {
+                localStorage.setItem('groupNumberCleared','1');
+            } else {
+                localStorage.removeItem('groupNumberCleared');
+            }
+            try {
+                const authRaw = localStorage.getItem('gibushAuthState');
+                if (authRaw) {
+                    const session = JSON.parse(authRaw);
+                    if (session.authState) {
+                        session.authState.evaluatorName = evaluatorName;
+                        if (groupNumber) session.authState.groupNumber = groupNumber; else delete session.authState.groupNumber;
+                        localStorage.setItem('gibushAuthState', JSON.stringify(session));
+                    }
+                }
+            } catch(e){ console.warn('failed to update authState', e); }
+            saveState();
+            document.body.removeChild(backdrop);
+            render();
+        });
+        document.getElementById('cancel-basic-details').addEventListener('click', () => {
+            document.body.removeChild(backdrop);
+        });
+    }
+
+    // חשיפת הפונקציות גלובלית
+    window.showAddRunnersModal = showAddRunnersModal;
+    window.showEditDetailsModal = showEditDetailsModal;
+    window.showEditBasicDetailsModal = showEditBasicDetailsModal;
+
     // פונקציה גלובלית לעדכון רשימת הפעילים בלבד
     window.updateActiveRunners = function updateActiveRunners() {
         const inactivePattern = /(retir|withdraw|dropped|drop\s*out|quit|inactive|not.?active|non.?active|eliminated|פרש|פרשה|פרישה|לא.?פעיל|עזב|עזבה|הוסר|הוסרה|נשר|נשרה|נשירה|לא\s*ממשיך|לא\s*משתתף|הודח|הודחה)/i;
@@ -212,37 +574,26 @@
         const manualAddMode = state.__manualAddMode === true;
 
         contentDiv.innerHTML = `
-<!-- פרטי הערכה (קומפקטי יותר) -->
-<div class="evaluation-info relative max-w-md mx-auto mb-4 rounded-lg border border-blue-200/80 dark:border-blue-800/60
-            bg-white text-gray-800 dark:bg-slate-900/55 p-3 shadow">
-    <!-- NEW: נעילת כפתור עריכה אם התחרות התחילה -->
-    <button id="edit-details-btn" ${state.competitionStarted ? 'disabled' : ''}>
-        ${state.competitionStarted ? 'נעול' : 'ערוך'}
-    </button>
-    <h2 class="text-center text-base md:text-lg font-bold text-gray-800 dark:text-blue-300 mb-2 leading-snug">
-        פרטי הערכה
-    </h2>
-    <div class="flex items-stretch justify-center gap-4 mb-2">
-        <div class="flex flex-col items-center leading-tight">
-            <span class="text-[0.55rem] tracking-wide text-gray-500 dark:text-gray-400">שם המעריך</span>
-            <span class="mt-1 inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-gray-800 text-sm md:text-base font-extrabold
-                         dark:bg-blue-900/40 dark:text-blue-200">
-                ${state.evaluatorName || 'לא הוזן'}
-            </span>
-        </div>
-        <div class="w-px bg-blue-200 dark:bg-blue-800/50 mx-1"></div>
-        <div class="flex flex-col items-center leading-tight">
-            <span class="text-[0.55rem] tracking-wide text-gray-500 dark:text-gray-400">מספר קבוצה</span>
-            <span class="mt-1 inline-flex items-center px-2 py-1 rounded-md bg-indigo-100 text-gray-800 text-sm md:text-base font-extrabold
-                         dark:bg-indigo-900/40 dark:text-indigo-200">
-                ${state.groupNumber || 'לא הוזן'}
-            </span>
-        </div>
+<!-- פרטי הערכה – עיצוב חדש מצומצם -->
+<div class="evaluation-info max-w-sm mx-auto mb-5" id="evaluation-info">
+  <button id="edit-details-btn" ${state.competitionStarted ? 'disabled' : ''}>${state.competitionStarted ? 'נעול' : 'ערוך'}</button>
+  <h2 class="eval-title">פרטי ההערכה</h2>
+  <div class="eval-inline">
+    <div class="eval-field evaluator">
+      <span class="pill-label">שם המעריך</span>
+      <span class="pill-value">${state.evaluatorName || 'לא הוזן'}</span>
     </div>
-    <div class="flex items-center justify-between text-[0.58rem] md:text-[0.65rem] font-medium text-gray-600 dark:text-gray-400 pt-1 border-t border-blue-100 dark:border-slate-700">
-        <span class="flex items-center gap-1"><span class="opacity-70">תאריך</span>${todayDate}</span>
-        <span class="flex items-center gap-1"><span class="opacity-70">שעה</span>${currentTime}</span>
+    <span class="eval-sep" aria-hidden="true"></span>
+    <div class="eval-field group">
+      <span class="pill-label">מספר קבוצה</span>
+      <span class="pill-value">${state.groupNumber || 'לא הוזן'}</span>
     </div>
+  </div>
+  <div class="eval-meta">
+    <span class="meta-item"><span class="mi-label">תאריך</span>${todayDate}</span>
+    <span class="meta-sep"></span>
+    <span class="meta-item"><span class="mi-label">שעה</span>${currentTime}</span>
+  </div>
 </div>
 
 ${hasRunners ? `
@@ -268,7 +619,7 @@ ${hasRunners ? `
     </div>` : ''}
     ${state.competitionStarted && !manualAddMode ? `
     <div class="flex justify-center mt-6">
-        <div class="bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg p-4 text-center">
+        <div class="competition-active-box bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg p-4 text-center">
             <div class="text-blue-700 dark:text-blue-300 font-semibold mb-2">🏃‍♂️ התחרות פעילה</div>
             <div class="text-sm text-blue-600 dark:text-blue-400">המקצים התחילו - לא ניתן לערוך מתמודדים</div>
         </div>
@@ -303,7 +654,7 @@ ${hasRunners ? `
             window.QuickComments.renderBar(true);
         }
 
-        // רינדור ריבועי מתמודדים (עיצוב כמו עמוד סטטוס)
+        // רינדור ריבועי מתמודדים (ללא עיצוב inline - רק קלאסים)
         if (state.runners && state.runners.length > 0) {
             const runnerListEl = document.getElementById('runner-list');
             if (runnerListEl) {
@@ -314,23 +665,23 @@ ${hasRunners ? `
 
                 const cardsHtml = sorted.map(r => {
                     const sn = r.shoulderNumber;
-                    const status = runnerStatuses[sn]; // 'temp_removed' | 'retired' | undefined
+                    const status = runnerStatuses[sn];
                     let cardClass, statusBadge = '';
 
                     if (status === 'retired') {
-                        cardClass = 'bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-900/20 dark:to-rose-900/10 border-rose-200 dark:border-rose-700';
-                        statusBadge = `<div class="mt-1 text-[0.6rem] font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-1"><span>⛔</span><span>פרש</span></div>`;
+                        cardClass = 'bg-gradient-to-br from-rose-50 to-rose-100';
+                        statusBadge = `<div class="text-rose-700 dark:text-rose-300">פרש</div>`;
                     } else if (status === 'temp_removed') {
-                        cardClass = 'bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 border-amber-200 dark:border-amber-700';
-                        statusBadge = `<div class="mt-1 text-[0.6rem] font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1"><span>⚠️</span><span>בדיקה</span></div>`;
+                        cardClass = 'bg-gradient-to-br from-amber-50 to-amber-100';
+                        statusBadge = `<div class="text-amber-700 dark:text-amber-300">בדיקה</div>`;
                     } else {
-                        cardClass = 'bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60';
-                        statusBadge = `<div class="mt-1 text-[0.55rem] font-medium text-emerald-600 dark:text-emerald-400 tracking-wide">פעיל</div>`;
+                        cardClass = '';
+                        statusBadge = `<div class="text-emerald-600 dark:text-emerald-400">פעיל</div>`;
                     }
 
                     return `
-                    <div class="runner-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-center transition-all duration-300 ${cardClass}">
-                        <div class="text-xl font-bold text-gray-800 dark:text-gray-100 leading-none">${sn}</div>
+                    <div class="runners-card ${cardClass}">
+                        <div class="text-xl">${sn}</div>
                         ${statusBadge}
                     </div>`;
                 }).join('');
@@ -359,82 +710,81 @@ ${hasRunners ? `
         // --- פונקציות מצב עריכה אינלייני ---
         function enterInlineEditMode() {
             if (runnerCardEdit.active) return;
-            // NEW: יצירת גריד ריק אם אין אחד (כלומר מצב עריכה ראשוני ללא מתמודדים)
+            document.body.classList.add('editing-runners');
+            // יצירת סרגל עריכה אם לא קיים (גם ללא מתמודדים)
+            const runnerListEl = document.getElementById('runner-list');
+            let createdBar = false;
+            if (runnerListEl && !document.getElementById('runner-inline-edit-bar')) {
+                runnerListEl.insertAdjacentHTML('beforebegin', `
+                    <div id="runner-inline-edit-bar" class="flex flex-wrap justify-center gap-2 mb-3">
+                        <button id="save-inline-runners-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">שמור</button>
+                        <button id="cancel-inline-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg text-sm">בטל</button>
+                    </div>
+                    <div id="runner-inline-edit-error" class="hidden text-center text-red-600 font-semibold text-sm mb-2"></div>
+                `);
+                createdBar = true;
+            }
+            // יצירת גריד ריק אם אין (ללא מתמודדים קיימים)
             let grid = document.querySelector('#runner-list .auto-grid');
-            let createdBar = false; // מעקב האם הסרגל נוצר עכשיו
             if (!grid) {
                 const runnerListEl = document.getElementById('runner-list');
                 if (runnerListEl) {
-                    if (!document.getElementById('runner-inline-edit-bar')) {
-                        runnerListEl.insertAdjacentHTML('beforebegin', `
-                            <div id="runner-inline-edit-bar" class="hidden flex flex-wrap justify-center gap-2 mb-3">
-                                <button id="save-inline-runners-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">שמור</button>
-                                <button id="cancel-inline-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg text-sm">בטל</button>
-                            </div>
-                            <div id="runner-inline-edit-error" class="hidden text-center text-red-600 font-semibold text-sm mb-2"></div>
-                        `);
-                        createdBar = true;
-                    }
                     runnerListEl.innerHTML = '<div class="auto-grid stretcher-grid"></div>';
                     grid = runnerListEl.querySelector('.auto-grid');
                 }
-            } else {
-                const runnerListEl = document.getElementById('runner-list');
-                if (runnerListEl && !document.getElementById('runner-inline-edit-bar')) {
-                    runnerListEl.insertAdjacentHTML('beforebegin', `
-                        <div id="runner-inline-edit-bar" class="hidden flex flex-wrap justify-center gap-2 mb-3">
-                            <button id="save-inline-runners-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg text-sm">שמור</button>
-                            <button id="cancel-inline-runners-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-5 rounded-lg text-sm">בטל</button>
-                        </div>
-                        <div id="runner-inline-edit-error" class="hidden text-center text-red-600 font-semibold text-sm mb-2"></div>
-                    `);
-                    createdBar = true;
-                }
             }
-            if (!grid) return; // ביטחון
+            if (!grid) return;
+            // NEW: יצירת כרטיס אינפוט ראשון אוטומטית אם אין מתמודדים כלל
+            if (!grid.querySelector('.runners-card')) {
+                const firstCard = document.createElement('div');
+                firstCard.className = 'runners-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-center transition-all duration-300 bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60';
+                firstCard.innerHTML = `
+                    <div class="text-xl font-bold text-gray-800 dark:text-gray-100 leading-none">
+                        <div class="shoulder-input-wrapper flex items-center justify-center w-full">
+                            <input data-shoulder-input type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done"
+                                   class="runner-inline-input max-w-[72px] w-[72px] text-center font-bold text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                   value="" data-original="" placeholder="מספר" />
+                        </div>
+                    </div>
+                    <button type="button" class="runner-delete-btn" aria-label="מחק מתמודד חדש">מחק</button>`;
+                grid.appendChild(firstCard);
+                applyNumericEnhancements(firstCard);
+                // פוקוס מיידי על האינפוט
+                setTimeout(() => { firstCard.querySelector('.runner-inline-input')?.focus(); }, 0);
+            }
             runnerCardEdit.original = JSON.parse(JSON.stringify(state.runners || []));
             runnerCardEdit.active = true;
-
-            document.getElementById('runner-inline-edit-bar')?.classList.remove('hidden');
-            const editBtn = document.getElementById('edit-runners-btn');
-            if (editBtn) { editBtn.disabled = true; editBtn.classList.add('opacity-60', 'cursor-not-allowed'); }
-
-            const startHeatsBtn = document.getElementById('start-heats-btn');
-            if (startHeatsBtn) startHeatsBtn.style.display = 'none';
             const addRunnerBtn = document.getElementById('add-runner-inline-btn');
             if (addRunnerBtn) addRunnerBtn.style.display = '';
-
-            grid.querySelectorAll('.runner-card').forEach(card => {
+            // המרה של כרטיסים קיימים לאינפוטים
+            grid.querySelectorAll('.runners-card').forEach(card => {
                 const numEl = card.querySelector('.text-xl');
                 if (!numEl) return;
                 const current = numEl.textContent.trim();
                 numEl.innerHTML = `
-                    <input data-shoulder-input
-                           type="tel"
-                           inputmode="numeric"
-                           pattern="[0-9]*"
-                           autocomplete="off"
-                           enterkeyhint="done"
-                           class="runner-inline-input w-16 text-center font-bold text-gray-800 dark:text-gray-100 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                           value="${current}" data-original="${current}" />
-                `;
-                if (!card.querySelector('.runner-delete-btn')) {
-                    card.insertAdjacentHTML('beforeend', `
-                        <button type="button" class="runner-delete-btn mt-2 text-[0.60rem] font-semibold px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md shadow focus:outline-none focus:ring-2 focus:ring-rose-300">
-                            מחק
-                        </button>
-                    `);
-                }
+                    <div class="shoulder-input-wrapper flex items-center justify-center w-full">
+                        <input data-shoulder-input type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done"
+                               class="runner-inline-input max-w-[72px] w-[72px] text-center font-bold text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                               value="${current}" data-original="${current}" />
+                    </div>`;
+                card.querySelectorAll('.runner-edit-status, .runner-delete-btn').forEach(el => el.remove());
+                card.insertAdjacentHTML('beforeend', `<button type="button" class="runner-delete-btn" aria-label="מחק מתמודד">מחק</button>`);
             });
             applyNumericEnhancements(grid);
-
-            // NEW: רישום מאזינים אם הסרגל נוצר דינמית (אחרת אולי נרשמו קודם)
+            // רישום מאזינים לסרגל שנוצר עכשיו
             if (createdBar) {
                 const saveBtn = document.getElementById('save-inline-runners-btn');
                 const cancelBtn = document.getElementById('cancel-inline-runners-btn');
-                if (saveBtn && !saveBtn.__bound) { saveBtn.addEventListener('click', () => exitInlineEditMode(true)); saveBtn.__bound = true; }
-                if (cancelBtn && !cancelBtn.__bound) { cancelBtn.addEventListener('click', () => { if (!confirm('לבטל שינויים?')) return; exitInlineEditMode(false); }); cancelBtn.__bound = true; }
+                saveBtn?.addEventListener('click', () => exitInlineEditMode(true));
+                cancelBtn?.addEventListener('click', () => { if (!confirm('לבטל שינויים?')) return; exitInlineEditMode(false); });
             }
+            const existingBar = document.getElementById('runner-inline-edit-bar');
+            if (existingBar) {
+                existingBar.classList.remove('hidden'); // הצגת הסרגל הקיים
+            }
+            // הסתרת כפתור התחלת מקצים בזמן עריכה
+            const startHeatsBtn = document.getElementById('start-heats-btn');
+            if (startHeatsBtn) startHeatsBtn.style.display = 'none';
         }
         // חשיפה גלובלית להפעלה מבחוץ (למשל אחרי לחיצה על הוספה ידנית במודאל)
         window.enterRunnersEditMode = enterInlineEditMode;
@@ -557,9 +907,7 @@ ${hasRunners ? `
                                 sh.selections = newSel;
                             }
                             if (Array.isArray(sh.participants)) {
-                                sh.participants = sh.participants
-                                    .filter(sn => !removedSet.has(String(sn)))
-                                    .map(sn => swapValue(String(sn)));
+                                sh.participants = sh.participants.filter(sn => !removedSet.has(String(sn))).map(sn => swapValue(String(sn)));
                             }
                         });
                     }
@@ -690,6 +1038,8 @@ ${hasRunners ? `
                 addRunnerBtn.style.display = 'none';
             }
 
+            // הסרת מחלקת מצב עריכה
+            document.body.classList.remove('editing-runners');
             render();
         }
 
@@ -705,7 +1055,6 @@ ${hasRunners ? `
         // החלפת מאזין כפתור עריכה למצב אינלייני - NEW: בדיקת נעילה
         const editBtn = document.getElementById('edit-runners-btn');
         if (editBtn) {
-            editBtn.removeEventListener('click', showRunnerEditMode); // אם היה קיים
             editBtn.addEventListener('click', () => {
                 // NEW: מניעת עריכה אם התחרות התחילה
                 if (state.competitionStarted) {
@@ -719,40 +1068,22 @@ ${hasRunners ? `
         // ADDED: מאזין לכפתור הוספת מתמודד במצב עריכה
         document.getElementById('add-runner-inline-btn')?.addEventListener('click', () => {
             if (!runnerCardEdit.active) return;
-            
             const grid = document.querySelector('#runner-list .auto-grid');
             if (!grid) return;
-            
-            // יצירת כרטיס חדש עם אינפוט ריק
             const newCard = document.createElement('div');
-            newCard.className = 'runner-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-center transition-all duration-300 bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60';
+            newCard.className = 'runners-card border rounded-xl shadow-sm hover:shadow-md p-3 flex flex-col items-center justify-center transition-all duration-300 bg-white/80 dark:bg-gray-800/60 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60';
             newCard.innerHTML = `
                 <div class="text-xl font-bold text-gray-800 dark:text-gray-100 leading-none">
-                    <input data-shoulder-input
-                           type="tel"
-                           inputmode="numeric"
-                           pattern="[0-9]*"
-                           autocomplete="off"
-                           enterkeyhint="done"
-                           class="runner-inline-input w-16 text-center font-bold text-gray-800 dark:text-gray-100 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                           value="" data-original="" placeholder="מספר" />
+                    <div class="shoulder-input-wrapper flex items-center justify-center w-full">
+                        <input data-shoulder-input type="tel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done"
+                               class="runner-inline-input max-w-[72px] w-[72px] text-center font-bold text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                               value="" data-original="" placeholder="מספר" />
+                    </div>
                 </div>
-                <div class="mt-1 text-[0.55rem] font-medium text-emerald-600 dark:text-emerald-400 tracking-wide">חדש</div>
-                <button type="button" class="runner-delete-btn mt-2 text-[0.60rem] font-semibold px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md shadow focus:outline-none focus:ring-2 focus:ring-rose-300">
-                    מחק
-                </button>
-            `;
-            
+                <button type="button" class="runner-delete-btn" aria-label="מחק מתמודד חדש">מחק</button>`;
             grid.appendChild(newCard);
-            
-            // החלת מקלדת מספרים על האינפוט החדש
             applyNumericEnhancements(newCard);
-            
-            // פוקוס על האינפוט החדש
-            const input = newCard.querySelector('.runner-inline-input');
-            if (input) {
-                input.focus();
-            }
+            newCard.querySelector('.runner-inline-input')?.focus();
         });
 
         document.getElementById('save-inline-runners-btn')?.addEventListener('click', () => exitInlineEditMode(true));
@@ -766,7 +1097,7 @@ ${hasRunners ? `
             if (!runnerCardEdit.active) return;
             const delBtn = e.target.closest('.runner-delete-btn');
             if (!delBtn) return;
-            const card = delBtn.closest('.runner-card');
+            const card = delBtn.closest('.runners-card');
             const input = card?.querySelector('.runner-inline-input');
             if (input) {
                 card.remove(); // הסרה ויזואלית מיידית (דורש שמירה לאישור סופי)
@@ -1010,7 +1341,7 @@ ${hasRunners ? `
             function renderManualCards(){
                 if (!grid) return;
                 const sorted = state.runners.map((r,i)=>({i, sn:r.shoulderNumber})).sort((a,b)=>Number(a.sn||0)-Number(b.sn||0));
-                grid.innerHTML = sorted.map(o=>`<div class='runner-card border rounded-xl shadow-sm p-3 flex flex-col items-center justify-center bg-white dark:bg-gray-800 dark:border-gray-700 border-gray-200 relative'>
+                grid.innerHTML = sorted.map(o=>`<div class='runners-card border rounded-xl shadow-sm p-3 flex flex-col items-center justify-center bg-white dark:bg-gray-800 dark:border-gray-700 border-gray-200 relative'>
                     <div class='text-xl font-bold text-gray-800 dark:text-gray-100 leading-none'>
                         <input data-manual-card-input type='tel' maxlength='3' inputmode='numeric' pattern='[0-9]*' class='w-16 text-center font-bold text-gray-800 dark:text-gray-100 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md text-base py-1 focus:outline-none focus:ring-2 focus:ring-blue-400' value='${o.sn ?? ''}' data-index='${o.i}' placeholder='מספר' />
                     </div>
@@ -1034,7 +1365,7 @@ ${hasRunners ? `
                 state.runners.push({ shoulderNumber: '' });
                 clearManualErr();
                 renderManualCards();
-                setTimeout(()=>{ grid.querySelector('.runner-card:last-child input')?.focus(); },0);
+                setTimeout(()=>{ grid.querySelector('.runners-card:last-child input')?.focus(); },0);
             });
             document.getElementById('finish-manual-add-btn')?.addEventListener('click', ()=>{
                 if (!validateAll()) return;

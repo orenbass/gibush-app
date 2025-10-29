@@ -18,6 +18,12 @@
   margin: 24px 0;
 }
 
+/* Timer color adaptation for light/dark modes */
+body:not(.dark) .crawling-sprint .timer-display,
+body:not(.dark) .crawling-sprint .timer-display.small { color:#0f172a !important; text-shadow:0 1px 2px rgba(0,0,0,0.15) !important; }
+.dark .crawling-sprint .timer-display,
+.dark .crawling-sprint .timer-display.small { color:#ffffff !important; text-shadow:0 2px 12px rgba(59,130,246,0.35) !important; }
+
 /* Sprint runner buttons */
 .crawling-sprint .runner-btn {
   min-height: 68px;

@@ -12,10 +12,40 @@
   box-sizing: border-box;
 }
 
+/* CSS Variables for Light/Dark Mode */
+:root {
+  --arrival-bg:#ffffff;
+  --arrival-border:#e2e8f0;
+  --arrival-header-bg:#f8fafc;
+  --arrival-header-text:#475569;
+  --arrival-row-bg:#ffffff;
+  --arrival-row-hover-bg:#f1f5f9;
+  --arrival-row-text:#0f172a;
+  --arrival-static-bg:#e2e8f0;
+  --arrival-static-text:#334155;
+  --arrival-drag-hover-bg:#f1f5f9;
+  --arrival-dragging-bg:#e0f2fe;
+  --arrival-drag-border:#0284c7;
+}
+.dark {
+  --arrival-bg:#1e293b;
+  --arrival-border:#334155;
+  --arrival-header-bg:#0f172a;
+  --arrival-header-text:#94a3b8;
+  --arrival-row-bg:#1e293b;
+  --arrival-row-hover-bg:#334155;
+  --arrival-row-text:#ffffff;
+  --arrival-static-bg:#64748b;
+  --arrival-static-text:#ffffff;
+  --arrival-drag-hover-bg:#334155;
+  --arrival-dragging-bg:#1e40af;
+  --arrival-drag-border:#3b82f6;
+}
+
 /* מכולה ראשית */
 .arrival-section {
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--arrival-bg);
+  border: 1px solid var(--arrival-border);
   border-radius: 12px;
   overflow: hidden;
   direction: rtl;
@@ -40,8 +70,8 @@
 
 /* כותרת הטבלה */
 .arrival-header {
-  background: #0f172a;
-  color: #94a3b8;
+  background: var(--arrival-header-bg);
+  color: var(--arrival-header-text);
   padding: 12px 16px;
   display: grid;
   grid-template-columns: var(--arrival-cols);
@@ -49,7 +79,7 @@
   column-gap: 12px;
   font-weight: 600;
   font-size: 13px;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--arrival-border);
   direction: rtl;
 }
 
@@ -68,7 +98,7 @@
   background: transparent;
   border-radius: 0;
   padding: 0;
-  color: #94a3b8;
+  color: var(--arrival-header-text);
   font-weight: 600;
   font-size: 13px;
 }
@@ -81,19 +111,19 @@
 
 /* שורות התוכן */
 .arrival-row {
-  background: #1e293b;
-  color: white;
+  background: var(--arrival-row-bg);
+  color: var(--arrival-row-text);
   padding: 12px 16px;
   display: grid;
   grid-template-columns: var(--arrival-cols);
   align-items: center;
   column-gap: 12px;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--arrival-border);
   min-height: 60px;
   direction: rtl;
   transition: background-color 0.2s ease;
 }
-.arrival-row:hover { background: #334155; }
+.arrival-row:hover { background: var(--arrival-row-hover-bg); }
 .arrival-row:last-child { border-bottom: none; }
 
 /* הסרת העמודה השמאלית */
@@ -104,7 +134,7 @@
   text-align: center; 
   font-size: 16px; 
   font-weight: 600; 
-  color: white; 
+  color: var(--arrival-row-text); 
   flex-shrink: 0;
 }
 
@@ -126,7 +156,7 @@
   text-align: center; 
   font-size: 14px; 
   font-weight: 600; 
-  color: white; 
+  color: var(--arrival-row-text); 
   font-family: monospace; 
   flex-shrink: 0;
 }
@@ -135,8 +165,8 @@
 .static-position {
   width: 60px;
   height: 26px;
-  background: #64748b;
-  color: white;
+  background: var(--arrival-static-bg);
+  color: var(--arrival-static-text);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -162,11 +192,11 @@
   --arrival-cols: 100px 130px; /* רק כתף + זמן (אין מיקום, אין הערות) */
 }
 
-.editing-order .arrival-row { background: #1e293b; }
-.editing-order .arrival-row:hover { background: #334155; }
+.editing-order .arrival-row { background: var(--arrival-row-bg); }
+.editing-order .arrival-row:hover { background: var(--arrival-row-hover-bg); }
 
 /* שמירה על עיצוב עמודת המיקום במצב עריכה */
-.editing-order .arrival-row .static-position { background: #64748b; border: none; animation: none; }
+.editing-order .arrival-row .static-position { background: var(--arrival-static-bg); border: none; animation: none; }
 
 /* כפתור גרירה - הגדרה אחת (הוסר הכפל) */
 .drag-handle {
@@ -192,13 +222,13 @@
 .drag-handle:focus { background: transparent !important; outline: none !important; box-shadow: none !important; }
 
 /* Edit mode styling improvements (שומרים כי תלוי ב-JS) */
-.arrival-list.editing-order .arrival-row { background: #1e293b !important; border: 1px solid #334155; margin-bottom: 2px; transition: all 0.2s ease; }
-.arrival-list.editing-order .arrival-row:hover { background: #334155 !important; border-color: #0891b2; box-shadow: 0 2px 4px rgba(8,145,178,0.1); }
-.arrival-list.editing-order .arrival-row.dragging { background: #f0f9ff !important; border-color: #0891b2; box-shadow: 0 4px 12px rgba(8,145,178,0.2); transform: scale(1.02); }
+.arrival-list.editing-order .arrival-row { background: var(--arrival-row-bg) !important; border: 1px solid var(--arrival-border); margin-bottom: 2px; transition: all 0.2s ease; }
+.arrival-list.editing-order .arrival-row:hover { background: var(--arrival-drag-hover-bg) !important; border-color: var(--arrival-border); box-shadow: 0 2px 4px rgba(8,145,178,0.1); }
+.arrival-list.editing-order .arrival-row.dragging { background: var(--arrival-dragging-bg) !important; border-color: var(--arrival-drag-border) !important; box-shadow: 0 4px 12px rgba(8,145,178,0.2); transform: scale(1.02); }
 
 /* Drag over indicators */
-.arrival-row.drag-over-before { border-top: 3px solid #0891b2 !important; }
-.arrival-row.drag-over-after { border-bottom: 3px solid #0891b2 !important; }
+.arrival-row.drag-over-before { border-top: 3px solid var(--arrival-drag-border) !important; }
+.arrival-row.drag-over-after { border-bottom: 3px solid var(--arrival-drag-border) !important; }
 
 /* ==================================================
    אנימציות גרירה
@@ -206,14 +236,14 @@
 .arrival-row.dragging {
   opacity: 0.8;
   transform: rotate(2deg) scale(1.02);
-  background: #1e40af !important;
-  border: 2px dashed #3b82f6;
+  background: var(--arrival-dragging-bg) !important;
+  border: 2px dashed var(--arrival-drag-border);
   box-shadow: 0 8px 20px rgba(0,0,0,0.3);
   z-index: 1000;
 }
-.arrival-row.drag-target { background: #1e40af !important; border: 2px solid #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
-.arrival-row.drag-over-before { border-top: 3px solid #3b82f6; }
-.arrival-row.drag-over-after { border-bottom: 3px solid #3b82f6; }
+.arrival-row.drag-target { background: var(--arrival-dragging-bg) !important; border: 2px solid var(--arrival-drag-border); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.3); }
+.arrival-row.drag-over-before { border-top: 3px solid var(--arrival-drag-border); }
+.arrival-row.drag-over-after { border-bottom: 3px solid var(--arrival-drag-border); }
 
 /* ==================================================
    התאמות למובייל
@@ -371,12 +401,12 @@
 }
 
 .arrival-header-title {
-  background: #0f172a;
-  color: #f1f5f9;
+  background: var(--arrival-header-bg);
+  color: var(--arrival-row-text);
   padding: 10px 16px 6px 16px;
   font-size: 15px;
   font-weight: 600;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--arrival-border);
   direction: rtl;
 }
 
