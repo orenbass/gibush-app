@@ -157,6 +157,7 @@
             <button id="aggExitBtn" class="agg-btn agg-btn-secondary" title="יציאה">🚪 יציאה</button>
             <button id="aggRefreshBtn" class="agg-btn agg-btn-primary" title="ריענון">🔄 ריענון</button>
             <button id="aggExportExcelBtn" class="agg-btn agg-btn-success" title="הורד אקסל מאוחד">📥 הורד אקסל</button>
+            <button id="aggStatsBtn" class="agg-btn agg-btn-stats" title="דשבורד סטטיסטיקות">📊 דשבורד סטטיסטיקות</button>
             <div class="agg-subtitle agg-inline-stats">סה"כ מעריכים: <strong>${this.countEvaluators()}</strong> | סה"כ קבוצות: <strong>${this.state.groups.size}</strong></div>
           </div>
           <div class="agg-header-right">
@@ -209,6 +210,7 @@
       header.querySelector('#aggExitBtn').addEventListener('click', () => this.renderDatePicker());
       header.querySelector('#aggRefreshBtn').addEventListener('click', () => this.refreshCurrent());
       header.querySelector('#aggExportExcelBtn').addEventListener('click', () => this.exportAggregatedExcel());
+      header.querySelector('#aggStatsBtn').addEventListener('click', () => this.showStatsDashboard());
       header.querySelector('#aggGroupSelect').addEventListener('change', (e)=>{
         const v = e.target.value || null;
         this.state.selected.group = v;
@@ -1050,6 +1052,21 @@
           btn.textContent = '📥 הורד אקסל';
         }
       }
+    }
+
+    // ============================================
+    // פתיחת דשבורד סטטיסטיקות - מופרד לקובץ נפרד
+    // ============================================
+    showStatsDashboard() {
+      if (!window.StatsDashboard) {
+        console.error('❌ StatsDashboard לא נטען');
+        alert('שגיאה: דשבורד הסטטיסטיקות לא זמין');
+        return;
+      }
+      
+      // יצירת instance של דשבורד הסטטיסטיקות ופתיחתו
+      const statsDashboard = new window.StatsDashboard(this);
+      statsDashboard.show();
     }
   }
 

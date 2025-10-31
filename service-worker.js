@@ -1,17 +1,17 @@
 // גרסת האפליקציה - עדכן מספר זה כל פעם שיש שינויים
-const APP_VERSION = 'v2.2.1';
+const APP_VERSION = 'v2.2.2'; // bumped after moving config files
 const CACHE_NAME = `gibush-cache-${APP_VERSION}`;
 
 const ASSETS = [
   '/',
   '/index.html',
   '/app.js',
-  '/config.js',
+  '/js/config/config.js', // updated path
   '/quick-comments.js',
   '/styles.css',
   '/landing.html',
   '/landing-auth.js',
-  '/users-config.js',
+  '/js/config/users-config.js', // updated path
   '/css/main.css',
   '/css/icons.css',
   '/js/utils/modal.js',

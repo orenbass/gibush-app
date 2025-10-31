@@ -13,10 +13,11 @@
     document.body.classList.add('hide-quick-comments');
 
     // State management for admin settings
-    let currentSubPage = 'exercises'; // exercises, backup, users
+    let currentSubPage = 'exercises'; // exercises, backup, users, quick-comments
     let exercisesDirty = false;
     let backupDirty = false;
     let usersDirty = false;
+    let quickCommentsDirty = false; // NEW
 
     const originalSnapshot = JSON.parse(JSON.stringify(CONFIG));
     
@@ -185,8 +186,8 @@
           <h2 class="text-2xl font-bold text-center mb-6">הגדרות מנהל</h2>
           
           <nav class="border-b border-gray-200 mb-6">
-            <div class="flex justify-center overflow-x-auto">
-              <div class="flex space-x-1 space-x-reverse min-w-max">
+            <div class="flex justify-center">
+              <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-1 w-full sm:w-auto sm:justify-center">
                 <button data-subpage="exercises" class="admin-nav-tab compact ${currentSubPage === 'exercises' ? 'active' : ''}">
                   <span>⚙️</span>
                   <span>מקצים</span>
@@ -198,6 +199,10 @@
                 <button data-subpage="users" class="admin-nav-tab compact ${currentSubPage === 'users' ? 'active' : ''}">
                   <span>👥</span>
                   <span>משתמשים</span>
+                </button>
+                <button data-subpage="quick-comments" class="admin-nav-tab compact ${currentSubPage === 'quick-comments' ? 'active' : ''}">
+                  <span>📝</span>
+                  <span>הערות מהירות</span>
                 </button>
               </div>
             </div>
@@ -233,9 +238,7 @@
         { key: 'MAX_CRAWLING_SPRINTS', label: 'מספר מקצי ספרינט זחילות', type: 'number', min: 0 },
         { key: 'NUM_STRETCHER_HEATS', label: 'מספר מקצי אלונקה/סחיבת איכר', type: 'number', min: 0 },
         { key: 'MAX_STRETCHER_CARRIERS', label: 'כמות נושאים מקסימלית (אלונקה/סחיבת איכר)', type: 'number', min: 0 },
-        { key: 'MAX_JERRICAN_CARRIERS', label: 'כמות נושאי ג\'ריקן מקסימלית', type: 'number', min: 0 },
-        { key: 'STRETCHER_PAGE_LABEL', label: 'שם התרגיל (לשונית)', type: 'text', placeholder: 'לדוגמה: סחיבת איכר' },
-        { key: 'STRETCHER_CARRIER_NOUN_PLURAL', label: 'מלל לבחירה (לדוג\': "איכרים")', type: 'text', placeholder: 'יופיע במלל: בחר עד X ...' }
+        { key: 'MAX_JERRICAN_CARRIERS', label: 'כמות נושאי ג\'ריקן מקסימלית', type: 'number', min: 0 }
       ];
 
       const makeFieldRow = f => {
@@ -345,6 +348,10 @@
       `;
     };
 
+    // Snapshot & editable store for quick comments (NEW)
+    const originalQuickComments = JSON.parse(JSON.stringify(CONFIG.CRAWLING_GROUP_COMMON_COMMENTS || { good: [], neutral: [], bad: [] }));
+    let editableQuickComments = JSON.parse(JSON.stringify(originalQuickComments));
+
     const renderUsersPage = () => {
       // Debug: וידוא שה-USERS_CONFIG קיים
       console.log('🔍 USERS_CONFIG:', window.USERS_CONFIG);
@@ -355,10 +362,42 @@
       console.log('👥 מספר משתמשים למציג:', users.length);
       console.log('📋 רשימת משתמשים:', users);
       
+      // קריאת הגדרת גישת משתמשים מה-localStorage
+      const dsRaw = localStorage.getItem('downloadedSystemSettings');
+      const dsObj = dsRaw ? JSON.parse(dsRaw) : {};
+      const allowNonAdminAccess = dsObj.appAccess?.allowNonAdminUsers !== false; // ברירת מחדל: true
+      
       return `
         <div class="space-y-6">
           <div class="bg-green-50 border-r-4 border-green-400 text-green-800 text-sm rounded-lg p-4">
             <strong>מידע:</strong> ניהול משתמשים מורשים להתחברות. משתמשים עם הרשאת מנהל מקבלים גישה לדשבורד.
+          </div>
+          
+          <!-- הגדרת גישה לאפליקציה -->
+          <div class="bg-white border rounded-lg shadow-sm p-6">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+              🔐 הגדרות גישה לאפליקציה
+            </h3>
+            <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+              <label class="flex items-start space-x-3 space-x-reverse cursor-pointer">
+                <input type="checkbox" id="allow-non-admin-access" 
+                       ${allowNonAdminAccess ? 'checked' : ''} 
+                       class="mt-1 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                       data-category="users">
+                <div class="flex-1">
+                  <span class="text-sm font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    ✅ אפשר גישה למשתמשים רגילים
+                  </span>
+                  <p class="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                    כאשר מסומן: משתמשי Google רגילים (לא מנהלים) יכולים להיכנס לאפליקציה.<br>
+                    כאשר לא מסומן: רק מנהלים ואורחים יכולים להיכנס לאפליקציה.
+                  </p>
+                  <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+                    ⚠️ שינוי זה ייכנס לתוקף מיד לאחר שמירה והעלאה לדרייב.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
           
           <div class="bg-white border rounded-lg shadow-sm">
@@ -378,6 +417,51 @@
           </div>
         </div>
       `;
+    };
+
+    const renderQuickCommentsPage = () => {
+      const groups = editableQuickComments; // use editable copy (NOT global CONFIG)
+      const catMeta = [
+        { key: 'good', label: 'חיובי', emoji: '✅', color: 'green' },
+        { key: 'neutral', label: 'ניטרלי', emoji: '🟦', color: 'gray' },
+        { key: 'bad', label: 'טעון שיפור', emoji: '⚠️', color: 'amber' }
+      ];
+      const makeCategory = (c) => {
+        const arr = Array.isArray(groups[c.key]) ? groups[c.key] : [];
+        const pills = arr.map((txt, idx) => `
+          <span class="inline-flex items-center gap-1 bg-${c.color}-100 text-${c.color}-800 dark:bg-${c.color}-900/40 dark:text-${c.color}-200 px-3 py-1 rounded-full text-sm group" data-qc-pill data-cat="${c.key}" data-index="${idx}">
+            <span class="truncate max-w-[140px]" title="${txt.replace(/&/g,'&amp;')}">${txt}</span>
+            <button type="button" class="text-${c.color}-700 hover:text-red-600 dark:text-${c.color}-300 dark:hover:text-red-300 font-bold" data-remove-qc data-cat="${c.key}" data-index="${idx}" aria-label="הסר">×</button>
+          </span>`).join('');
+        return `
+          <div class="space-y-2">
+            <h4 class="font-semibold flex items-center gap-2 text-${c.color}-700 dark:text-${c.color}-300">${c.emoji} ${c.label}
+              <span class="text-xs font-normal text-gray-500">(${arr.length})</span>
+            </h4>
+            <div class="flex flex-wrap gap-2 border rounded-lg p-3 bg-white dark:bg-gray-800 min-h-[56px]" data-qc-container="${c.key}">
+              ${pills || '<span class="text-xs text-gray-400">(ריק)</span>'}
+            </div>
+            <div class="flex gap-2">
+              <input type="text" class="flex-1 p-2 border rounded-lg text-sm" placeholder="הוסף הערה..." data-qc-input="${c.key}" />
+              <button type="button" class="px-4 py-2 rounded-lg bg-${c.color}-600 hover:bg-${c.color}-700 text-white text-sm font-medium" data-action="add-qc" data-cat="${c.key}">הוסף</button>
+            </div>
+          </div>`;
+      };
+      return `
+        <div class="space-y-6">
+          <div class="bg-purple-50 border-r-4 border-purple-400 text-purple-800 text-sm rounded-lg p-4 dark:bg-purple-900/30 dark:text-purple-200">
+            <strong>ניהול הערות מהירות:</strong> השינויים נשמרים רק בלחיצה על "שמור הכל". לחיצה על ביטול תחזיר למצב המקורי.
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" class="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium" data-action="qc-reset-defaults">♻️ ברירת מחדל</button>
+          </div>
+          <div class="grid gap-6 md:grid-cols-3">
+            ${catMeta.map(makeCategory).join('')}
+          </div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">
+            * ברירת המחדל נטענת מתוך הקונפיג בתחילת הדף (לא מדרייב).
+          </div>
+        </div>`;
     };
 
     const renderEmptyState = () => {
@@ -439,6 +523,9 @@
         case 'users':
           contentEl.innerHTML = renderUsersPage();
           break;
+        case 'quick-comments':
+          contentEl.innerHTML = renderQuickCommentsPage();
+          break;
       }
     };
 
@@ -462,6 +549,7 @@
         const category = input.dataset.category;
         if (category === 'exercises') exercisesDirty = true;
         else if (category === 'backup') backupDirty = true;
+        else if (category === 'users') usersDirty = true;
         
         updateDirtyState();
       });
@@ -470,12 +558,52 @@
         if (e.target.matches('#btn-add-user')) {
           addNewUser();
         }
+        const resetBtn = e.target.closest('[data-action="qc-reset-defaults"]');
+        if (resetBtn) {
+          if (confirm('להחזיר את רשימות ההערות לברירת המחדל מהקונפיג? פעולה זו תמחק שינויים שלא נשמרו.')) {
+            editableQuickComments = JSON.parse(JSON.stringify(originalQuickComments));
+            quickCommentsDirty = true; // mark dirty so user must save
+            if (currentSubPage === 'quick-comments') renderSubPage();
+            updateDirtyState();
+          }
+        }
+        // Add quick comment item (edit in editable copy ONLY)
+        const addBtn = e.target.closest('[data-action="add-qc"]');
+        if (addBtn) {
+          const cat = addBtn.getAttribute('data-cat');
+          const input = root.querySelector(`[data-qc-input="${cat}"]`);
+          if (input && input.value.trim()) {
+            const val = input.value.trim();
+            const grp = editableQuickComments[cat] || (editableQuickComments[cat] = []);
+            grp.push(val);
+            input.value='';
+            quickCommentsDirty = true;
+            if (currentSubPage === 'quick-comments') renderSubPage();
+            updateDirtyState();
+          }
+        }
+        const removeBtn = e.target.closest('[data-remove-qc]');
+        if (removeBtn) {
+          const cat = removeBtn.getAttribute('data-cat');
+          const idx = Number(removeBtn.getAttribute('data-index'));
+          const arr = editableQuickComments[cat];
+          if (Array.isArray(arr) && arr[idx] !== undefined) {
+            arr.splice(idx,1);
+            quickCommentsDirty = true;
+            if (currentSubPage === 'quick-comments') renderSubPage();
+            updateDirtyState();
+          }
+        }
       });
 
       root.querySelector('#btn-save-all').addEventListener('click', saveAllSettings);
       
       root.querySelector('#btn-cancel-all').addEventListener('click', () => {
         if (isDirty() && !confirm('לבטל שינויים שלא נשמרו?')) return;
+        // Revert editable quick comments (discard unsaved changes)
+        editableQuickComments = JSON.parse(JSON.stringify(originalQuickComments));
+        quickCommentsDirty = false;
+        updateDirtyState();
         if (typeof state !== 'undefined') {
           state.currentPage = state.lastPage || state.currentPage;
         }
@@ -489,7 +617,7 @@
       });
     };
 
-    const isDirty = () => exercisesDirty || backupDirty || usersDirty;
+    const isDirty = () => exercisesDirty || backupDirty || usersDirty || quickCommentsDirty;
 
     const updateDirtyState = () => {
       const dirty = isDirty();
@@ -548,9 +676,30 @@
           // גם במבנה ישן
           dsObj.userManagement = dsObj.userManagement || {};
           dsObj.userManagement.authorizedUsers = dsObj.users;
+          // עדכון הגדרת גישה למשתמשים רגילים
+          const allowNonAdminAccessCheckbox = root.querySelector('#allow-non-admin-access');
+          if (allowNonAdminAccessCheckbox) {
+            dsObj.appAccess = dsObj.appAccess || {};
+            dsObj.appAccess.allowNonAdminUsers = allowNonAdminAccessCheckbox.checked;
+          }
           localStorage.setItem('downloadedSystemSettings', JSON.stringify(dsObj));
-          console.log('💾 users עודכנו ב-downloadedSystemSettings (סה"כ:', dsObj.users.length, ')');
+          console.log('💾 users ועודכנו ב-downloadedSystemSettings (סה"כ:', dsObj.users.length, ')');
         } catch(e){ console.warn('שגיאה בעדכון downloadedSystemSettings.users', e); }
+      }
+      if (quickCommentsDirty) {
+        try {
+          const gc = editableQuickComments; // commit editable -> CONFIG
+          ['good','neutral','bad'].forEach(k => {
+            if (!Array.isArray(gc[k])) gc[k] = [];
+            gc[k] = gc[k].map(s => String(s||'').trim()).filter(Boolean);
+          });
+          CONFIG.CRAWLING_GROUP_COMMON_COMMENTS = JSON.parse(JSON.stringify(gc));
+          const dsRaw2 = localStorage.getItem('downloadedSystemSettings');
+          const dsObj2 = dsRaw2 ? JSON.parse(dsRaw2) : {};
+          dsObj2.quickComments = CONFIG.CRAWLING_GROUP_COMMON_COMMENTS;
+          localStorage.setItem('downloadedSystemSettings', JSON.stringify(dsObj2));
+          console.log('💾 quickComments נשמרו (commit)');
+        } catch(e){ console.warn('שגיאה בעדכון quickComments', e); }
       }
     };
 
@@ -598,9 +747,11 @@
               MAX_CRAWLING_SPRINTS: CONFIG.MAX_CRAWLING_SPRINTS,
               NUM_STRETCHER_HEATS: CONFIG.NUM_STRETCHER_HEATS,
               MAX_STRETCHER_CARRIERS: CONFIG.MAX_STRETCHER_CARRIERS,
-              MAX_JERRICAN_CARRIERS: CONFIG.MAX_JERRICAN_CARRIERS,
-              STRETCHER_PAGE_LABEL: CONFIG.STRETCHER_PAGE_LABEL,
-              STRETCHER_CARRIER_NOUN_PLURAL: CONFIG.STRETCHER_CARRIER_NOUN_PLURAL
+              MAX_JERRICAN_CARRIERS: CONFIG.MAX_JERRICAN_CARRIERS
+            },
+            quickComments: editableQuickComments, // use committed editable copy
+            appAccess: {
+              allowNonAdminUsers: root.querySelector('#allow-non-admin-access')?.checked !== false
             }
           };
 
@@ -639,6 +790,9 @@
         exercisesDirty = false;
         backupDirty = false;
         usersDirty = false;
+        quickCommentsDirty = false; // reset after save
+        // Update original snapshot for quick comments after successful save
+        editableQuickComments = JSON.parse(JSON.stringify(CONFIG.CRAWLING_GROUP_COMMON_COMMENTS || {}));
 
         // שחזור כפתור השמירה
         saveBtn.innerHTML = originalText;
@@ -670,6 +824,10 @@
           
           // רענון התצוגה הנוכחית
           renderSubPage();
+        }
+        
+        if (quickCommentsDirty && window.QuickComments && typeof window.QuickComments.refresh === 'function') {
+          setTimeout(()=>{ try { window.QuickComments.refresh(); } catch(_){} }, 100);
         }
         
       } catch (error) {

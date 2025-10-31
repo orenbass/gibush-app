@@ -24,6 +24,8 @@
 @import url('./pages/crawling-sprint.css');
 @import url('./pages/stretcher-heat.css');
 @import url('./pages/report.css');
+@import url('./aggregated-dashboard.css');
+@import url('./pages/stats-dashboard.css');
 
 /* Utils - עזרים */
 @import url('./utils/animations.css');
@@ -49,10 +51,13 @@
   border-radius: 0.375rem 0.375rem 0 0;
   white-space: nowrap;
   color: #6b7280;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
 }
 
 .admin-nav-tab.compact {
-  padding: 0.375rem 0.625rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.8rem;
 }
 
@@ -69,10 +74,43 @@
   font-weight: 600;
 }
 
+/* Responsive styles for narrow screens */
 @media (max-width: 640px) {
   .admin-nav-tab {
     font-size: 0.75rem;
-    padding: 0.375rem 0.5rem;
+    padding: 0.5rem 0.5rem;
+    gap: 0.25rem;
+  }
+  
+  .admin-nav-tab.compact {
+    padding: 0.5rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .admin-nav-tab span:first-child {
+    font-size: 1rem;
+  }
+  
+  .admin-nav-tab span:last-child {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .admin-nav-tab {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.4rem;
+    gap: 0.2rem;
+    flex-direction: column;
+  }
+  
+  .admin-nav-tab span:first-child {
+    font-size: 1.2rem;
+  }
+  
+  .admin-nav-tab span:last-child {
+    font-size: 0.65rem;
+    line-height: 1;
   }
 }
 
