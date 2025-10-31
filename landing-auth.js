@@ -273,6 +273,20 @@ class LandingAuthManager {
                 }
             }
             
+            // **עדכון הערות מהירות מהדרייב (quickComments) - חדש!**
+            if (settings.quickComments && window.CONFIG) {
+                console.log('📝 מעדכן הערות מהירות מהדרייב...');
+                const qc = settings.quickComments;
+                // וידוא מבנה
+                const sanitizeArr = (arr) => Array.isArray(arr) ? arr.map(s => String(s||'').trim()).filter(Boolean) : [];
+                window.CONFIG.CRAWLING_GROUP_COMMON_COMMENTS = {
+                    good: sanitizeArr(qc.good),
+                    neutral: sanitizeArr(qc.neutral),
+                    bad: sanitizeArr(qc.bad)
+                };
+                console.log('✅ הערות מהירות עודכנו:', window.CONFIG.CRAWLING_GROUP_COMMON_COMMENTS);
+            }
+            
             // **עדכון משתמשים מורשים - ההגדרות כבר נשמרו ב-localStorage**
             // USERS_CONFIG קורא אותם דינמית דרך getter, אין צורך בדריסה
             // שימו לב: המבנה יכול להיות settings.userManagement.authorizedUsers או settings.users
@@ -411,6 +425,23 @@ class LandingAuthManager {
      */
     processGoogleUser(userInfo) {
         try {
+            // **בדיקת הגדרות גישה למשתמשים רגילים - חדש!**
+            const dsRaw = localStorage.getItem('downloadedSystemSettings');
+            const dsObj = dsRaw ? JSON.parse(dsRaw) : {};
+            const allowNonAdminAccess = dsObj.appAccess?.allowNonAdminUsers !== false; // ברירת מחדל: true
+            
+            // בדיקה אם המשתמש הוא מנהל
+            const user = window.USERS_CONFIG?.getUserByEmail(userInfo.email);
+            const isAdmin = user?.isAdmin || false;
+            
+            // אם גישה למשתמשים רגילים חסומה והמשתמש אינו מנהל - הצג שגיאה
+            if (!allowNonAdminAccess && !isAdmin) {
+                console.warn('🚫 גישה חסומה למשתמשים רגילים:', userInfo.email);
+                this.showError('האפליקציה זמינה כרגע למנהלים ואורחים בלבד.\n\nאם אתה צריך גישה, פנה למנהל המערכת.');
+                this.showLoading(false);
+                return;
+            }
+            
             // בדיקת הרשאה - אם יש הגדרת authorizedEmails
             if (this.config.authorizedEmails && !this.isEmailAuthorized(userInfo.email)) {
                 console.warn('🚫 כתובת מייל לא מורשה:', userInfo.email);
@@ -436,7 +467,8 @@ class LandingAuthManager {
                         name: userInfo.name,
                         email: userInfo.email,
                         picture: userInfo.picture,
-                        verified: userInfo.email_verified || userInfo.verified_email
+                        verified: userInfo.email_verified || userInfo.verified_email,
+                        isAdmin: isAdmin // שמירת מצב מנהל
                     },
                     isInitialSetupComplete: false
                 },
