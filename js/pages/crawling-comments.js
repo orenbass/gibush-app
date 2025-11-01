@@ -10,7 +10,6 @@
                     if (state.currentPage === PAGES.CRAWLING_COMMENTS) {
                         // עיכוב קצר כדי לוודא שהנתונים התעדכנו
                         setTimeout(() => {
-                            console.log('Refreshing crawling page due to:', evt);
                             window.Pages.renderCrawlingDrillsCommentsPage();
                         }, 150);
                     }
@@ -24,7 +23,6 @@
         window.addEventListener('storage', (e) => {
             if (e.key === 'gibushAppState' && state.currentPage === PAGES.CRAWLING_COMMENTS) {
                 setTimeout(() => {
-                    console.log('Refreshing crawling page due to storage change');
                     window.Pages.renderCrawlingDrillsCommentsPage();
                 }, 200);
             }
@@ -40,7 +38,6 @@
                 const currentHash = JSON.stringify(state.runners || []);
                 if (currentHash !== lastRunnersHash) {
                     lastRunnersHash = currentHash;
-                    console.log('Detected runners change via polling');
                     window.Pages.renderCrawlingDrillsCommentsPage();
                 }
             }
@@ -156,8 +153,6 @@
             })
             .sort((a, b) => Number(a.shoulderNumber) - Number(b.shoulderNumber));
 
-        console.log('Active runners for crawling:', activeRunners.map(r => r.shoulderNumber));
-
         // אם היו טיימרים פעילים – ממשיכים אותם
         activeRunners.forEach(r => {
             if (state.crawlingDrills.activeSackCarriers.includes(r.shoulderNumber)) {
@@ -191,8 +186,6 @@
                           (raw && String(raw).trim() ? [String(raw).trim()] : []);
                 const cCount = arr.length;
                 const level = Math.min(cCount,5);
-
-                console.log(`Button for ${sn}: selected=${isSelected}, canSelect=${canSelect}, hasTime=${hasTime}`);
 
                 return `<button class="runner-sack-btn ${isSelected ? 'selected' : ''} ${hasTime ? 'has-sack-time' : ''}"
                             data-shoulder-number="${sn}" ${!canSelect ? 'disabled' : ''}>
@@ -231,9 +224,6 @@
         const displayedSackCarriers = allRunners
             .filter(r => r && r.shoulderNumber != null && sackCarrierSet.has(String(r.shoulderNumber)))
             .sort((a,b) => Number(a.shoulderNumber) - Number(b.shoulderNumber));
-
-        console.log('Displayed sack carriers:', displayedSackCarriers.map(r => r.shoulderNumber));
-        console.log('Sack carrier set:', Array.from(sackCarrierSet));
 
         // REPLACED: carriersListHtml custom markup -> unified ArrivalRows table (ALL runners, not only carriers)
         // Build arrivals array for ALL active (non-retired) runners sorted by descending total sack carrying time
@@ -382,7 +372,6 @@ ${arrivalsBlockHtml}
                 // הסרת בחירה - עצירת טיימר ושמירת זמן
                 stopSackTimer(sn);
                 state.crawlingDrills.activeSackCarriers = activeSackCarriers.filter(x => x !== sn);
-                console.log(`Stopped timer for ${sn}`);
             } else {
                 // בדיקה אם יש מקום לעוד נושא שק
                 if (activeSackCarriers.length >= CONFIG.MAX_SACK_CARRIERS) {
@@ -393,7 +382,6 @@ ${arrivalsBlockHtml}
                 // הוספת בחירה - התחלת טיימר
                 state.crawlingDrills.activeSackCarriers.push(sn);
                 startSackTimer(sn);
-                console.log(`Started timer for ${sn}`);
             }
             
             saveState();
@@ -452,8 +440,6 @@ ${arrivalsBlockHtml}
             data.totalTime += elapsed;
             data.startTime = null;
             saveState();
-            
-            console.log(`Timer stopped for ${shoulderNumber}, total time: ${formatTime_no_ms(data.totalTime)}`);
         }
 
         // מאזינים לבחירת נשאי שק

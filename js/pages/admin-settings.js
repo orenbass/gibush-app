@@ -210,6 +210,12 @@
 
           <div id="subpage-content" class="min-h-96"></div>
           
+          <div class="text-center mt-4">
+            <span id="app-version-badge" class="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-medium border border-blue-300">
+              ${(window.APP_VERSION || (window.CONFIG?.APP_VERSION) || 'גרסה לא ידועה').replace(/^v/i,'')}
+            </span>
+          </div>
+          
           <div class="flex flex-wrap gap-3 justify-center pt-6 border-t border-gray-200">
             <button id="btn-save-all" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed" disabled>
               💾 שמור הכל
@@ -348,24 +354,39 @@
       `;
     };
 
-    // Snapshot & editable store for quick comments (NEW)
-    const originalQuickComments = JSON.parse(JSON.stringify(CONFIG.CRAWLING_GROUP_COMMON_COMMENTS || { good: [], neutral: [], bad: [] }));
-    let editableQuickComments = JSON.parse(JSON.stringify(originalQuickComments));
+    // Snapshot & editable store for quick comments
+    // ברירת מחדל = ההגדרות המקוריות מהקוד (לא מהדרייב!)
+    const getHardcodedQuickComments = () => {
+      if (window.ORIGINAL_CRAWLING_COMMENTS) {
+        return JSON.parse(JSON.stringify(window.ORIGINAL_CRAWLING_COMMENTS));
+      }
+      return CONFIG.CRAWLING_GROUP_COMMON_COMMENTS || { good: [], neutral: [], bad: [] };
+    };
+    
+    // טעינת ההגדרות הנוכחיות מה-Drive (אם קיימות) לעריכה
+    const getCurrentQuickComments = () => {
+      try {
+        const dsRaw = localStorage.getItem('downloadedSystemSettings');
+        if (dsRaw) {
+          const dsObj = JSON.parse(dsRaw);
+          if (dsObj.quickComments && typeof dsObj.quickComments === 'object') {
+            return dsObj.quickComments;
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ שגיאה בטעינת הערות מהירות מהדרייב:', e);
+      }
+      return getHardcodedQuickComments();
+    };
+    
+    const originalQuickComments = JSON.parse(JSON.stringify(getHardcodedQuickComments())); // ברירת מחדל תמיד מהקוד
+    let editableQuickComments = JSON.parse(JSON.stringify(getCurrentQuickComments())); // עריכה מהדרייב/קוד
 
     const renderUsersPage = () => {
-      // Debug: וידוא שה-USERS_CONFIG קיים
-      console.log('🔍 USERS_CONFIG:', window.USERS_CONFIG);
-      console.log('🔍 USERS_CONFIG.users:', window.USERS_CONFIG?.users);
-      
-      const users = editableUsers; // שימוש בעותק העריכה
-      
-      console.log('👥 מספר משתמשים למציג:', users.length);
-      console.log('📋 רשימת משתמשים:', users);
-      
-      // קריאת הגדרת גישת משתמשים מה-localStorage
+      const users = editableUsers;
       const dsRaw = localStorage.getItem('downloadedSystemSettings');
       const dsObj = dsRaw ? JSON.parse(dsRaw) : {};
-      const allowNonAdminAccess = dsObj.appAccess?.allowNonAdminUsers !== false; // ברירת מחדל: true
+      const guestsAndAdminsOnly = dsObj.appAccess?.guestsAndAdminsOnly === true; // חדש! שם נכון
       
       return `
         <div class="space-y-6">
@@ -378,22 +399,22 @@
             <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
               🔐 הגדרות גישה לאפליקציה
             </h3>
-            <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+            <div class="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-lg border border-amber-200 dark:border-amber-700">
               <label class="flex items-start space-x-3 space-x-reverse cursor-pointer">
-                <input type="checkbox" id="allow-non-admin-access" 
-                       ${allowNonAdminAccess ? 'checked' : ''} 
-                       class="mt-1 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                <input type="checkbox" id="guests-and-admins-only" 
+                       ${guestsAndAdminsOnly ? 'checked' : ''} 
+                       class="mt-1 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
                        data-category="users">
                 <div class="flex-1">
-                  <span class="text-sm font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2">
-                    ✅ אפשר גישה למשתמשים רגילים
+                  <span class="text-sm font-medium text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                    🔒 הגבל גישה לאורחים ומנהלים בלבד
                   </span>
-                  <p class="text-xs text-blue-700 dark:text-blue-300 mt-2">
-                    כאשר מסומן: משתמשי Google רגילים (לא מנהלים) יכולים להיכנס לאפליקציה.<br>
-                    כאשר לא מסומן: רק מנהלים ואורחים יכולים להיכנס לאפליקציה.
+                  <p class="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                    <strong>כאשר מסומן:</strong> רק משתמשים עם הרשאת מנהל או אורחים יכולים להיכנס לאפליקציה.<br>
+                    <strong>כאשר לא מסומן:</strong> כל משתמש Google יכול להיכנס לאפליקציה.
                   </p>
-                  <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
-                    ⚠️ שינוי זה ייכנס לתוקף מיד לאחר שמירה והעלאה לדרייב.
+                  <p class="text-xs text-red-600 dark:text-red-400 mt-2 font-bold">
+                    ⚠️ שינוי זה ייכנס לתוקף מיד לאחר שמירה והעלאה לדרייב!
                   </p>
                 </div>
               </label>
@@ -676,14 +697,13 @@
           // גם במבנה ישן
           dsObj.userManagement = dsObj.userManagement || {};
           dsObj.userManagement.authorizedUsers = dsObj.users;
-          // עדכון הגדרת גישה למשתמשים רגילים
-          const allowNonAdminAccessCheckbox = root.querySelector('#allow-non-admin-access');
-          if (allowNonAdminAccessCheckbox) {
+          // עדכון הגדרת גישה - שם נכון!
+          const guestsAndAdminsOnlyCheckbox = root.querySelector('#guests-and-admins-only');
+          if (guestsAndAdminsOnlyCheckbox) {
             dsObj.appAccess = dsObj.appAccess || {};
-            dsObj.appAccess.allowNonAdminUsers = allowNonAdminAccessCheckbox.checked;
+            dsObj.appAccess.guestsAndAdminsOnly = guestsAndAdminsOnlyCheckbox.checked;
           }
           localStorage.setItem('downloadedSystemSettings', JSON.stringify(dsObj));
-          console.log('💾 users ועודכנו ב-downloadedSystemSettings (סה"כ:', dsObj.users.length, ')');
         } catch(e){ console.warn('שגיאה בעדכון downloadedSystemSettings.users', e); }
       }
       if (quickCommentsDirty) {
@@ -698,8 +718,63 @@
           const dsObj2 = dsRaw2 ? JSON.parse(dsRaw2) : {};
           dsObj2.quickComments = CONFIG.CRAWLING_GROUP_COMMON_COMMENTS;
           localStorage.setItem('downloadedSystemSettings', JSON.stringify(dsObj2));
-          console.log('💾 quickComments נשמרו (commit)');
         } catch(e){ console.warn('שגיאה בעדכון quickComments', e); }
+      }
+    };
+
+    // **פונקציה חדשה: הצגת חלון טעינה צף**
+    const showSavingModal = (message = 'שומר הגדרות...') => {
+      // הסרת מודל קיים אם יש
+      const existingModal = document.getElementById('saving-modal');
+      if (existingModal) {
+        existingModal.remove();
+      }
+
+      // יצירת מודל חדש
+      const modal = document.createElement('div');
+      modal.id = 'saving-modal';
+      // תיקון className: הוספת רווח בין items-center ל-justify-center כדי שהמודאל יהיה מרובע ממורכז
+      modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-60';
+      modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 max-w-md mx-4 text-center">
+          <div class="mb-4">
+            <div class="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent"></div>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2" id="saving-title">
+            ${message}
+          </h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400" id="saving-status">
+            אנא המתן...
+          </p>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // אנימציה של הופעה
+      requestAnimationFrame(() => {
+        modal.style.opacity = '0';
+        modal.style.transition = 'opacity 0.3s ease';
+        requestAnimationFrame(() => {
+          modal.style.opacity = '1';
+        });
+      });
+
+      return modal;
+    };
+
+    const updateSavingModal = (title, status) => {
+      const titleEl = document.getElementById('saving-title');
+      const statusEl = document.getElementById('saving-status');
+      if (titleEl) titleEl.textContent = title;
+      if (statusEl) statusEl.textContent = status;
+    };
+
+    const closeSavingModal = () => {
+      const modal = document.getElementById('saving-modal');
+      if (modal) {
+        modal.style.opacity = '0';
+        setTimeout(() => modal.remove(), 300);
       }
     };
 
@@ -713,12 +788,17 @@
         
       if (!confirm(message)) return;
 
+      // הצגת חלון טעינה צף
+      const savingModal = showSavingModal('שומר הגדרות...');
+
       try {
-        // הצגת אינדיקטור טעינה
+        // השבתת כפתור שמירה
         const saveBtn = root.querySelector('#btn-save-all');
         const originalText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '⏳ שומר...';
         saveBtn.disabled = true;
+
+        // עדכון סטטוס
+        updateSavingModal('שומר הגדרות...', 'מעבד נתונים...');
 
         // איסוף הנתונים מהטפסים
         collectFormData();
@@ -728,18 +808,29 @@
           saveState();
         }
 
-        // העלאת גיבוי הגדרות לדרייב - תמיד!
+        // עדכון סטטוס
+        updateSavingModal('מעלה לדרייב...', 'מתחבר לשירות Google Drive...');
+
+        // העלאת גיבוי הגדרות לדרייב
         let driveUploadSuccess = false;
         let driveUploadMessage = '';
         
         try {
-          console.log('📤 מעלה גיבוי הגדרות לדרייב...');
+          // קריאת הגדרת guestsAndAdminsOnly מ-localStorage במקום מה-DOM
+          const currentSettings = localStorage.getItem('downloadedSystemSettings');
+          const currentSettingsObj = currentSettings ? JSON.parse(currentSettings) : {};
+          
+          const guestsAndAdminsCheckbox = root.querySelector('#guests-and-admins-only');
+          const guestsAndAdminsOnly = guestsAndAdminsCheckbox 
+            ? guestsAndAdminsCheckbox.checked 
+            : (currentSettingsObj.appAccess?.guestsAndAdminsOnly || false);
           
           // יצירת אובייקט הגדרות לגיבוי
           const settingsBackup = {
             timestamp: new Date().toISOString(),
+            appVersion: window.APP_VERSION || (CONFIG && CONFIG.APP_VERSION) || 'v0.0.0',
             version: '1.0',
-            users: editableUsers.map(u => ({ ...u, email: normalizeEmail(u.email) })), // שימוש בעותק העריכה
+            users: editableUsers.map(u => ({ ...u, email: normalizeEmail(u.email) })),
             backupSettings: CONFIG.AUTO_BACKUP_SETTINGS || {},
             exerciseSettings: {
               MAX_RUNNERS: CONFIG.MAX_RUNNERS,
@@ -749,22 +840,19 @@
               MAX_STRETCHER_CARRIERS: CONFIG.MAX_STRETCHER_CARRIERS,
               MAX_JERRICAN_CARRIERS: CONFIG.MAX_JERRICAN_CARRIERS
             },
-            quickComments: editableQuickComments, // use committed editable copy
+            quickComments: editableQuickComments,
             appAccess: {
-              allowNonAdminUsers: root.querySelector('#allow-non-admin-access')?.checked !== false
+              guestsAndAdminsOnly: guestsAndAdminsOnly
             }
           };
 
-          // המרה ל-JSON
+          updateSavingModal('מעלה לדרייב...', 'מעלה קובץ הגדרות...');
+
           const jsonContent = JSON.stringify(settingsBackup, null, 2);
           const blob = new Blob([jsonContent], { type: 'application/json' });
-          
-          // שם קובץ קבוע - השרת יחליט איפה לשמור אותו
           const fileName = 'settings-backup.json';
 
-          // בדיקה אם Google Drive Uploader זמין
           if (typeof window.GoogleDriveUploader !== 'undefined') {
-            // העלאה לדרייב - השרת יחליט על המיקום
             const uploadResult = await window.GoogleDriveUploader.upload(blob, fileName, {
               mimeType: 'application/json'
             });
@@ -773,41 +861,46 @@
             driveUploadMessage = uploadResult.message || 'הקובץ הועלה בהצלחה לדרייב';
             
             if (driveUploadSuccess) {
-              console.log('✅ גיבוי הגדרות הועלה בהצלחה לדרייב');
+              updateSavingModal('✅ השמירה הושלמה!', 'כל ההגדרות נשמרו בהצלחה');
             } else {
-              console.warn('⚠️ העלאה לדרייב נכשלה:', driveUploadMessage);
+              updateSavingModal('⚠️ שמירה חלקית', driveUploadMessage);
             }
           } else {
-            console.warn('⚠️ Google Drive Uploader לא זמין');
             driveUploadMessage = 'שירות Google Drive לא זמין';
+            updateSavingModal('⚠️ שמירה מקומית בלבד', driveUploadMessage);
           }
         } catch (uploadError) {
-          console.error('❌ שגיאה בהעלאת גיבוי לדרייב:', uploadError);
           driveUploadMessage = uploadError.message || 'שגיאה לא ידועה בהעלאה';
+          updateSavingModal('❌ שגיאה בהעלאה', driveUploadMessage);
         }
+
+        // המתנה קצרה כדי שהמשתמש יראה את הסטטוס הסופי
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // סגירת חלון הטעינה
+        closeSavingModal();
 
         // איפוס דגלי "dirty"
         exercisesDirty = false;
         backupDirty = false;
         usersDirty = false;
-        quickCommentsDirty = false; // reset after save
-        // Update original snapshot for quick comments after successful save
+        quickCommentsDirty = false;
         editableQuickComments = JSON.parse(JSON.stringify(CONFIG.CRAWLING_GROUP_COMMON_COMMENTS || {}));
 
         // שחזור כפתור השמירה
         saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
         updateDirtyState();
 
-        // הצגת הודעה למשתמש
+        // טיפול במקרה של איפוס מקצים
         if (needsReset) {
-          // במקרה של איפוס - הצג הודעה והמשך לאיפוס
           const resetMessage = driveUploadSuccess 
             ? '✅ ההגדרות נשמרו והועלו לדרייב בהצלחה!\n\nהאפליקציה תתאתחל כעת למצב התחלתי...'
             : `⚠️ ההגדרות נשמרו מקומית!\n\nאך העלאה לדרייב נכשלה:\n${driveUploadMessage}\n\nהאפליקציה תתאתחל כעת למצב התחלתי...`;
           
           alert(resetMessage);
           
-          // המשך לאיפוס מלא
+          // אתחול מלא
           if (typeof state !== 'undefined' && typeof PAGES !== 'undefined') {
             state.currentPage = PAGES.RUNNERS;
           }
@@ -815,23 +908,25 @@
           if (typeof saveState === 'function') saveState();
           if (typeof render === 'function') render();
         } else {
-          // במקרה של שמירה רגילה - הצג הודעה והישאר בדף ההגדרות
+          // במקרה של שמירה רגילה - הישאר בדף הגדרות
           if (driveUploadSuccess) {
             showSuccessNotification('✅ ההגדרות נשמרו והועלו לדרייב בהצלחה!');
           } else {
             showWarningNotification(`⚠️ ההגדרות נשמרו מקומית, אך העלאה לדרייב נכשלה:\n${driveUploadMessage}`);
           }
           
-          // רענון התצוגה הנוכחית
+          // רענון התצוגה הנוכחית - נשאר באותו עמוד!
           renderSubPage();
         }
         
-        if (quickCommentsDirty && window.QuickComments && typeof window.QuickComments.refresh === 'function') {
+        if (window.QuickComments && typeof window.QuickComments.refresh === 'function') {
           setTimeout(()=>{ try { window.QuickComments.refresh(); } catch(_){} }, 100);
         }
         
       } catch (error) {
-        console.error('❌ שגיאה כללית בשמירת הגדרות:', error);
+        // סגירת חלון הטעינה
+        closeSavingModal();
+        
         alert('❌ שגיאה בשמירת ההגדרות:\n' + error.message);
         
         // שחזור כפתור השמירה

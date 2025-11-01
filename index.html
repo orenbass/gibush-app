@@ -29,6 +29,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     
     <!-- Utils and config first -->
+    <script src="./js/config/app-version.js"></script>
     <script src="./js/config/users-config.js"></script>
     <script src="./js/config/config.js"></script>
     <script src="./js/config/crawling-config.js"></script>
@@ -75,6 +76,53 @@
         @supports(padding:max(0px)) {
             body.pwa-safe { padding-top: max(calc(var(--safe-area-top) + 6px), 6px); }
             body.pwa-safe header.sticky { top: var(--safe-area-top); }
+        }
+    </style>
+    
+    <!-- תיקון צבעי ניווט - דריסת Tailwind CSS -->
+    <style>
+        /* תפריט ניווט ראשי - במצב בהיר */
+        nav.bg-white {
+            background-color: #ffffff !important;
+        }
+        
+        /* תפריט ניווט ראשי - במצב כהה */
+        .dark nav.bg-white,
+        html.dark nav.bg-white {
+            background-color: #1e293b !important;
+        }
+        
+        /* כפתורי ניווט - במצב בהיר */
+        .nav-tab {
+            color: #64748b !important;
+        }
+        
+        .nav-tab:hover {
+            background-color: #f1f5f9 !important;
+            color: #3b82f6 !important;
+        }
+        
+        .nav-tab.is-active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+            color: white !important;
+        }
+        
+        /* כפתורי ניווט - במצב כהה */
+        .dark .nav-tab,
+        html.dark .nav-tab {
+            color: #94a3b8 !important;
+        }
+        
+        .dark .nav-tab:hover,
+        html.dark .nav-tab:hover {
+            background-color: #334155 !important;
+            color: #60a5fa !important;
+        }
+        
+        .dark .nav-tab.is-active,
+        html.dark .nav-tab.is-active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+            color: white !important;
         }
     </style>
     
@@ -201,6 +249,102 @@
             checkAuth();
         })();
     </script>
+    <script>
+      // עדכון גרסת כותרת + באנר עדכון אם גרסה השתנתה
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          const ver = window.APP_VERSION || (window.LANDING_CONFIG?.branding?.version) || '';
+          const displayVer = ver.replace(/^v/i,''); // הסרת v בהצגה בלבד
+          const el = document.getElementById('version-text');
+          if (el) el.textContent = displayVer ? `גרסה: ${displayVer}` : '';
+          const installed = localStorage.getItem('appVersionInstalled');
+          if (ver && installed !== ver) {
+            // יצירת באנר עדכון
+            if (!document.getElementById('version-update-banner')) {
+              const banner = document.createElement('div');
+              banner.id = 'version-update-banner';
+              banner.style.cssText = 'position:fixed;top:0;right:0;left:0;z-index:9998;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;background:#1e3a8a;color:#fff;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.25)';
+              banner.innerHTML = `<span>✨ גרסה חדשה זמינה (${displayVer})</span>
+                <button id="btn-update-version" style="background:#3b82f6;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">⬇️ עדכן עכשיו</button>
+                <button id="btn-dismiss-version" style="background:transparent;color:#fff;border:none;font-size:16px;font-weight:bold;cursor:pointer;line-height:1;">×</button>`;
+              document.body.appendChild(banner);
+              const updateBtn = document.getElementById('btn-update-version');
+              updateBtn.addEventListener('click', async () => {
+                try {
+                  if (typeof window.handleUpdateApp === 'function') {
+                    await window.handleUpdateApp();
+                  } else {
+                    // fallback: סימון כמותקן ורענון קשה
+                    localStorage.setItem('appVersionInstalled', ver);
+                    location.reload(true);
+                  }
+                } catch(e){ console.warn('Update failed', e); }
+              });
+              document.getElementById('btn-dismiss-version').addEventListener('click', () => {
+                banner.remove();
+              });
+            }
+          }
+        } catch(e){ console.warn('Version banner error', e); }
+      });
+    </script>
+    <script>
+      // בדיקת ועדכון גרסה + באנר עדכון רק במקרה של שינוי אמיתי
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          const currentVersion = (window.APP_VERSION || (window.LANDING_CONFIG?.branding?.version) || '').trim();
+          const displayVer = currentVersion.replace(/^v/i,'');
+          const versionEl = document.getElementById('version-text');
+          if (versionEl) versionEl.textContent = displayVer ? `גרסה: ${displayVer}` : '';
+
+          const installedVersionKey = 'appVersionInstalled';
+          let installedVersion = localStorage.getItem(installedVersionKey);
+
+          // התקנה ראשונה: שמירת גרסה נוכחית ומניעת באנר
+          if (!installedVersion && currentVersion) {
+            localStorage.setItem(installedVersionKey, currentVersion);
+            installedVersion = currentVersion; // אין באנר בפעם הראשונה
+            return; // סיום – אין שינוי לגרסה
+          }
+
+          // אם אין currentVersion בכלל – אין מה להשוות
+          if (!currentVersion) return;
+
+          // אם הגרסאות שוות – לא מציג באנר
+          if (installedVersion === currentVersion) return;
+
+          // אחרת – מציג באנר עדכון
+          if (!document.getElementById('version-update-banner')) {
+            const banner = document.createElement('div');
+            banner.id = 'version-update-banner';
+            banner.style.cssText = 'position:fixed;top:0;right:0;left:0;z-index:9998;display:flex;align-items:center;justify-content:center;gap:14px;padding:10px 18px;background:#1e3a8a;color:#fff;font-size:14px;font-weight:500;box-shadow:0 4px 14px rgba(0,0,0,.28)';
+            banner.innerHTML = `<span>✨ גרסה חדשה זמינה (${displayVer}) · היתה מותקנת: ${installedVersion || 'אין'}</span>
+              <button id="btn-update-version" style="background:#3b82f6;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">⬇️ עדכן עכשיו</button>
+              <button id="btn-dismiss-version" style="background:transparent;color:#fff;border:none;font-size:16px;font-weight:bold;cursor:pointer;line-height:1;" title="סגור">×</button>`;
+            document.body.appendChild(banner);
+
+            // פעולה: עדכון
+            document.getElementById('btn-update-version').addEventListener('click', async () => {
+              try {
+                // שמירת הגרסה החדשה כמותקנת לפני רענון (כדי שלא יחזור גם אם הרענון נכשל)
+                localStorage.setItem(installedVersionKey, currentVersion);
+                if (typeof window.handleUpdateApp === 'function') {
+                  await window.handleUpdateApp();
+                } else {
+                  location.reload(true);
+                }
+              } catch(e){ console.warn('Update failed', e); }
+            });
+
+            // פעולה: דחייה / סימון כמותקן כדי לא להציג שוב
+            document.getElementById('btn-dismiss-version').addEventListener('click', () => {
+              localStorage.setItem(installedVersionKey, currentVersion);
+              banner.remove();
+            });
+          }
+        } catch(e){ console.warn('Version banner logic error', e); }
+      });
+    </script>
 </head>
 
 <body>
@@ -225,7 +369,7 @@
                     <!-- כותרת במרכז - יכולה לגלוש למטה במסכים קטנים -->
                     <div class="flex-1 min-w-0 px-2">
                         <h1 id="header-title" class="text-2xl md:text-3xl font-bold text-blue-600 leading-tight">מערכת גיבוש חת"מ</h1>
-                        <p class="text-sm text-gray-500 mt-1" id="version-text">V2 (22/10/2025)</p>
+                        <p class="text-sm text-gray-500 mt-1" id="version-text"></p>
                     </div>
                     
                     <!-- כפתור גוונים בצד שמאל -->
@@ -483,6 +627,17 @@
                 }
             }
         }
+    </script>
+
+    <script>
+      // עדכון גרסת כותרת אחרי טעינת הקונפיג
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          const ver = window.APP_VERSION || (window.LANDING_CONFIG?.branding?.version) || '';
+          const el = document.getElementById('version-text');
+          if (el) el.textContent = ver ? `גרסה: ${ver}` : '';
+        } catch(e){ /* silent */ }
+      });
     </script>
 </body>
 

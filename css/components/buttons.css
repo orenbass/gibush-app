@@ -3,7 +3,7 @@
    ======================================== */
 
 /* כללים גלובליים בסיסיים בלבד - ללא עיצוב ספציפי */
-button {
+button:not(.admin-nav-tab) {
   font-family: var(--hebrew-font);
   cursor: pointer;
   border: none;

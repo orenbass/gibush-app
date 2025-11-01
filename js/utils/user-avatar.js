@@ -5,97 +5,82 @@
 
 function ensureUserAvatar() {
     try {
-        console.log('🎭 מתחיל ensureUserAvatar');
-        
-        // חיפוש ה-div הריק שמיועד לאווטר - גישה פשוטה וישירה
-        // הוא ה-div הראשון בתוך ה-flex עם justify-between
+        // מנגנון ניסיונות טעינה (גלובלי כדי שלא ייכנס ללופ אינסופי בין רינדורים)
+        window.__avatarLoadAttempts = window.__avatarLoadAttempts || 0;
+        const MAX_ATTEMPTS = 3;
+
+        // מציאת הקונטיינר
         let avatarContainer = document.querySelector('#app header .flex.items-center.justify-between > div:first-child');
-        
         if (!avatarContainer) {
-            console.warn('❌ לא נמצא avatar container, מנסה אופציה חלופית');
-            // אם לא מצאנו, ננסה לחפש בדרך אחרת
             const headerInner = document.querySelector('#app > header.w-full');
             if (headerInner) {
                 const flexContainer = headerInner.querySelector('.flex.items-center.justify-between');
-                if (flexContainer) {
-                    avatarContainer = flexContainer.querySelector('div:first-child');
-                }
+                if (flexContainer) avatarContainer = flexContainer.querySelector('div:first-child');
             }
         }
-        
-        // אם עדיין לא נמצא, נצא
         if (!avatarContainer) {
-            console.error('❌ Avatar container not found in DOM');
+            console.warn('❌ לא נמצא מיכל אווטר');
             return;
         }
-        
-        console.log('✅ Avatar container found:', avatarContainer);
-        
-        // בדיקה אם כבר יש כפתור אווטר
+
+        // כפתור קיים או יצירה
         let avatarBtn = document.getElementById('user-avatar-btn');
         if (!avatarBtn) {
-            console.log('🆕 יוצר כפתור אווטר חדש');
             avatarBtn = document.createElement('button');
             avatarBtn.id = 'user-avatar-btn';
             avatarBtn.className = 'avatar-btn-fixed';
             avatarBtn.title = 'תפריט משתמש';
             avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
-            
-            // הוספת אפקט hover
-            avatarBtn.addEventListener('mouseenter', () => {
-                avatarBtn.style.transform = 'scale(1.05)';
-                avatarBtn.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.3)';
-            });
-            avatarBtn.addEventListener('mouseleave', () => {
-                avatarBtn.style.transform = 'scale(1)';
-                avatarBtn.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.2)';
-            });
-            
             avatarContainer.appendChild(avatarBtn);
             avatarBtn.addEventListener('click', onAvatarClick);
-            console.log('✅ Avatar button created and added to container');
-        } else {
-            console.log('ℹ️ כפתור אווטר כבר קיים');
         }
-        
-        // קביעת תמונה
-        let imgUrl = '';
+
         const method = window.state?.authState?.authMethod;
-        if (method === 'google' && window.state.authState?.googleUserInfo?.picture) {
-            imgUrl = window.state.authState.googleUserInfo.picture;
-            console.log('🖼️ נמצאה תמונת Google:', imgUrl);
+        const pictureUrl = (method === 'google') ? window.state?.authState?.googleUserInfo?.picture : '';
+
+        // אם כבר יש תמונה מוצלחת – לא נטען שוב
+        if (avatarBtn.querySelector('img')) {
+            return;
         }
-        
-        if (imgUrl) {
-            if (!avatarBtn.querySelector('img')) {
+
+        // אם אין תמונת גוגל – נשאר עם אייקון (בלי לוג מידע)
+        if (!pictureUrl) {
+            if (!avatarBtn.querySelector('span')) {
+                avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
+            }
+            return;
+        }
+
+        // ניסיון טעינה מחזורי עד 3 פעמים
+        const attemptLoad = () => {
+            if (window.__avatarLoadAttempts >= MAX_ATTEMPTS) {
+                console.warn('⚠️ טעינת אווטר נכשלה לאחר 3 ניסיונות');
+                return;
+            }
+            window.__avatarLoadAttempts++;
+            const img = new Image();
+            img.onload = () => {
+                // הצלחה – הצבת תמונה ושקט לוגי
                 avatarBtn.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = imgUrl;
                 img.alt = 'user';
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'cover';
                 img.style.borderRadius = '50%';
                 avatarBtn.appendChild(img);
-                console.log('✅ Avatar image set');
-            } else {
-                const existingImg = avatarBtn.querySelector('img');
-                if (existingImg.src !== imgUrl) {
-                    existingImg.src = imgUrl;
-                    console.log('🔄 Avatar image updated');
-                }
-            }
-        } else {
-            // אורח - אייקון ברירת מחדל
-            if (!avatarBtn.querySelector('span')) {
-                avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
-            }
-            console.log('ℹ️ Using default avatar icon (no user image)');
-        }
-        
-        console.log('✅ ensureUserAvatar הסתיים בהצלחה');
+            };
+            img.onerror = () => {
+                // המתנה קצרה ונסיון חוזר
+                setTimeout(attemptLoad, 400);
+            };
+            // הוספת פרמטר למניעת קאש בדפדפן אם כשל בניסיון קודם
+            const cacheBuster = window.__avatarLoadAttempts > 1 ? ('?t=' + Date.now()) : '';
+            img.src = pictureUrl + cacheBuster;
+        };
+
+        attemptLoad();
     } catch (e) {
-        console.error('❌ ensureUserAvatar failed:', e);
+        console.error('❌ שגיאת אווטר:', e);
     }
 }
 
@@ -146,7 +131,7 @@ function onAvatarClick() {
     const menuItems = [
         { id: 'admin-settings', icon: '⚙️', text: 'הגדרות מנהל', adminOnly: true },
         { id: 'reset-app', icon: '🔄', text: 'אפס אפליקציה', color: '#ef4444' },
-        { id: 'clear-cache', icon: '🗑️', text: 'נקה Cache', color: '#9333ea' },
+        { id: 'update-app', icon: '⬇️', text: 'עדכון אפליקציה', color: '#2563eb' },
         { type: 'separator' },
         { id: 'backup-upload', icon: '☁️', text: 'שלח גיבוי למנהל', color: '#6366f1' },
         { id: 'backup-download', icon: '💾', text: 'הורד גיבוי', color: '#8b5cf6' },
@@ -241,7 +226,7 @@ function onAvatarClick() {
     const handlers = {
         'admin-settings': window.handleAdminSettingsClick,
         'reset-app': handleResetApp,
-        'clear-cache': handleClearCache,
+        'update-app': handleUpdateApp,
         'backup-upload': handleBackupUpload,
         'backup-download': handleBackupDownload,
         'backup-import': handleBackupImport,
@@ -324,6 +309,51 @@ async function handleClearCache() {
     } catch (error) {
         console.error('שגיאה בניקוי Cache:', error);
         alert('שגיאה בניקוי Cache. נסה לרענן ידנית (Ctrl+Shift+R)');
+    }
+}
+
+async function handleUpdateApp() {
+    // סדר הפעולות כאן בכוונה:
+    // 1. מורידים הגדרות מהשרת ושומרים ב-localStorage תחת 'downloadedSystemSettings'.
+    //    פעולת הניקוי של המטמון (PWA.forceRefreshApp / fallback) אינה מנקה localStorage, רק caches + service workers + sessionStorage.
+    //    לכן ההגדרות הישנות אינן מוחקות, והחדשות שומרות לפני הרענון.
+    // 2. לאחר השמירה מתבצע ניקוי cache ורענון – בעת העלייה מחדש config.js יטעין את ההגדרות שזה עתה נשמרו.
+    // אם בעתיד יתווסף ניקוי של localStorage בתוך ה-PWA, חובה לעדכן את הסדר (קודם ניקוי ואז הורדה ושמירה מחדש לפני reload).
+    if (!confirm('לעדכן את האפליקציה ולהוריד הגדרות מעודכנות מהשרת? פעולה תנקה מטמון ותטען מחדש.')) return;
+    let settings = null;
+    try {
+        settings = await window.GoogleDriveReader?.fetchSystemSettings();
+        if (settings) {
+            localStorage.setItem('downloadedSystemSettings', JSON.stringify(settings));
+            console.log('✅ הגדרות עודכנו מהשרת ונשמרו ב-localStorage (יישמרו לאחר הניקוי)');
+        } else {
+            console.warn('⚠️ לא התקבלו הגדרות מהשרת, ממשיך עם הקיימות');
+        }
+        // שמירת הגרסה החדשה כמותקנת (ללא שינוי אם אין)
+        if (window.APP_VERSION) {
+            localStorage.setItem('appVersionInstalled', window.APP_VERSION);
+        }
+    } catch (e) {
+        console.warn('⚠️ שגיאה בהורדת הגדרות מהשרת:', e);
+    }
+    try {
+        if (window.PWA?.forceRefreshApp) {
+            await window.PWA.forceRefreshApp();
+        } else {
+            if (window.caches) {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+            }
+            if (navigator.serviceWorker) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(reg => reg.unregister()));
+            }
+            sessionStorage.clear();
+            window.location.reload(true);
+        }
+    } catch (error) {
+        console.error('שגיאה בעדכון אפליקציה:', error);
+        alert('שגיאה בעדכון. נסה לרענן ידנית (Ctrl+Shift+R)');
     }
 }
 
@@ -420,3 +450,6 @@ window.UserAvatar.onAvatarClick = onAvatarClick;
 // גם ייצוא ישיר לתאימות לאחור
 window.ensureUserAvatar = ensureUserAvatar;
 window.onAvatarClick = onAvatarClick;
+
+// חשיפה לגלובל לשימוש בבאנר
+window.handleUpdateApp = window.handleUpdateApp || handleUpdateApp;

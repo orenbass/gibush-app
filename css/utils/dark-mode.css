@@ -7,8 +7,14 @@
   color: #e2e8f0;
 }
 
-.dark .bg-white {
+/* רקע לבן במצב כהה - למעט תפריטי ניווט */
+.dark .bg-white:not(nav) {
   background-color: #2d3748;
+}
+
+/* תפריט ניווט ראשי - מותאם במיוחד */
+.dark nav.bg-white {
+  background-color: #1e293b !important;
 }
 
 .dark .bg-gray-50 {

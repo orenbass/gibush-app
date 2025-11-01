@@ -7,7 +7,6 @@ function loadSettingsFromDrive() {
         const downloadedSettings = localStorage.getItem('downloadedSystemSettings');
         if (downloadedSettings) {
             const settings = JSON.parse(downloadedSettings);
-            console.log('🌐 נמצאו הגדרות מהדרייב בזמן טעינת CONFIG:', settings);
             return settings;
         }
     } catch (e) {
@@ -41,16 +40,13 @@ const DEFAULT_CONFIG = {
 var CONFIG = {};
 
 if (driveSettings && driveSettings.exerciseSettings) {
-    console.log('✅ משתמש בהגדרות תרגילים מהדרייב');
     Object.assign(CONFIG, DEFAULT_CONFIG, driveSettings.exerciseSettings);
 } else {
-    console.log('📋 משתמש בהגדרות ברירת מחדל');
     Object.assign(CONFIG, DEFAULT_CONFIG);
 }
 
 // עדכון הגדרות גיבוי מהדרייב אם קיימות
 if (driveSettings && driveSettings.backupSettings) {
-    console.log('✅ משתמש בהגדרות גיבוי מהדרייב');
     if (driveSettings.backupSettings.enabled !== undefined) {
         CONFIG.AUTO_BACKUP_UPLOAD_ENABLED = driveSettings.backupSettings.enabled;
     }
@@ -72,10 +68,10 @@ if (driveSettings && driveSettings.quickComments) {
         neutral: sanitizeArr(qc.neutral),
         bad: sanitizeArr(qc.bad)
     };
-    console.log('📝 נטענו הערות מהירות מהדרייב (quickComments):', CONFIG.CRAWLING_GROUP_COMMON_COMMENTS);
 }
 
-console.log('📊 CONFIG סופי:', CONFIG);
+// הסרת לוג סיכום CONFIG כדי שלא יוצגו לוגים תקינים
+// console.warn('📊 CONFIG סופי:', CONFIG); // הוסר
 
 // === הגדרות התחברות ואבטחה ===
 var LANDING_CONFIG = {
@@ -90,7 +86,7 @@ var LANDING_CONFIG = {
     // הגדרות עיצוב
     branding: {
         appName: 'מערכת גיבוש חת"מ',
-        version: 'V2.0',
+        version: (typeof window !== 'undefined' && window.APP_VERSION) ? window.APP_VERSION : 'v0.0.0',
         copyright: '© 2025 - כל הזכויות שמורות',
         description: 'מערכת דיגיטלית מתקדמת לניהול ומעקב אחר תהליכי גיבוש'
     },
@@ -146,4 +142,7 @@ if (typeof window !== 'undefined') {
     window.GOOGLE_DRIVE_CONFIG = GOOGLE_DRIVE_CONFIG;
     window.ADMIN_PASSWORD = ADMIN_PASSWORD;
     window.PAGES = PAGES;
+    if (window.APP_VERSION) {
+        CONFIG.APP_VERSION = window.APP_VERSION;
+    }
 }

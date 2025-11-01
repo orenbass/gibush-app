@@ -554,7 +554,6 @@
                 for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
                 const selected = pool.slice(0, toAdd).map(n => ({ shoulderNumber: n }));
                 state.runners = state.runners.concat(selected).sort((a,b)=>a.shoulderNumber-b.shoulderNumber);
-                console.log('Fallback generateRandomRunners added', selected.length, 'runners');
                 saveState?.();
             } catch(e){ console.error('Fallback generateRandomRunners failed', e); }
         }
@@ -1293,14 +1292,12 @@ ${hasRunners ? `
             const randBtn = document.getElementById('no-runners-random-btn');
             const manualBtn = document.getElementById('no-runners-manual-btn');
             randBtn?.addEventListener('click', () => {
-                console.log('[Runners] random add button click');
                 if (state.competitionStarted) { showModal('נעול', 'לא ניתן להוסיף לאחר התחלת המקצים'); return; }
-                try { (window.generateRandomRunners||generateRandomRunners)(); } catch(e){ console.warn('generateRandomRunners failed', e); showModal('שגיאה','שגיאה בהוספה רנדומלית'); }
+                try { (window.generateRandomRunners||generateRandomRunners)(); } catch(e){ console.warn('generateRandomRunners failed', e); showModal('שגיאה','שגיאה בהוספת רנדומלית'); }
                 saveState();
                 render();
             });
             manualBtn?.addEventListener('click', () => {
-                console.log('[Runners] manual add mode button click');
                 if (state.competitionStarted) { showModal('נעול', 'לא ניתן להוסיף לאחר התחלת המקצים'); return; }
                 if (!Array.isArray(state.runners)) state.runners = [];
                 state.__autoEnterEditRunners = true; // כניסה מידית למצב עריכה ריק

@@ -2,7 +2,7 @@
    Navigation Tabs - תפריט ניווט עליון
    ======================================== */
 
-nav {
+nav:not(.border-b) {
     width: 100%;
     background: white;
     border-radius: 0.5rem;
@@ -84,9 +84,9 @@ nav li {
     transform: translateY(-2px);
 }
 
-/* Dark Mode */
+/* Dark Mode - תמיכה מלאה בשני מנגנונים */
 @media (prefers-color-scheme: dark) {
-    nav {
+    nav:not(.border-b) {
         background: #1e293b;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
@@ -104,6 +104,27 @@ nav li {
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
     }
+}
+
+/* Dark Mode עם class .dark */
+.dark nav:not(.border-b) {
+    background: #1e293b;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dark .nav-tab {
+    color: #94a3b8;
+}
+
+.dark .nav-tab:hover {
+    background: #334155;
+    color: #60a5fa;
+}
+
+.dark .nav-tab.is-active {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border-color: #2563eb;
 }
 
 /* Responsive - מסכים קטנים */
@@ -142,4 +163,16 @@ nav::-webkit-scrollbar-thumb {
 
 nav::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+
+.dark nav::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+
+.dark nav::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+.dark nav::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
 }

@@ -68,19 +68,15 @@
 
   // הוספת פונקציה לhודעות מערכת
   function showNotification(message, type = 'info') {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-    // אם יש מערכת התראות במערכת - השתמש בה
     if (typeof window.showToast === 'function') {
       window.showToast(message, type);
     } else if (typeof window.showMessage === 'function') {
       window.showMessage(message);
     } else {
-      // Fallback - הצגת הודעה פשוטה
       const isError = type === 'error';
       if (isError) {
         console.error(message);
       }
-      // אפשר להוסיף כאן toast או הודעה ויזואלית
     }
   }
 
@@ -259,12 +255,9 @@
             folder: 'GibushManualBackups',
             type: 'backup'
           });
-          
           if (result.status !== 'success') {
             console.warn('⚠️ שליחת גיבוי נכשלה:', result.message);
             throw new Error('שליחת גיבוי נכשלה: ' + result.message);
-          } else {
-            console.log('✅ שליחת גיבוי הצליחה:', fileName);
           }
         } else {
           throw new Error('מערכת העלאה לא זמינה');
@@ -285,7 +278,6 @@
     if (typeof window.GibushAppExporter?.exportReport === 'function') {
       window.GibushAppExporter.exportReport('download')
         .then(result => {
-          console.log('הורדת דוח הושלמה:', result.filename);
           showNotification('✅ קובץ הדוח הורד בהצלחה!', 'success');
         })
         .catch(error => {
