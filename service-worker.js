@@ -1,5 +1,6 @@
-// גרסת האפליקציה - עדכן מספר זה כל פעם שיש שינויים
-const APP_VERSION = 'v2.2.2'; // bumped after moving config files
+// גרסת האפליקציה - נטענת ממקור יחיד
+importScripts('./js/config/app-version.js');
+const APP_VERSION = self.APP_VERSION || 'v0.0.0';
 const CACHE_NAME = `gibush-cache-${APP_VERSION}`;
 
 const ASSETS = [
@@ -52,23 +53,31 @@ self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     // מחיקת כל ה-caches הישנים
+    const toDelete = keys.filter(key => key !== CACHE_NAME);
     await Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => {
+      toDelete.map(key => {
         console.log('[SW] Deleting old cache:', key);
         return caches.delete(key);
       })
     );
     // שליטה מיידית על כל הלקוחות
     await self.clients.claim();
-    
-    // שליחת הודעה לכל הלקוחות שהגרסה עודכנה
-    const clients = await self.clients.matchAll();
-    clients.forEach(client => {
-      client.postMessage({
-        type: 'VERSION_UPDATE',
-        version: APP_VERSION
+
+    // נחשב האם באמת הייתה עדכון (היו קאש ישנים שנמחקו) ולא רק הפעלה ראשונה או רענון
+    const wasUpdated = toDelete.length > 0;
+
+    if (wasUpdated) {
+      // שליחת הודעה לכל הלקוחות שהגרסה עודכנה (רק אם באמת השתנתה)
+      const clients = await self.clients.matchAll();
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'VERSION_UPDATE',
+          version: APP_VERSION
+        });
       });
-    });
+    } else {
+      console.log('[SW] No previous cache to delete -> no version change broadcast');
+    }
   })());
 });
 
@@ -136,9 +145,4 @@ self.addEventListener('message', event => {
   }
 });
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(console.warn);
-  });
-}
 // (אפשר להרחיב קאשינג מאוחר יותר)

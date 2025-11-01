@@ -56,7 +56,7 @@
 
 /* High Contrast Mode */
 @media (prefers-contrast: high) {
-  button {
+  button:not(.admin-nav-tab) {
     border: 2px solid currentColor;
   }
 }

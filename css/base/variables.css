@@ -19,14 +19,14 @@
   /* משתנים נוספים */
   --primary-color: #4F46E5;
   --primary-hover: #4338CA;
-  --secondary-color: #6B7280;
+  --secondary-color: #4B5563;  /* **תוקן: מ-#6B7280 ל-#4B5563 - כהה יותר** */
   --success-color: #10B981;
   --warning-color: #F59E0B;
   --error-color: #EF4444;
   --background-color: #F9FAFB;
   --surface-color: #FFFFFF;
-  --text-primary: #1F2937;
-  --text-secondary: #6B7280;
+  --text-primary: #111827;  /* **תוקן: מ-#1F2937 ל-#111827 - כהה יותר** */
+  --text-secondary: #374151;  /* **תוקן: מ-#6B7280 ל-#374151 - כהה הרבה יותר** */
   --border-color: #E5E7EB;
   
   /* צללים */

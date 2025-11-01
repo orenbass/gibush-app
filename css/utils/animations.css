@@ -91,15 +91,15 @@
 }
 
 /* Button Hover Effects */
-button:not(.nav-tab):not(.heat-btn):not(.heat-bar-btn):not(.nav-heat-btn):not(.runner-btn):not(.comment-btn):not(.task-btn):not(#theme-toggle-btn):not(#edit-details-btn):not(.avatar-btn-fixed):not(.qc-sendBtn):not(.qc-micBtn):not(.qc-group-trigger) {
+button:not(.nav-tab):not(.heat-btn):not(.heat-bar-btn):not(.nav-heat-btn):not(.runner-btn):not(.comment-btn):not(.task-btn):not(#theme-toggle-btn):not(#edit-details-btn):not(.avatar-btn-fixed):not(.qc-sendBtn):not(.qc-micBtn):not(.qc-group-trigger):not(.admin-nav-tab) {
   transition: transform .12s ease, box-shadow .12s ease, background-color .15s ease;
 }
 
-button:hover:not(:disabled):not(.nav-tab):not(.heat-btn):not(.heat-bar-btn):not(.nav-heat-btn):not(.runner-btn):not(.comment-btn):not(.task-btn):not(#theme-toggle-btn):not(#edit-details-btn):not(.avatar-btn-fixed):not(.qc-sendBtn):not(.qc-micBtn):not(.qc-group-trigger) {
+button:hover:not(:disabled):not(.nav-tab):not(.heat-btn):not(.heat-bar-btn):not(.nav-heat-btn):not(.runner-btn):not(.comment-btn):not(.task-btn):not(#theme-toggle-btn):not(#edit-details-btn):not(.avatar-btn-fixed):not(.qc-sendBtn):not(.qc-micBtn):not(.qc-group-trigger):not(.admin-nav-tab) {
   transform: translateY(-1px);
 }
 
-button:active:not(:disabled):not(.nav-tab):not(.heat-btn):not(.heat-bar-btn):not(.nav-heat-btn):not(.runner-btn):not(.comment-btn):not(.task-btn):not(#theme-toggle-btn):not(#edit-details-btn):not(.avatar-btn-fixed):not(.qc-sendBtn):not(.qc-micBtn):not(.qc-group-trigger) {
+button:active:not(:disabled):not(.nav-tab):not(.heat-btn):not(.heat-bar-btn):not(.nav-heat-btn):not(.runner-btn):not(.comment-btn):not(.task-btn):not(#theme-toggle-btn):not(#edit-details-btn):not(.avatar-btn-fixed):not(.qc-sendBtn):not(.qc-micBtn):not(.qc-group-trigger):not(.admin-nav-tab) {
   transform: translateY(1px) scale(.995);
 }
 

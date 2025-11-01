@@ -54,7 +54,7 @@
 
 .quickbar .qc-label {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: #4b5563;  /* **תוקן: מ-#6b7280 ל-#4b5563 - כהה יותר** */
   white-space: nowrap;
   font-weight: 500;
 }
