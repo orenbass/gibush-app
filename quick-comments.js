@@ -7,8 +7,6 @@
     if (!quickBarDiv) return;
     if (!show) { 
       quickBarDiv.innerHTML = ''; 
-      // Remove floating bubble if exists
-      document.getElementById('qc-floating-bubble')?.remove();
       return; 
     }
 

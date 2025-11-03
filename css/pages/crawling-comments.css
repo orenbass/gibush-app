@@ -422,7 +422,7 @@
 
 .gc-modal-top {
   position: absolute;
-  top: 12px;
+  top: max(72px, env(safe-area-inset-top, 20px) + 52px);
   right: 50%;
   transform: translateX(50%);
   width: clamp(300px, 92vw, 580px);

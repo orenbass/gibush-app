@@ -62,10 +62,10 @@ window.AggregatedExcelExporter = {
     summaryWs.getCell('A1').value = `סיכום מאוחד של כל המועמדים - ${dateStr}`;
     summaryWs.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF1e293b' } };
     summaryWs.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
-    summaryWs.mergeCells('A1:I1');
+    summaryWs.mergeCells('A1:J1'); // שונה מ-I ל-J בגלל עמודת הסטטוס
     
     // כותרות טבלה
-    const summaryHeaders = ['מיקום', 'קבוצה', 'מס\' כתף', 'ספרינט', 'זחילה', 'אלונקה', 'ממוצע כולל', 'מספר מעריכים', 'הערות'];
+    const summaryHeaders = ['מיקום', 'קבוצה', 'מס\' כתף', 'ספרינט', 'זחילה', 'אלונקה', 'ממוצע כולל', 'מספר מעריכים', 'סטטוס', 'הערות'];
     summaryHeaders.forEach((header, idx) => {
       const cell = summaryWs.getCell(3, idx + 1);
       cell.value = header;
@@ -78,10 +78,22 @@ window.AggregatedExcelExporter = {
     // נתונים
     const allCandidates = dashboard.aggregateAllCandidates();
     
-    allCandidates.forEach((candidate, idx) => {
-      const rowIdx = 4 + idx;
-      
-      // איסוף כל ההערות מכל המעריכים
+    // הפרדה בין פעילים ללא פעילים
+    const activeCandidates = [];
+    const inactiveCandidates = [];
+    
+    allCandidates.forEach(candidate => {
+      const statusInfo = this._getRunnerStatusInfo(dashboard, candidate.group, candidate.shoulder);
+      if (statusInfo.isInactive) {
+        inactiveCandidates.push({ ...candidate, statusInfo });
+      } else {
+        activeCandidates.push({ ...candidate, statusInfo });
+      }
+    });
+    
+    // משתמשים פעילים
+    let currentRow = 4;
+    activeCandidates.forEach((candidate, idx) => {
       const allComments = this._collectAllComments(dashboard, candidate.group, candidate.shoulder);
       
       const rowData = [
@@ -93,27 +105,126 @@ window.AggregatedExcelExporter = {
         candidate.stretcherAvg ?? '-',
         candidate.overallAvg ?? '-',
         candidate.evalCount,
+        'פעיל',
         allComments.join(' | ')
       ];
       
-      rowData.forEach((value, colIdx) => {
-        const cell = summaryWs.getCell(rowIdx, colIdx + 1);
-        cell.value = value;
-        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx === 8 };
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        
-        // צבעי רקע לפי מיקום
-        if (idx === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
-        else if (idx === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC0C0C0' } };
-        else if (idx === 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCD7F32' } };
-        else if (idx % 2 === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
-      });
+      this._writeRowToSheet(summaryWs, currentRow, rowData, idx, false);
+      currentRow++;
+    });
+    
+    // שורת הפרדה אם יש לא פעילים
+    if (inactiveCandidates.length > 0) {
+      currentRow++; // רווח
+      const separatorCell = summaryWs.getCell(currentRow, 1);
+      separatorCell.value = 'משתמשים לא פעילים';
+      separatorCell.font = { bold: true, size: 13, color: { argb: 'FFDC2626' } };
+      separatorCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } };
+      separatorCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      summaryWs.mergeCells(`A${currentRow}:J${currentRow}`);
+      currentRow++;
+    }
+    
+    // משתמשים לא פעילים
+    inactiveCandidates.forEach((candidate, idx) => {
+      const allComments = this._collectAllComments(dashboard, candidate.group, candidate.shoulder);
+      
+      // הוספת הערת סטטוס להערות
+      const statusNote = candidate.statusInfo.note;
+      const commentsWithStatus = statusNote ? [statusNote, ...allComments] : allComments;
+      
+      const rowData = [
+        activeCandidates.length + idx + 1,
+        candidate.group,
+        candidate.shoulder,
+        candidate.sprintAvg ?? '-',
+        candidate.crawlingAvg ?? '-',
+        candidate.stretcherAvg ?? '-',
+        candidate.overallAvg ?? '-',
+        candidate.evalCount,
+        'לא פעיל',
+        commentsWithStatus.join(' | ')
+      ];
+      
+      this._writeRowToSheet(summaryWs, currentRow, rowData, idx, true);
+      currentRow++;
     });
     
     // התאמת רוחב עמודות
-    [10, 10, 12, 12, 12, 12, 14, 14, 50].forEach((width, idx) => {
+    [10, 10, 12, 12, 12, 12, 14, 14, 14, 50].forEach((width, idx) => {
       summaryWs.getColumn(idx + 1).width = width;
     });
+  },
+
+  /**
+   * כתיבת שורה לגליון
+   */
+  _writeRowToSheet(ws, rowIdx, rowData, candidateIdx, isInactive) {
+    rowData.forEach((value, colIdx) => {
+      const cell = ws.getCell(rowIdx, colIdx + 1);
+      cell.value = value;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx >= 8 };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      
+      if (isInactive) {
+        // סימון משתמשים לא פעילים באדום בהיר
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } };
+        cell.font = { color: { argb: 'FF991B1B' } };
+      } else {
+        // צבעי רקע לפי מיקום (רק לפעילים)
+        if (candidateIdx === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+        else if (candidateIdx === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC0C0C0' } };
+        else if (candidateIdx === 2) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCD7F32' } };
+        else if (candidateIdx % 2 === 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+      }
+    });
+  },
+
+  /**
+   * קבלת מידע על סטטוס הרץ
+   */
+  _getRunnerStatusInfo(dashboard, group, shoulder) {
+    const gData = dashboard.state.groups.get(group);
+    if (!gData) return { isInactive: false, note: '' };
+    
+    let totalEvaluators = 0;
+    let inactiveCount = 0;
+    const evaluatorNames = [];
+    
+    gData.evaluators.forEach((evalData, evaluatorName) => {
+      totalEvaluators++;
+      
+      // בדיקה בכל מקום אפשרי לסטטוס
+      const isInactiveInEval = 
+        evalData.crawlingDrills?.runnerStatuses?.[shoulder] === 'retired' ||
+        evalData.crawlingDrills?.runnerStatuses?.[shoulder] === 'inactive';
+      
+      const runner = (evalData.runners || []).find(r => String(r.shoulderNumber) === String(shoulder));
+      const hasRetiredStatus = runner && (runner.status === 'retired' || runner.status === 'inactive');
+      
+      if (isInactiveInEval || hasRetiredStatus) {
+        inactiveCount++;
+        evaluatorNames.push(evaluatorName);
+      }
+    });
+    
+    // אם כל המעריכים סימנו כלא פעיל
+    if (inactiveCount === totalEvaluators && totalEvaluators > 0) {
+      return { 
+        isInactive: true, 
+        note: 'לא פעיל אצל כל המעריכים'
+      };
+    }
+    
+    // אם חלק מהמעריכים סימנו כלא פעיל
+    if (inactiveCount > 0) {
+      return { 
+        isInactive: true, 
+        note: `לא פעיל אצל ${inactiveCount} מתוך ${totalEvaluators} מעריכים (${evaluatorNames.join(', ')})`
+      };
+    }
+    
+    return { isInactive: false, note: '' };
   },
 
   /**
@@ -136,11 +247,11 @@ window.AggregatedExcelExporter = {
       ws.getCell(`A${currentRow}`).font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
       ws.getCell(`A${currentRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
       ws.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
-      ws.mergeCells(`A${currentRow}:H${currentRow}`); // תוקן מ-I ל-H (8 עמודות)
+      ws.mergeCells(`A${currentRow}:I${currentRow}`); // שונה מ-H ל-I
       currentRow++;
       
-      // כותרות טבלה מסכמת - כולל עמודת הערות מאוחדות
-      const groupSummaryHeaders = ['מיקום', 'מס\' כתף', 'ספרינט', 'זחילה', 'אלונקה', 'ממוצע כולל', 'מספר מעריכים', 'הערות מאוחדות'];
+      // כותרות טבלה מסכמת
+      const groupSummaryHeaders = ['מיקום', 'מס\' כתף', 'ספרינט', 'זחילה', 'אלונקה', 'ממוצע כולל', 'מספר מעריכים', 'סטטוס', 'הערות מאוחדות'];
       groupSummaryHeaders.forEach((header, idx) => {
         const cell = ws.getCell(currentRow, idx + 1);
         cell.value = header;
@@ -151,10 +262,22 @@ window.AggregatedExcelExporter = {
       });
       currentRow++;
       
-      // נתוני הסיכום
+      // נתוני הסיכום - הפרדה בין פעילים ללא פעילים
       const groupCandidates = dashboard.aggregateGroup(gData);
-      groupCandidates.forEach((candidate, idx) => {
-        // איסוף כל ההערות לכתף זה מכל המעריכים בקבוצה
+      const activeCandidates = [];
+      const inactiveCandidates = [];
+      
+      groupCandidates.forEach(candidate => {
+        const statusInfo = this._getRunnerStatusInfo(dashboard, groupNumber, candidate.shoulder);
+        if (statusInfo.isInactive) {
+          inactiveCandidates.push({ ...candidate, statusInfo });
+        } else {
+          activeCandidates.push({ ...candidate, statusInfo });
+        }
+      });
+      
+      // פעילים
+      activeCandidates.forEach((candidate, idx) => {
         const allComments = this._collectAllComments(dashboard, groupNumber, candidate.shoulder);
         
         const rowData = [
@@ -165,13 +288,14 @@ window.AggregatedExcelExporter = {
           candidate.stretcherAvg ?? '-',
           candidate.overallAvg ?? '-',
           candidate.evalCount,
+          'פעיל',
           allComments.join(' | ')
         ];
         
         rowData.forEach((value, colIdx) => {
           const cell = ws.getCell(currentRow, colIdx + 1);
           cell.value = value;
-          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx === 7 };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx === 8 };
           cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
           
           // צבעי רקע
@@ -183,6 +307,46 @@ window.AggregatedExcelExporter = {
         currentRow++;
       });
       
+      // לא פעילים
+      if (inactiveCandidates.length > 0) {
+        currentRow++; // רווח
+        const separatorCell = ws.getCell(currentRow, 1);
+        separatorCell.value = 'משתמשים לא פעילים';
+        separatorCell.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } };
+        separatorCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } };
+        separatorCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.mergeCells(`A${currentRow}:I${currentRow}`);
+        currentRow++;
+        
+        inactiveCandidates.forEach((candidate, idx) => {
+          const allComments = this._collectAllComments(dashboard, groupNumber, candidate.shoulder);
+          const statusNote = candidate.statusInfo.note;
+          const commentsWithStatus = statusNote ? [statusNote, ...allComments] : allComments;
+          
+          const rowData = [
+            activeCandidates.length + idx + 1,
+            candidate.shoulder,
+            candidate.sprintAvg ?? '-',
+            candidate.crawlingAvg ?? '-',
+            candidate.stretcherAvg ?? '-',
+            candidate.overallAvg ?? '-',
+            candidate.evalCount,
+            'לא פעיל',
+            commentsWithStatus.join(' | ')
+          ];
+          
+          rowData.forEach((value, colIdx) => {
+            const cell = ws.getCell(currentRow, colIdx + 1);
+            cell.value = value;
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx === 8 };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } };
+            cell.font = { color: { argb: 'FF991B1B' } };
+          });
+          currentRow++;
+        });
+      }
+      
       currentRow += 2;
       
       // טבלאות לכל מעריך
@@ -193,10 +357,10 @@ window.AggregatedExcelExporter = {
         ws.getCell(`A${currentRow}`).font = { bold: true, size: 13, color: { argb: 'FF1e293b' } };
         ws.getCell(`A${currentRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFe0e7ff' } };
         ws.getCell(`A${currentRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.mergeCells(`A${currentRow}:F${currentRow}`);
+        ws.mergeCells(`A${currentRow}:G${currentRow}`);
         currentRow++;
         
-        const evalHeaders = ['מס\' כתף', 'ספרינט', 'זחילה', 'אלונקה', 'ממוצע', 'הערות'];
+        const evalHeaders = ['מס\' כתף', 'ספרינט', 'זחילה', 'אלונקה', 'ממוצע', 'סטטוס', 'הערות'];
         evalHeaders.forEach((header, idx) => {
           const cell = ws.getCell(currentRow, idx + 1);
           cell.value = header;
@@ -208,7 +372,25 @@ window.AggregatedExcelExporter = {
         currentRow++;
         
         const runners = evalData.runners || [];
-        runners.forEach((runner, runnerIdx) => {
+        const activeRunners = [];
+        const inactiveRunners = [];
+        
+        runners.forEach(runner => {
+          const isInactive = 
+            evalData.crawlingDrills?.runnerStatuses?.[runner.shoulderNumber] === 'retired' ||
+            evalData.crawlingDrills?.runnerStatuses?.[runner.shoulderNumber] === 'inactive' ||
+            runner.status === 'retired' ||
+            runner.status === 'inactive';
+          
+          if (isInactive) {
+            inactiveRunners.push(runner);
+          } else {
+            activeRunners.push(runner);
+          }
+        });
+        
+        // רצים פעילים
+        activeRunners.forEach((runner, runnerIdx) => {
           const sprintAvg = runner.finalScores?.sprint ?? '-';
           const crawlingAvg = runner.finalScores?.crawling ?? '-';
           const stretcherAvg = runner.finalScores?.stretcher ?? '-';
@@ -224,13 +406,14 @@ window.AggregatedExcelExporter = {
             crawlingAvg,
             stretcherAvg,
             overallAvg,
+            'פעיל',
             commentsStr
           ];
           
           rowData.forEach((value, colIdx) => {
             const cell = ws.getCell(currentRow, colIdx + 1);
             cell.value = value;
-            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx === 5 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx === 6 };
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             
             if (runnerIdx % 2 === 0) {
@@ -240,11 +423,52 @@ window.AggregatedExcelExporter = {
           currentRow++;
         });
         
+        // רצים לא פעילים
+        if (inactiveRunners.length > 0) {
+          const separatorCell = ws.getCell(currentRow, 1);
+          separatorCell.value = '--- לא פעילים ---';
+          separatorCell.font = { bold: true, size: 10, color: { argb: 'FFDC2626' }, italic: true };
+          separatorCell.alignment = { horizontal: 'center', vertical: 'middle' };
+          ws.mergeCells(`A${currentRow}:G${currentRow}`);
+          currentRow++;
+          
+          inactiveRunners.forEach((runner, runnerIdx) => {
+            const sprintAvg = runner.finalScores?.sprint ?? '-';
+            const crawlingAvg = runner.finalScores?.crawling ?? '-';
+            const stretcherAvg = runner.finalScores?.stretcher ?? '-';
+            const scores = [sprintAvg, crawlingAvg, stretcherAvg].filter(v => typeof v === 'number');
+            const overallAvg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2) : '-';
+            
+            const comments = dashboard._collectComments(evalData, runner.shoulderNumber);
+            const commentsStr = comments.join(' | ');
+            
+            const rowData = [
+              runner.shoulderNumber,
+              sprintAvg,
+              crawlingAvg,
+              stretcherAvg,
+              overallAvg,
+              'לא פעיל',
+              commentsStr
+            ];
+            
+            rowData.forEach((value, colIdx) => {
+              const cell = ws.getCell(currentRow, colIdx + 1);
+              cell.value = value;
+              cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: colIdx === 6 };
+              cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFECACA' } };
+              cell.font = { color: { argb: 'FF991B1B' } };
+            });
+            currentRow++;
+          });
+        }
+        
         currentRow += 2;
       });
       
       // התאמת רוחב עמודות
-      [12, 12, 12, 12, 12, 14, 40, 50].forEach((width, idx) => {
+      [12, 12, 12, 12, 12, 14, 14, 50].forEach((width, idx) => {
         ws.getColumn(idx + 1).width = width;
       });
     }

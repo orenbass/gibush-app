@@ -2,7 +2,6 @@
     if (window.attachCommentMic) return;
 
     let active = null; // {recognition, button, textarea}
-    const LONG_PRESS_MS = 420;
 
     function createRecognition(){
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -17,29 +16,26 @@
     function stopActive(manual){
         if (!active) return;
         try { active.recognition.stop(); } catch(_){}
-        active.button.classList.remove('recording');
+        active.button.classList.remove('listening');
+        active.button.textContent = '🎤';
         active = null;
     }
 
     function startFor(button, textarea){
-        // אם כבר פעיל על אותו כפתור – כבה
-        if (active && active.button === button){
-            stopActive(true);
-            return;
-        }
-        // כבה קודם
+        // כבה קודם אם יש משהו פעיל
         stopActive(true);
 
         const rec = createRecognition();
         if (!rec){
             button.disabled = true;
-            button.textContent = 'לא נתמך';
+            button.title = 'הקלטה קולית לא נתמכת בדפדפן זה';
             return;
         }
 
         const baseAtStart = textarea.value;
         active = { recognition: rec, button, textarea };
-        button.classList.add('recording');
+        button.classList.add('listening');
+        button.textContent = '🔴';
 
         rec.onresult = (ev)=>{
             let txt = baseAtStart;
@@ -53,12 +49,17 @@
             textarea.value = txt;
         };
         rec.onend = ()=>{
-            // אם המערכת סגרה (למשל iOS) – ננקה
+            // אם המערכת סגרה - ננקה
             if (active && active.recognition === rec){
                 stopActive(false);
             }
         };
-        try { rec.start(); } catch(_){}
+        rec.onerror = ()=>{
+            if (active && active.recognition === rec){
+                stopActive(false);
+            }
+        };
+        try { rec.start(); } catch(_){ stopActive(false); }
     }
 
     function attach(button, textarea){
@@ -66,35 +67,41 @@
         if (button._commentMicAttached) return;
         button._commentMicAttached = true;
 
-        // קליק = טוגל
+        // הסרת ההתנהגות של קליק רגיל - רק לחיצה ארוכה
         button.addEventListener('click', e=>{
             e.preventDefault();
-            startFor(button, textarea);
+            e.stopPropagation();
+            // לא עושים כלום בקליק רגיל
         });
 
         // לחיצה ארוכה – מקליט רק בזמן ההחזקה
-        let pressTimer = null;
-        function pressStart(){
-            if (pressTimer) clearTimeout(pressTimer);
-            pressTimer = setTimeout(()=>{
-                if (!active || active.button !== button){
-                    startFor(button, textarea);
-                }
-            }, LONG_PRESS_MS);
+        let isRecording = false;
+        
+        function pressStart(e){
+            e.preventDefault();
+            if (isRecording) return;
+            isRecording = true;
+            startFor(button, textarea);
         }
-        function pressCancel(){
-            if (pressTimer){ clearTimeout(pressTimer); pressTimer = null; }
-        }
-        function pressEnd(){
-            if (pressTimer){ clearTimeout(pressTimer); pressTimer = null; }
+        
+        function pressEnd(e){
+            e.preventDefault();
+            if (!isRecording) return;
+            isRecording = false;
             if (active && active.button === button){
                 stopActive(true);
             }
         }
 
-        ['pointerdown','touchstart'].forEach(ev=>button.addEventListener(ev, pressStart));
-        ['pointermove','touchmove','pointercancel','touchcancel','pointerleave','mouseleave'].forEach(ev=>button.addEventListener(ev, pressCancel));
-        ['pointerup','touchend'].forEach(ev=>button.addEventListener(ev, pressEnd));
+        // עבור עכבר
+        button.addEventListener('mousedown', pressStart);
+        button.addEventListener('mouseup', pressEnd);
+        button.addEventListener('mouseleave', pressEnd);
+        
+        // עבור מגע
+        button.addEventListener('touchstart', pressStart, { passive: false });
+        button.addEventListener('touchend', pressEnd);
+        button.addEventListener('touchcancel', pressEnd);
     }
 
     window.attachCommentMic = attach;
