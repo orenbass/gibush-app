@@ -250,46 +250,7 @@
         })();
     </script>
     <script>
-      // עדכון גרסת כותרת + באנר עדכון אם גרסה השתנתה
-      document.addEventListener('DOMContentLoaded', () => {
-        try {
-          const ver = window.APP_VERSION || (window.LANDING_CONFIG?.branding?.version) || '';
-          const displayVer = ver.replace(/^v/i,''); // הסרת v בהצגה בלבד
-          const el = document.getElementById('version-text');
-          if (el) el.textContent = displayVer ? `גרסה: ${displayVer}` : '';
-          const installed = localStorage.getItem('appVersionInstalled');
-          if (ver && installed !== ver) {
-            // יצירת באנר עדכון
-            if (!document.getElementById('version-update-banner')) {
-              const banner = document.createElement('div');
-              banner.id = 'version-update-banner';
-              banner.style.cssText = 'position:fixed;top:0;right:0;left:0;z-index:9998;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;background:#1e3a8a;color:#fff;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.25)';
-              banner.innerHTML = `<span>✨ גרסה חדשה זמינה (${displayVer})</span>
-                <button id="btn-update-version" style="background:#3b82f6;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">⬇️ עדכן עכשיו</button>
-                <button id="btn-dismiss-version" style="background:transparent;color:#fff;border:none;font-size:16px;font-weight:bold;cursor:pointer;line-height:1;">×</button>`;
-              document.body.appendChild(banner);
-              const updateBtn = document.getElementById('btn-update-version');
-              updateBtn.addEventListener('click', async () => {
-                try {
-                  if (typeof window.handleUpdateApp === 'function') {
-                    await window.handleUpdateApp();
-                  } else {
-                    // fallback: סימון כמותקן ורענון קשה
-                    localStorage.setItem('appVersionInstalled', ver);
-                    location.reload(true);
-                  }
-                } catch(e){ console.warn('Update failed', e); }
-              });
-              document.getElementById('btn-dismiss-version').addEventListener('click', () => {
-                banner.remove();
-              });
-            }
-          }
-        } catch(e){ console.warn('Version banner error', e); }
-      });
-    </script>
-    <script>
-      // בדיקת ועדכון גרסה + באנר עדכון רק במקרה של שינוי אמיתי
+      // בדיקת ועדכון גרסה + חלון צף מרכזי במקרה של שינוי גרסה
       document.addEventListener('DOMContentLoaded', () => {
         try {
           const currentVersion = (window.APP_VERSION || (window.LANDING_CONFIG?.branding?.version) || '').trim();
@@ -303,30 +264,68 @@
           // התקנה ראשונה: שמירת גרסה נוכחית ומניעת באנר
           if (!installedVersion && currentVersion) {
             localStorage.setItem(installedVersionKey, currentVersion);
-            installedVersion = currentVersion; // אין באנר בפעם הראשונה
-            return; // סיום – אין שינוי לגרסה
+            installedVersion = currentVersion;
+            return;
           }
 
-          // אם אין currentVersion בכלל – אין מה להשוות
           if (!currentVersion) return;
-
-          // אם הגרסאות שוות – לא מציג באנר
           if (installedVersion === currentVersion) return;
 
-          // אחרת – מציג באנר עדכון
-          if (!document.getElementById('version-update-banner')) {
-            const banner = document.createElement('div');
-            banner.id = 'version-update-banner';
-            banner.style.cssText = 'position:fixed;top:0;right:0;left:0;z-index:9998;display:flex;align-items:center;justify-content:center;gap:14px;padding:10px 18px;background:#1e3a8a;color:#fff;font-size:14px;font-weight:500;box-shadow:0 4px 14px rgba(0,0,0,.28)';
-            banner.innerHTML = `<span>✨ גרסה חדשה זמינה (${displayVer}) · היתה מותקנת: ${installedVersion || 'אין'}</span>
-              <button id="btn-update-version" style="background:#3b82f6;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">⬇️ עדכן עכשיו</button>
-              <button id="btn-dismiss-version" style="background:transparent;color:#fff;border:none;font-size:16px;font-weight:bold;cursor:pointer;line-height:1;" title="סגור">×</button>`;
-            document.body.appendChild(banner);
+          // יצירת חלון צף מודאלי במרכז המסך
+          if (!document.getElementById('version-update-modal')) {
+            // רקע כהה
+            const overlay = document.createElement('div');
+            overlay.id = 'version-update-modal-overlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+            
+            // חלון מרכזי
+            const modal = document.createElement('div');
+            modal.id = 'version-update-modal';
+            modal.style.cssText = 'background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:#fff;border-radius:20px;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-width:90%;width:420px;text-align:center;position:relative;animation:modalSlideIn 0.3s ease-out;';
+            
+            modal.innerHTML = `
+              <div style="font-size:48px;margin-bottom:16px;">🎉</div>
+              <h2 style="font-size:24px;font-weight:bold;margin-bottom:12px;">גרסה חדשה זמינה!</h2>
+              <div style="font-size:16px;margin-bottom:8px;opacity:0.95;">
+                <strong style="font-size:20px;color:#fbbf24;">${displayVer}</strong>
+              </div>
+              <div style="font-size:14px;opacity:0.85;margin-bottom:24px;">
+                גרסה מותקנת: ${installedVersion || 'אין'}
+              </div>
+              <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                <button id="btn-update-version-modal" style="background:#22c55e;color:#fff;border:none;padding:12px 28px;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(34,197,94,0.4);transition:all 0.2s;">
+                  ⬇️ עדכן עכשיו
+                </button>
+                <button id="btn-dismiss-version-modal" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:12px 28px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s;">
+                  אחר כך
+                </button>
+              </div>
+            `;
+            
+            // הוספת אנימציה
+            const style = document.createElement('style');
+            style.textContent = `
+              @keyframes modalSlideIn {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+              }
+              #btn-update-version-modal:hover {
+                background: #16a34a !important;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 16px rgba(34,197,94,0.5) !important;
+              }
+              #btn-dismiss-version-modal:hover {
+                background: rgba(255,255,255,0.3) !important;
+              }
+            `;
+            document.head.appendChild(style);
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
 
             // פעולה: עדכון
-            document.getElementById('btn-update-version').addEventListener('click', async () => {
+            document.getElementById('btn-update-version-modal').addEventListener('click', async () => {
               try {
-                // שמירת הגרסה החדשה כמותקנת לפני רענון (כדי שלא יחזור גם אם הרענון נכשל)
                 localStorage.setItem(installedVersionKey, currentVersion);
                 if (typeof window.handleUpdateApp === 'function') {
                   await window.handleUpdateApp();
@@ -336,13 +335,21 @@
               } catch(e){ console.warn('Update failed', e); }
             });
 
-            // פעולה: דחייה / סימון כמותקן כדי לא להציג שוב
-            document.getElementById('btn-dismiss-version').addEventListener('click', () => {
+            // פעולה: סגירה
+            document.getElementById('btn-dismiss-version-modal').addEventListener('click', () => {
               localStorage.setItem(installedVersionKey, currentVersion);
-              banner.remove();
+              overlay.remove();
+            });
+
+            // סגירה בלחיצה על הרקע
+            overlay.addEventListener('click', (e) => {
+              if (e.target === overlay) {
+                localStorage.setItem(installedVersionKey, currentVersion);
+                overlay.remove();
+              }
             });
           }
-        } catch(e){ console.warn('Version banner logic error', e); }
+        } catch(e){ console.warn('Version modal error', e); }
       });
     </script>
 </head>
