@@ -6,8 +6,8 @@
     const st = document.createElement('style');
     st.id = 'comments-modal-style';
     st.textContent = `
-      .comment-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;overflow:auto;z-index:1000;padding:40px 18px}
-      .comment-modal{background:#ffffff;max-width:500px;width:100%;border-radius:16px;padding:18px 18px 14px;box-shadow:0 4px 18px -2px rgba(0,0,0,.25);animation:cmIn .18s ease}
+      .comment-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;overflow:auto;z-index:1000;padding:80px 18px 40px;padding-top:max(80px, env(safe-area-inset-top, 20px) + 60px)}
+      .comment-modal{background:#ffffff;max-width:500px;width:100%;border-radius:16px;padding:18px 18px 14px;box-shadow:0 4px 18px -2px rgba(0,0,0,.25);animation:cmIn .18s ease;margin-top:0}
       .dark .comment-modal{background:#1f2937;color:#e2e8f0}
       @keyframes cmIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
       .comment-modal h3{margin:0 0 4px;font-size:16px;font-weight:700}
@@ -415,123 +415,30 @@
       }
     });
 
-    // ===== Voice (Android only, long press) =====
+    // ===== Voice Integration - Using Unified System =====
     const micBtn = backdrop.querySelector('[data-mic]');
     const micStatus = backdrop.querySelector('[data-mic-status]');
-    const recInput = inputNew;
 
-    function isAndroid(){ return /Android/i.test(navigator.userAgent||''); }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition = null;
-    let listening = false;
-    let partialBuffer = '';
-    let pressTimer = null;
-    let pressed = false;
-    const PRESS_DELAY = 220; // ms threshold for long press
-
-    if (!isAndroid() || !SR){
-      micBtn.style.display='none';
+    // טעינת מערכת המיקרופון המאוחדת אם לא קיימת
+    if (!window.attachCommentMic) {
+      const script = document.createElement('script');
+      script.src = 'js/utils/comment-mic.js';
+      script.onload = () => {
+        if (window.attachCommentMic && micBtn && inputNew) {
+          window.attachCommentMic(micBtn, inputNew);
+        }
+      };
+      document.head.appendChild(script);
     } else {
-      recognition = new SR();
-      recognition.lang = 'he-IL';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
+      // אם כבר קיימת - חבר מיד
+      if (micBtn && inputNew) {
+        window.attachCommentMic(micBtn, inputNew);
+      }
+    }
 
-      function startMic(){
-        if (listening) return;
-        try{
-          partialBuffer='';
-          recInput.value='';
-          listening = true;
-          recognition.start();
-          micBtn.classList.add('listening');
-          micStatus.textContent = 'האזנה...';
-        }catch(err){
-          console.warn('speech start error', err);
-          micStatus.textContent='שגיאה בהתחלה';
-          listening = false;
-        }
-      }
-      function finalizeVoice(){
-        const t = (recInput.value||'').trim();
-        if (t){
-          add(t);
-          recInput.value='';
-          micStatus.textContent='הערה נוספה';
-        } else {
-          micStatus.textContent='לא זוהה דיבור';
-        }
-        setTimeout(()=>{ if(micStatus.textContent) micStatus.textContent=''; },1300);
-      }
-      function stopMic(forceEnd){
-        if (!listening) return;
-        try{ recognition.stop(); }catch(_) {}
-        listening = false;
-        micBtn.classList.remove('listening');
-        if (forceEnd) finalizeVoice();
-      }
-
-      recognition.onresult = (e)=>{
-        let finalText = '';
-        partialBuffer='';
-        for(let i=0;i<e.results.length;i++){
-          const r = e.results[i];
-          if (r.isFinal) finalText += r[0].transcript;
-          else partialBuffer += r[0].transcript;
-        }
-        const merged = (finalText + ' ' + partialBuffer).trim();
-        if (merged) recInput.value = merged;
-      };
-      recognition.onerror = (e)=>{
-        micStatus.textContent = 'שגיאה: ' + (e.error||'');
-        stopMic(false);
-      };
-      recognition.onend = ()=>{
-        if (listening){ // אם הסתיים ללא שחרור ידני (timeout)
-          stopMic(true);
-        }
-      };
-
-      function clearPressTimer(){
-        if (pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
-      }
-
-      function pointerDown(ev){
-        pressed = true;
-        micStatus.textContent='...';
-        clearPressTimer();
-        pressTimer = setTimeout(()=>{
-          if (pressed){
-            startMic();
-          }
-        }, PRESS_DELAY);
-      }
-      function pointerUp(){
-        if (!pressed) return;
-        pressed = false;
-        if (!listening){
-          // היה קצר מדי – ביטול
-          micStatus.textContent='';
-        } else {
-          stopMic(true);
-        }
-        clearPressTimer();
-      }
-      function pointerLeave(){
-        if (!pressed) return;
-        pressed = false;
-        if (listening){
-          stopMic(true);
-        } else {
-          micStatus.textContent='';
-        }
-        clearPressTimer();
-      }
-
-      ['pointerdown','touchstart','mousedown'].forEach(ev=> micBtn.addEventListener(ev, pointerDown));
-      ['pointerup','touchend','mouseup'].forEach(ev=> document.addEventListener(ev, pointerUp));
-      ['pointercancel','touchcancel','mouseleave'].forEach(ev=> micBtn.addEventListener(ev, pointerLeave));
+    // הסתרת סטטוס מיקרופון (לא נדרש עם המערכת החדשה)
+    if (micStatus) {
+      micStatus.style.display = 'none';
     }
   }
 

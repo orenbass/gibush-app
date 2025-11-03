@@ -29,6 +29,7 @@
   z-index: 2000;
   backdrop-filter: blur(4px);
   transition: opacity 0.2s ease-in-out;
+  padding-top: max(80px, env(safe-area-inset-top, 20px) + 60px);
 }
 
 #loading-overlay.hidden {
@@ -78,11 +79,12 @@
   display: none;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+  padding-top: max(80px, env(safe-area-inset-top, 20px) + 60px);
 }
 
 .qc-group-modal {
   position: fixed;
-  top: 10px;
+  top: max(80px, env(safe-area-inset-top, 20px) + 60px);
   left: 10px;
   right: 10px;
   bottom: 10px;

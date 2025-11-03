@@ -437,15 +437,15 @@
   backdrop-filter: blur(2px);
 }
 
-/* Modal Container - פתיחה מלמעלה */
+/* Modal Container - פתיחה מלמעלה עם רווח בטוח */
 .qc-group-modal {
   position: fixed;
-  top: 60px;
+  top: max(80px, env(safe-area-inset-top, 20px) + 60px);
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
   max-width: 600px;
-  max-height: calc(100vh - 80px);
+  max-height: calc(100vh - max(100px, env(safe-area-inset-top, 20px) + 80px));
   background: #ffffff;
   border-radius: 16px;
   padding: 20px;
@@ -526,73 +526,6 @@
 
 .qc-group-close:active {
   transform: scale(0.95);
-}
-
-/* Floating Bubble */
-.qc-floating-bubble {
-  position: fixed;
-  top: calc(var(--safe-area-top, 0px) + 16px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: auto;
-  max-width: 90%;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 9999 !important;
-  display: none;
-  animation: slideDown 0.3s ease-out;
-  cursor: pointer;
-}
-
-.qc-floating-bubble.show {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.qc-floating-bubble .bubble-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-  white-space: nowrap;
-}
-
-.qc-floating-bubble .bubble-icon {
-  font-size: 16px;
-  color: #3b82f6;
-}
-
-.qc-floating-bubble:hover {
-  background: #f9fafb;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
-.dark .qc-floating-bubble {
-  background: #1f2937;
-  border-color: #374151;
-}
-
-.dark .qc-floating-bubble .bubble-text {
-  color: #f3f4f6;
-}
-
-.dark .qc-floating-bubble:hover {
-  background: #374151;
-}
-
-@keyframes slideDown {
-  from {
-    transform: translateX(-50%) translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(-50%) translateY(0);
-    opacity: 1;
-  }
 }
 
 /* Layout Hardening: keep bar centered and full width */

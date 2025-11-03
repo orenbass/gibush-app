@@ -145,7 +145,20 @@
 .picker-error{min-height:18px;font-size:.7rem;color:#dc2626;font-weight:600;margin-top:.35rem;}
 
 /* Overlay styles */
-.agg-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);opacity:0;z-index:1000;transition:opacity .25s;}
+.agg-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:1rem;
+  padding-top:max(80px, env(safe-area-inset-top, 20px) + 60px);
+  background:rgba(0,0,0,.45);
+  backdrop-filter:blur(4px);
+  opacity:0;
+  z-index:1000;
+  transition:opacity .25s;
+}
 .agg-overlay.visible{opacity:1;}
 .agg-overlay-backdrop{position:absolute;inset:0;cursor:pointer;}
 .agg-overlay-panel{background:#fff;color:#1e293b;max-width:860px;width:100%;max-height:85vh;overflow:auto;border-radius:1rem;padding:1rem 1.25rem;box-shadow:0 15px 50px -10px rgba(0,0,0,.4),0 0 0 1px #e2e8f0;position:relative;z-index:1;}
