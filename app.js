@@ -1,22 +1,6 @@
-// FIX: declare deferredInstallPrompt explicitly + scoped logging helper
-let deferredInstallPrompt = null;
-function logPWA(...args){ console.log('[PWA]', ...args); }
-
-if ("serviceWorker" in navigator) {
-    // FIX: use relative path so scope works when not hosted at domain root
-    navigator.serviceWorker.register("./service-worker.js")
-        .then(reg => {
-            logPWA('Service worker registered', reg.scope);
-        })
-        .catch(err => {
-            logPWA('Service worker registration failed', err);
-        });
-}
-
 // --- Global State ---
 
 // אובייקט מצב מרכזי המכיל את כל נתוני האפליקציה.
-
 // המצב הזה נשמר ונטען מ-localStorage.
 
 const state = {
@@ -35,14 +19,14 @@ const state = {
 
     startTime: 0,            // חותמת זמן של התחלת המקצה/ספרינט הנוכחי
 
-    isTimerRunning: false,       // דגל המציין אם הטיימר הראשי פעיל
+    isTimerRunning: false,       // דגל המציין if הטיימר הראשי פעיל
 
     evaluatorName: '',   // שם המעריך
 
     groupNumber: '',         // מספר הקבוצה
 
     // NEW: מצב נעילת מקצים - מונע עריכת מתמודדים ומעבר בין עמודים
-    competitionStarted: false, // האם לחצו על "התחל מקצים"
+    competitionStarted: false, // הif לחצו על "התחל מקצים"
 
     crawlingDrills: {},      // אובייקט לנתוני תרגילי זחילה (הערות, ספרינטים, נושאי שק)
 
@@ -56,7 +40,17 @@ const state = {
 
     manualScores: {},
 
-    isEditingScores: false // מצב עריכה
+    isEditingScores: false, // מצב עריכה
+
+    // === שליחה אוטומטית של גיבוי ===
+    autoBackupUpload: {
+        isActive: false,           // הif השליחה האוטומטית פעילה
+        intervalId: null,          // מזהה ה-interval
+        startTime: null,           // זמן התחלת השליחה האוטומטית
+        lastUploadTime: null,      // זמן השליחה האחרונה
+        uploadCount: 0,            // מספר השליחות שבוצעו
+        hasBeenManuallyStopped: false  // הif הופסקה ידנית (לחיצה על "שלח קובץ למנהל")
+    }
 
 };
 
@@ -75,7 +69,7 @@ let tempStateBackup = null; // גיבוי זמני למצב עריכה בדוח
 // Ensure a global page registry exists for external page modules
 window.Pages = window.Pages || {};
 
-// עזר: לוודא שהפניות ל-DOM קיימות (במיוחד אם הסקריפט רץ לפני טעינת ה-DOM)
+// עזר: לוודא שהפניות ל-DOM קיימות (במיוחד if הסקריפט רץ לפני טעינת ה-DOM)
 function ensureDomRefs() {
     if (!contentDiv) contentDiv = document.getElementById('content');
     if (!headerTitle) headerTitle = document.getElementById('header-title');
@@ -88,47 +82,7 @@ function ensureDomRefs() {
 // Moved to js/utils/time.js: formatTime, formatTime_no_ms, updateTimerDisplay
 // Moved to js/utils/modal.js: showModal, confirmLeaveCrawlingComments
 // Moved to js/utils/scoring.js: normalizeScore, computeHeatResults, get*Results, calculate*Score
-
-function setupPWAInstallUI() {
-    const installBtn = document.getElementById('install-btn');
-    if (!installBtn) return;
-    const isApple = /iP(hone|ad|od)|Mac/i.test(navigator.userAgent);
-    if (isApple) {
-        // iOS אין beforeinstallprompt – נשאיר מוסתר
-        installBtn.style.display = 'none';
-        return;
-    }
-    // בהתחלה חבוי עד beforeinstallprompt
-    installBtn.style.display = 'none';
-
-    installBtn.addEventListener('click', async () => {
-        if (!deferredInstallPrompt) {
-            showModal('התקנה', 'לא זמינה כרגע (beforeinstallprompt לא ירה). ודא: HTTPS, service worker תקין, ביקור אחד לפחות בעמוד.');
-            return;
-        }
-        deferredInstallPrompt.prompt();
-        const choice = await deferredInstallPrompt.userChoice.catch(() => ({}));
-        logPWA('User choice', choice);
-        deferredInstallPrompt = null;
-        installBtn.style.display = 'none';
-    });
-}
-
-// UPDATED listener with logs + safe display
-window.addEventListener('beforeinstallprompt', (event) => {
-    logPWA('beforeinstallprompt fired');
-    event.preventDefault();
-    deferredInstallPrompt = event;
-    const installBtn = document.getElementById('install-btn');
-    if (installBtn) installBtn.style.display = 'inline-flex';
-});
-
-window.addEventListener('appinstalled', () => {
-    logPWA('PWA installed');
-    const installBtn = document.getElementById('install-btn');
-    if (installBtn) installBtn.style.display = 'none';
-    deferredInstallPrompt = null;
-});
+// Moved to js/utils/pwa.js: PWA install UI, service worker registration
 
 // --- Data Persistence & Initialization ---
 
@@ -211,126 +165,162 @@ function saveState() {
 function loadState() {
     try {
         console.log('🔍 מתחיל טעינת מצב...');
+        const clearedFlag = localStorage.getItem('groupNumberCleared') === '1';
         
-        // בדיקה בכל המקומות האפשריים לפרטי המעריך והקבוצה
+        // **שלב 1: טעינת הגדרות מעודכנות מהדרייב ועדכון CONFIG**
+        try {
+            const downloadedSettings = localStorage.getItem('downloadedSystemSettings');
+            if (downloadedSettings) {
+                const settings = JSON.parse(downloadedSettings);
+                console.log('📦 נמצאו הגדרות שהורדו מהדרייב:', settings);
+                
+                // **עדכון CONFIG מהגדרות דרייב**
+                if (settings.exerciseSettings && window.CONFIG) {
+                    console.log('🔧 מעדכן CONFIG מהדרייב...');
+                    // דריסה מלאה של CONFIG בהגדרות מהדרייב
+                    for (const key in settings.exerciseSettings) {
+                        window.CONFIG[key] = settings.exerciseSettings[key];
+                    }
+                    console.log('✅ CONFIG עודכן:', window.CONFIG);
+                }
+                
+                // **עדכון הגדרות גיבוי**
+                if (settings.backupSettings && window.CONFIG) {
+                    console.log('🔧 מעדכן הגדרות גיבוי מהדרייב...');
+                    if (settings.backupSettings.enabled !== undefined) {
+                        window.CONFIG.AUTO_BACKUP_UPLOAD_ENABLED = settings.backupSettings.enabled;
+                    }
+                    if (settings.backupSettings.intervalMinutes !== undefined) {
+                        window.CONFIG.AUTO_BACKUP_UPLOAD_INTERVAL_MS = settings.backupSettings.intervalMinutes * 60 * 1000;
+                    }
+                    if (settings.backupSettings.stopAfterMinutes !== undefined) {
+                        window.CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS = settings.backupSettings.stopAfterMinutes * 60 * 1000;
+                    }
+                }
+                
+                // **USERS_CONFIG נטען דינמית ואוטומטית, לא צריך לדרוס**
+                console.log('👥 USERS_CONFIG קורא דינמית מהדרייב');
+            } else {
+                console.log('ℹ️ לא נמצאו הגדרות בדרייב, משתמש בברירות מחדל');
+            }
+        } catch (e) {
+            console.warn('⚠️ לא ניתן לטעון הגדרות מהדרייב:', e);
+        }
+        
+        // **שלב 2: טעינת שם המעריך ומספר קבוצה**
         let evaluatorName = '';
         let groupNumber = '';
         
-        // 1. בדיקה במפתח evaluatorDetails הייעודי
+        // 2.1 קודם כל - בדיקה if יש שם מהגדרות (עדיפות עליונה!)
         try {
-            const detailsData = localStorage.getItem('evaluatorDetails');
-            if (detailsData) {
-                const details = JSON.parse(detailsData);
-                console.log('🔍 נמצאו פרטים ב-evaluatorDetails:', details);
-                evaluatorName = details.evaluatorName || '';
-                groupNumber = details.groupNumber || '';
+            const nameFromSettings = localStorage.getItem('evaluatorNameFromSettings');
+            if (nameFromSettings) {
+                evaluatorName = nameFromSettings;
+                console.log('✅ נטען שם מעריך מקובץ הגדרות:', evaluatorName);
             }
-        } catch (e) { console.warn('שגיאה בטעינת evaluatorDetails:', e); }
+        } catch (e) { 
+            console.warn('שגיאה בטעינת evaluatorNameFromSettings:', e); 
+        }
         
-        // 2. בדיקה במצב אימות
+        // 2.2 if לא נמצא שם מהגדרות, נבדוק במצב אימות
         const authSession = localStorage.getItem('gibushAuthState');
         if (authSession) {
             const session = JSON.parse(authSession);
-            console.log('🔍 נמצא מצב אימות:', session);
+            console.log('🔍 נמצא מצב אימות');
             
             if (session.authState && session.authState.isAuthenticated) {
-                if (session.authState.evaluatorName) {
+                // שם מעריך - רק if עדיין אין
+                if (!evaluatorName && session.authState.evaluatorName) {
                     evaluatorName = session.authState.evaluatorName;
-                    console.log('✅ נטען שם מעריך מאימות:', evaluatorName);
+                    console.log('📋 נטען שם מעריך ממצב אימות:', evaluatorName);
                 }
-                if (session.authState.groupNumber) {
+                
+                // לא לשחזר מספר קבוצה if דגל איפוס קיים
+                if (!clearedFlag && session.authState.groupNumber) {
                     groupNumber = session.authState.groupNumber;
-                    console.log('✅ נטען מספר קבוצה מאימות:', groupNumber);
+                    console.log('📋 נטען מספר קבוצה ממצב אימות:', groupNumber);
+                } else if (clearedFlag) {
+                    console.log('🚫 דילוג על שחזור מספר קבוצה (נמחק במפורש)');
                 }
                 
                 if (!state.authState) state.authState = {};
                 state.authState = { ...state.authState, ...session.authState };
             }
-        } else {
-            console.log('⚠️ לא נמצא מצב אימות חדש');
         }
 
-        // עדכון המצב עם הפרטים שנמצאו
+        // עדכון המצב
         if (evaluatorName) {
             state.evaluatorName = evaluatorName;
-            console.log('🎯 עדכון שם מעריך:', state.evaluatorName);
+            console.log('🎯 שם מעריך סופי:', state.evaluatorName);
         }
         if (groupNumber) {
             state.groupNumber = groupNumber;
-            console.log('🎯 עדכון מספר קבוצה:', state.groupNumber);
+            console.log('🎯 מספר קבוצה סופי:', state.groupNumber);
         }
 
+        // **שלב 3: טעינת שאר המצב מ-localStorage**
         const savedData = localStorage.getItem(CONFIG.APP_STATE_KEY);
-        console.log('🔍 בודק נתונים קיימים:', savedData ? 'נמצאו' : 'לא נמצאו');
 
         if (savedData) {
             const fullLoadedState = JSON.parse(savedData);
             
-            // Restore CONFIG if present in saved data
-            if (fullLoadedState.config) {
-                CONFIG = { ...CONFIG, ...fullLoadedState.config };
-            }
+            // לא נעדכן CONFIG כי כבר עדכנו אותו מההגדרות
             
-            // Merge loaded appState into the current state object
+            // טעינת appState
             Object.assign(state, fullLoadedState.appState || fullLoadedState);
 
-            // שמירה על הפרטים החדשים שנמצאו (עדיפות גבוהה)
+            // **שמירה על השם והקבוצה שטענו (עדיפות גבוהה)**
             if (evaluatorName) {
                 state.evaluatorName = evaluatorName;
-                console.log('🔄 כתיבה מחדש של שם מעריך:', state.evaluatorName);
+                console.log('🔄 שמירה על שם מעריך:', state.evaluatorName);
             }
             if (groupNumber) {
                 state.groupNumber = groupNumber;
-                console.log('🔄 כתיבה מחדש של מספר קבוצה:', state.groupNumber);
+                console.log('🔄 שמירה על מספר קבוצה:', state.groupNumber);
             }
 
-            // Re-initialize specific data structures if their lengths don't match CONFIG
-
-            // This handles cases where CONFIG changes or data is corrupted/incomplete
-
+            // אתחול מחדש של מבני נתונים if צריך
             if (!state.heats || state.heats.length !== CONFIG.NUM_HEATS) initializeHeats();
-
             if (!state.crawlingDrills || !state.crawlingDrills.sprints || state.crawlingDrills.sprints.length !== CONFIG.MAX_CRAWLING_SPRINTS) initializeCrawlingDrills();
-
             if (!state.sociometricStretcher || !state.sociometricStretcher.heats || state.sociometricStretcher.heats.length !== CONFIG.NUM_STRETCHER_HEATS) initializeSociometricStretcherHeats();
-
-            // Ensure activeSackCarriers array exists
-
             if (!state.crawlingDrills.activeSackCarriers) state.crawlingDrills.activeSackCarriers = [];
-
-            // V1.1 - Ensure theme exists, default to 'light'
-
             state.theme = state.theme || 'light';
 
         } else {
-
-            // אם אין שמירת מצב קודמת – אל נדרוס פרטים שכבר נטענו מההתחברות
+            // אין נתונים שמורים - אתחול
             const preservedEvaluator = evaluatorName;
             const preservedGroup = groupNumber;
             initializeAllData();
             if (preservedEvaluator) {
                 state.evaluatorName = preservedEvaluator;
-                console.log('🛡️ שחזור שם מעריך לאחר initializeAllData:', preservedEvaluator);
+                console.log('🛡️ שחזור שם מעריך:', preservedEvaluator);
             }
             if (preservedGroup) {
                 state.groupNumber = preservedGroup;
-                console.log('🛡️ שחזור מספר קבוצה לאחר initializeAllData:', preservedGroup);
+                console.log('🛡️ שחזור מספר קבוצה:', preservedGroup);
             }
-
         }
 
+        // המשך שליחה אוטומטית
+        if (window.autoBackupManager) {
+            setTimeout(() => {
+                window.autoBackupManager.resume();
+            }, 1000);
+        }
+
+        console.log('📊 מצב סופי:', {
+            evaluatorName: state.evaluatorName,
+            groupNumber: state.groupNumber,
+            CONFIG_NUM_HEATS: CONFIG.NUM_HEATS,
+            CONFIG_MAX_RUNNERS: CONFIG.MAX_RUNNERS,
+            USERS_COUNT: USERS_CONFIG?.users?.length
+        });
+
     } catch (e) {
-
         console.error("Failed to load or parse state. Resetting data.", e);
-
-        // Use custom modal instead of alert
-
         showModal('שגיאת טעינה', 'שגיאה בקריאת הנתונים. ייתכן שהנתונים הקיימים פגומים. האפליקציה תאופס.');
-
-        initializeAllData(); // Reset all data on error
-
+        initializeAllData();
     }
-
 }
 
 
@@ -355,6 +345,11 @@ function initializeAllData() {
 
     // NEW: אתחול מצב התחרות
     state.competitionStarted = false;
+
+    // ניקוי הערות והערות מהירות
+    state.quickComments = {};
+    state.generalComments = {};
+    state.manualScores = {};
 
     initializeHeats();
 
@@ -457,323 +452,28 @@ function initializeSociometricStretcherHeats() {
 
 // --- Runner Management & Backup/Restore ---
 
-/**
- * הצגת חלון הוספת רצים
- */
-// החלף את הפונקציה showAddRunnersModal הקיימת:
-function showAddRunnersModal() {
-    const backdrop = document.createElement('div');
-    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
-    backdrop.id = 'add-runners-modal';
+// הפונקציות הבאות הועברו ל-js/pages/runners.js:
+// - showAddRunnersModal()
+// - showEditDetailsModal()
+// - showEditBasicDetailsModal()
+// - renderRunnerList()
+// - updateMainPageRunnerList()
+// - showRunnerEditMode()
+// - renderEditableRunnerList()
+// - addRunnerRow()
+// - saveRunnersEdit()
+// - cancelRunnersEdit()
+// - exitRunnerEditMode()
 
-    const hasExistingRunners = state.runners && state.runners.length > 0;
-
-    backdrop.innerHTML = `
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
-        <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">הוספת מועמדים לקבוצה</h3>
-        
-        ${!hasExistingRunners ? `
-        <div class="space-y-4 mb-6">
-            <button id="random-runners-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg">
-                הוספה רנדומלית (${CONFIG.MAX_RUNNERS} מועמדים)
-            </button>
-            <button id="manual-runners-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg">
-                הוספה ידנית
-            </button>
-        </div>
-        ` : ''}
-        
-        <!-- אזור הוספה ידנית -->
-        <div id="manual-input-area" class="${hasExistingRunners ? '' : 'hidden'}">
-            <div class="${hasExistingRunners ? '' : 'border-t pt-4'} mb-4">
-                <div class="flex gap-2 mb-3">
-                    <input type="number" id="manual-shoulder-input" placeholder="מספר כתף" 
-                           class="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded text-center bg-white dark:bg-gray-700 dark:text-white" min="1" max="999">
-                    <button id="add-single-runner" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium">
-                        הוסף
-                    </button>
-                </div>
-                <div class="text-center mb-3">
-                    <span class="text-sm text-gray-600 dark:text-gray-400">מועמדים בקבוצה: <span id="runner-count">${state.runners.length}</span>/${CONFIG.MAX_RUNNERS}</span>
-                </div>
-                
-                <!-- הצגת רצים שנוספו במודל -->
-                <div id="modal-runner-list" class="max-h-40 overflow-y-auto mb-3">
-                    ${state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber).map((runner, index) => `
-                        <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-600 rounded mb-1">
-                            <span class="text-sm">${index + 1}.</span>
-                            <span class="font-medium">${runner.shoulderNumber}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        </div>
-        
-        <div class="flex justify-center gap-4">
-            <button id="finish-adding" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-                סיום
-            </button>
-            <button id="cancel-adding" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
-                ביטול
-            </button>
-        </div>
-        
-        <div id="add-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
-    </div>`;
-
-    document.body.appendChild(backdrop);
-
-    const manualArea = document.getElementById('manual-input-area');
-    const shoulderInput = document.getElementById('manual-shoulder-input');
-    const runnerCountSpan = document.getElementById('runner-count');
-    const errorDiv = document.getElementById('add-error');
-    const modalRunnerList = document.getElementById('modal-runner-list');
-
-    // Focus על השדה אם כבר פתוח
-    if (hasExistingRunners) {
-        shoulderInput.focus();
-    }
-
-    // כפתורים
-    document.getElementById('random-runners-btn')?.addEventListener('click', () => {
-        generateRandomRunners();
-        closeModal();
-    });
-
-    document.getElementById('manual-runners-btn')?.addEventListener('click', () => {
-        manualArea.classList.remove('hidden');
-        shoulderInput.focus();
-    });
-
-    document.getElementById('add-single-runner').addEventListener('click', addSingleRunner);
-    document.getElementById('finish-adding').addEventListener('click', closeModal);
-    document.getElementById('cancel-adding').addEventListener('click', closeModal);
-
-    shoulderInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addSingleRunner();
-        }
-    });
-
-    function addSingleRunner() {
-        const shoulderNumber = parseInt(shoulderInput.value);
-
-        if (!shoulderNumber || shoulderNumber <= 0) {
-            showAddError('יש להזין מספר כתף תקין');
-            return;
-        }
-
-        if (state.runners.length >= CONFIG.MAX_RUNNERS) {
-            showAddError(`לא ניתן להוסיף יותר מ-${CONFIG.MAX_RUNNERS} מועמדים`);
-            return;
-        }
-
-        if (state.runners.some(r => r.shoulderNumber === shoulderNumber)) {
-            showAddError('מספר כתף זה כבר קיים');
-            return;
-        }
-
-        // הוספת הרץ למערך
-        state.runners.push({ shoulderNumber });
-        state.runners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-        saveState();
-
-        // עדכון התצוגה במודל
-        shoulderInput.value = '';
-        runnerCountSpan.textContent = state.runners.length;
-        updateModalRunnerList();
-        errorDiv.classList.add('hidden');
-        shoulderInput.focus();
-    }
-
-    function updateModalRunnerList() {
-        const sortedRunners = state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-        modalRunnerList.innerHTML = sortedRunners.map((runner, index) => `
-            <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-600 rounded mb-1">
-                <span class="text-sm">${index + 1}.</span>
-                <span class="font-medium">${runner.shoulderNumber}</span>
-            </div>
-        `).join('');
-    }
-
-    function showAddError(message) {
-        errorDiv.textContent = message;
-        errorDiv.classList.remove('hidden');
-    }
-
-    function closeModal() {
-        document.body.removeChild(backdrop);
-        render(); // רינדור מחדש של כל העמוד
-    }
-}
-
-// החלף את הפונקציה updateMainPageRunnerList הקיימת:
-function updateMainPageRunnerList() {
-    // פונקציה זו כבר לא נדרשת כי אנחנו עושים render() מלא
-    // אבל נשאיר אותה למקרה שמשתמשים בה במקום אחר
-    if (document.getElementById('runner-list')) {
-        renderRunnerList();
-
-        // עדכן גם את הכותרת עם מספר הרצים
-        const titleElement = document.querySelector('h2.text-blue-500');
-        if (titleElement && titleElement.textContent.includes('מועמדי הקבוצה')) {
-            titleElement.textContent = `מועמדי הקבוצה (${state.runners.length})`;
-        }
-    }
-}
-
-/**
- * הצגת חלון עריכת פרטים
- */
-function showEditDetailsModal() {
-    const backdrop = document.createElement('div');
-    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
-    backdrop.id = 'edit-details-modal';
-
-    backdrop.innerHTML = `
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-lg mx-4 text-right max-h-[90vh] overflow-y-auto">
-        <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי קבוצה</h3>
-        
-        <!-- פרטי מעריך וקבוצה -->
-        <div class="space-y-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <div>
-                <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
-                <input type="text" id="edit-evaluator-name" value="${state.evaluatorName}" 
-                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
-            </div>
-            <div>
-                <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
-                <input type="text" id="edit-group-number" value="${state.groupNumber}" 
-                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
-            </div>
-        </div>
-        
-        <!-- רשימת רצים לעריכה -->
-        <div class="mb-6">
-            <h4 class="text-lg font-semibold mb-3 text-center">רצי הקבוצה</h4>
-            <div id="edit-runner-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
-        </div>
-        
-        <div class="flex justify-center gap-4">
-            <button id="save-edit-details" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
-                שמור שינויים
-            </button>
-            <button id="cancel-edit-details" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
-                ביטול
-            </button>
-        </div>
-        
-        <div id="edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
-    </div>`;
-
-    document.body.appendChild(backdrop);
-
-    renderEditRunnerList();
-
-    document.getElementById('save-edit-details').addEventListener('click', saveEditDetails);
-    document.getElementById('cancel-edit-details').addEventListener('click', () => {
-        document.body.removeChild(backdrop);
-    });
-
-    function renderEditRunnerList() {
-        const listDiv = document.getElementById('edit-runner-list');
-        listDiv.innerHTML = state.runners.map((runner, index) => `
-            <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-600 rounded border">
-                <span class="w-8 text-center font-medium">${index + 1}.</span>
-                <input type="number" class="edit-runner-input flex-1 p-1 border border-gray-300 dark:border-gray-500 rounded text-center bg-white dark:bg-gray-700 dark:text-white" 
-                       value="${runner.shoulderNumber}" data-index="${index}" min="1" max="999">
-                <button class="remove-edit-runner bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm" data-index="${index}">
-                    מחק
-                </button>
-            </div>
-        `).join('');
-
-        // מאזינים למחיקה
-        listDiv.querySelectorAll('.remove-edit-runner').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const index = parseInt(e.target.dataset.index);
-                state.runners.splice(index, 1);
-                saveState();
-                renderEditRunnerList();
-            });
-        });
-    }
-
-    function saveEditDetails() {
-        const evaluatorName = document.getElementById('edit-evaluator-name').value.trim();
-        const groupNumber = document.getElementById('edit-group-number').value.trim();
-        const errorDiv = document.getElementById('edit-error');
-
-        if (!evaluatorName || !groupNumber) {
-            errorDiv.textContent = 'יש למלא את שם המעריך ומספר הקבוצה';
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        // עדכון מספרי כתף
-        const runnerInputs = document.querySelectorAll('.edit-runner-input');
-        const newRunners = [];
-        const usedNumbers = new Set();
-
-        for (const input of runnerInputs) {
-            const shoulderNumber = parseInt(input.value);
-            if (!shoulderNumber || shoulderNumber <= 0) {
-                errorDiv.textContent = 'כל מספרי הכתף חייבים להיות מספרים חיוביים';
-                errorDiv.classList.remove('hidden');
-                return;
-            }
-            if (usedNumbers.has(shoulderNumber)) {
-                errorDiv.textContent = 'נמצאו מספרי כתף כפולים';
-                errorDiv.classList.remove('hidden');
-                return;
-            }
-            usedNumbers.add(shoulderNumber);
-            newRunners.push({ shoulderNumber });
-        }
-
-        // שמירת השינויים
-        state.evaluatorName = evaluatorName;
-        state.groupNumber = groupNumber;
-        state.runners = newRunners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-        saveState();
-
-        document.body.removeChild(backdrop);
-        render();
-    }
-}
-
-/**
- * רינדור רשימת הרצים בעמוד הראשי
- */
-function renderRunnerList() {
-    const runnerListDiv = document.getElementById('runner-list');
-    if (!runnerListDiv) return;
-
-    const sortedRunners = state.runners.slice().sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-
-    runnerListDiv.innerHTML = sortedRunners.map((runner, index) => `
-        <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
-            <span class="text-gray-600 dark:text-gray-400 text-base">${index + 1}.</span>
-            <span class="font-bold text-lg text-blue-600 dark:text-blue-400">${runner.shoulderNumber}</span>
-        </div>
-    `).join('');
-}
-
-function updateMainPageRunnerList() {
-    // בדוק אם אנחנו בעמוד הראשי ויש רשימת רצים
-    if (document.getElementById('runner-list')) {
-        renderRunnerList();
-
-        // עדכן גם את הכותרת עם מספר הרצים
-        const titleElement = document.querySelector('h2.text-blue-500');
-        if (titleElement && titleElement.textContent.includes('מועמדי הקבוצה')) {
-            titleElement.textContent = `מועמדי הקבוצה (${state.runners.length})`;
-        }
-    }
-}
 // עדכון פונקציית validateAndStartHeats
 function validateAndStartHeats() {
+    // NEW: דרישת מספר קבוצה לפני התחלת מקצים
+    if (!state.groupNumber || String(state.groupNumber).trim() === '') {
+        showModal('חסר מספר קבוצה', 'יש להזין מספר קבוצה לפני התחלת המקצים.', () => {
+            if (typeof showEditBasicDetailsModal === 'function') showEditBasicDetailsModal();
+        });
+        return;
+    }
     if (state.runners.length === 0) {
         showError("יש להוסיף לפחות מועמד אחד כדי להתחיל.");
         return;
@@ -791,6 +491,12 @@ function validateAndStartHeats() {
             // סימון שהתחילו מקצים - זה ינעל עריכות
             state.competitionStarted = true;
             state.currentPage = PAGES.HEATS;
+            
+            // NEW: התחלת שליחה אוטומטית של גיבוי
+            if (window.autoBackupManager) {
+                window.autoBackupManager.start();
+            }
+            
             saveState();
             renderPage();
         }
@@ -882,7 +588,7 @@ function importBackup(event) {
 
             // Show a confirmation modal before proceeding with import
 
-            showModal('אישור ייבוא נתונים', 'האם אתה בטוח? פעולה זו תחליף את כל הנתונים הנוכחיים בנתונים מהקובץ.', () => {
+            showModal('אישור ייבוא נתונים', 'הif אתה בטוח? פעולה זו תחליף את כל הנתונים הנוכחיים בנתונים מהקובץ.', () => {
 
                 // Restore CONFIG and appState from imported data
 
@@ -1538,135 +1244,28 @@ window.render = renderPage;
 
  */
 function recoverEvaluatorDetailsIfMissing() {
-    if (state.evaluatorName && state.groupNumber) return;
-    console.log('🛠️ ניסיון התאוששות פרטי מעריך/קבוצה חסרים בזמן רינדור');
-    try {
-        const authSession = localStorage.getItem('gibushAuthState');
-        if (authSession) {
-            const session = JSON.parse(authSession);
-            if (!state.evaluatorName && session?.authState?.evaluatorName) {
-                state.evaluatorName = session.authState.evaluatorName;
-                console.log('✅ שוחזר שם מעריך מה-authState:', state.evaluatorName);
+    // UPDATED: only try to recover evaluatorName; do NOT overwrite existing groupNumber unless explicitly cleared
+    const clearedFlag = localStorage.getItem('groupNumberCleared') === '1';
+    if (!state.evaluatorName) {
+        try {
+            const authSession = localStorage.getItem('gibushAuthState');
+            if (authSession) {
+                const session = JSON.parse(authSession);
+                if (session?.authState?.evaluatorName) {
+                    state.evaluatorName = session.authState.evaluatorName;
+                }
             }
-            if (!state.groupNumber && session?.authState?.groupNumber) {
-                state.groupNumber = session.authState.groupNumber;
-                console.log('✅ שוחזר מספר קבוצה מה-authState:', state.groupNumber);
-            }
-        }
-        const savedData = localStorage.getItem(CONFIG.APP_STATE_KEY);
-        if (savedData) {
-            const parsed = JSON.parse(savedData);
-            const appState = parsed.appState || parsed;
-            if (!state.evaluatorName && appState.evaluatorName) {
-                state.evaluatorName = appState.evaluatorName;
-                console.log('✅ שוחזר שם מעריך מה-appState:', state.evaluatorName);
-            }
-            if (!state.groupNumber && appState.groupNumber) {
-                state.groupNumber = appState.groupNumber;
-                console.log('✅ שוחזר מספר קבוצה מה-appState:', state.groupNumber);
-            }
-        }
-        const detailsData = localStorage.getItem('evaluatorDetails');
-        if (detailsData) {
-            const details = JSON.parse(detailsData);
-            if (!state.evaluatorName && details.evaluatorName) {
-                state.evaluatorName = details.evaluatorName;
-                console.log('✅ שוחזר שם מעריך מ-evaluatorDetails:', state.evaluatorName);
-            }
-            if (!state.groupNumber && details.groupNumber) {
-                state.groupNumber = details.groupNumber;
-                console.log('✅ שוחזר מספר קבוצה מ-evaluatorDetails:', state.groupNumber);
-            }
-        }
-    } catch (e) {
-        console.warn('⚠️ שגיאה בהתאוששות פרטי מעריך:', e);
+        } catch (e) { /* silent */ }
     }
-}
-function ensureUserAvatar() {
-    try {
-        // חיפוש המיכל הייעודי לאווטר (בצד ימין)
-        const avatarContainer = document.querySelector('header .flex.items-center.justify-between > div:first-child');
-        if (!avatarContainer) return;
-        
-        let avatarBtn = document.getElementById('user-avatar-btn');
-        if (!avatarBtn) {
-            avatarBtn = document.createElement('button');
-            avatarBtn.id = 'user-avatar-btn';
-            avatarBtn.title = 'פרטי משתמש / יציאה';
-            avatarBtn.style.width = '40px';
-            avatarBtn.style.height = '40px';
-            avatarBtn.style.minWidth = '40px';
-            avatarBtn.style.borderRadius = '50%';
-            avatarBtn.style.overflow = 'hidden';
-            avatarBtn.style.border = '2px solid rgba(37, 99, 235, 0.3)';
-            avatarBtn.style.display = 'flex';
-            avatarBtn.style.alignItems = 'center';
-            avatarBtn.style.justifyContent = 'center';
-            avatarBtn.style.background = 'linear-gradient(135deg,#2563eb,#1e3a8a)';
-            avatarBtn.style.cursor = 'pointer';
-            avatarBtn.style.transition = 'all 0.2s ease';
-            avatarBtn.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.2)';
-            avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
-            
-            // הוספת אפקט hover
-            avatarBtn.addEventListener('mouseenter', () => {
-                avatarBtn.style.transform = 'scale(1.05)';
-                avatarBtn.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.3)';
-            });
-            avatarBtn.addEventListener('mouseleave', () => {
-                avatarBtn.style.transform = 'scale(1)';
-                avatarBtn.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.2)';
-            });
-            
-            avatarContainer.appendChild(avatarBtn);
-            avatarBtn.addEventListener('click', onAvatarClick);
-        }
-        
-        // קביעת תמונה
-        let imgUrl = '';
-        const method = state?.authState?.authMethod;
-        if (method === 'google' && state.authState?.googleUserInfo?.picture) {
-            imgUrl = state.authState.googleUserInfo.picture;
-        }
-        
-        if (imgUrl) {
-            if (!avatarBtn.querySelector('img')) {
-                avatarBtn.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = imgUrl;
-                img.alt = 'user';
-                img.style.width = '100%';
-                img.style.height = '100%';
-                img.style.objectFit = 'cover';
-                avatarBtn.appendChild(img);
-            } else {
-                avatarBtn.querySelector('img').src = imgUrl;
-            }
-        } else {
-            // אורח - אייקון ברירת מחדל
-            avatarBtn.innerHTML = '<span style="font-size:20px;color:#fff">👤</span>';
-        }
-    } catch (e) {
-        console.warn('ensureUserAvatar failed', e);
+    if (clearedFlag) {
+        // user explicitly cleared group number previously
+        state.groupNumber = '';
     }
+    // If not clearedFlag we leave state.groupNumber as-is (no auto blanking)
 }
 
-function onAvatarClick() {
-    // תפריט קטן / אישור יציאה
-    showModal('יציאה מהמערכת', 'האם לצאת ולמחוק את כל נתוני הגיבוש?', () => {
-        try {
-            // ניקוי כל המפתחות הרלוונטיים
-            localStorage.removeItem('gibushAuthState');
-            localStorage.removeItem('gibushAppState');
-            localStorage.removeItem('evaluatorDetails');
-            localStorage.removeItem(CONFIG?.APP_STATE_KEY || 'gibushAppState');
-            // אפשר גם ניקוי כללי אם רוצים אפס מלא:
-            // localStorage.clear(); // (נמנע כדי לא למחוק דברים אחרים בטעות)
-        } catch(e) { console.warn('logout clear error', e); }
-        // הפניה לעמוד הנחיתה
-        window.location.href = 'landing.html';
-    });
-}
+// פונקציות אווטר ותפריט הועברו ל-js/utils/user-avatar.js
+
 function renderPage() {
     recoverEvaluatorDetailsIfMissing();
     ensureDomRefs();
@@ -1726,10 +1325,17 @@ function renderPage() {
 
     const shouldShowQuickBar =
     state.runners && state.runners.length > 0 &&
-    state.currentPage !== PAGES.RUNNERS;
+    state.currentPage !== PAGES.RUNNERS &&
+    state.currentPage !== PAGES.AGGREGATED_DASHBOARD; // hide on aggregated dashboard
 
   const quickBarDiv = document.getElementById('quick-comment-bar-container');
-  if (quickBarDiv) quickBarDiv.style.display = '';
+  if (quickBarDiv) {
+    if (!shouldShowQuickBar) {
+        quickBarDiv.style.display = 'none';
+    } else {
+        quickBarDiv.style.display = '';
+    }
+  }
   window.QuickComments?.renderBar(shouldShowQuickBar);
 
     // סגנון לטאבים מבוטלים (מוזרק פעם אחת)
@@ -1740,7 +1346,6 @@ function renderPage() {
           .nav-tab.is-disabled { 
             opacity: .5; 
             cursor: not-allowed; 
-            pointer-events: none; 
           }
         `;
         document.head.appendChild(s);
@@ -1763,27 +1368,63 @@ function renderPage() {
 
     // השבתת טאבים כשאין מתמודדים
     const noRunners = !state.runners || state.runners.length === 0;
-    
+
+    // הצגת/הסתרת לשונית דשבורד לפי הרשאת מנהל (לוג משופר + ניסיון חוזר)
+    (function(){
+        try {
+            const li = document.getElementById('aggregated-dashboard-nav-item');
+            if (!li) return;
+            const email = (state?.authState?.googleUserInfo?.email || '').trim().toLowerCase();
+            const isAdminFast = typeof USERS_CONFIG?.isAdmin === 'function' ? USERS_CONFIG.isAdmin(email) : false;
+            const adminEmails = (window.USERS_CONFIG?.getAdminEmails?.() || []).map(e=>String(e||'').toLowerCase());
+            const listEmpty = adminEmails.length === 0; // אם הרשימה ריקה – נניח מצב הגדרה לא נטען עדיין => הצג
+            const isAuthorized = listEmpty || isAdminFast;
+            li.style.display = isAuthorized ? '' : 'none';
+            if (!window.__dashDebugLogged) {
+                console.log('[Dashboard] email=', email, 'adminEmails=', adminEmails, 'listEmpty=', listEmpty, 'isAdminFast=', isAdminFast, 'show=', isAuthorized);
+                window.__dashDebugLogged = true;
+            }
+            // ניסיון חוזר אם אין אימייל עדיין (טעינה מאוחרת) – עד 10 פעמים
+            if (!email && !listEmpty) {
+                let tries = 0;
+                const retry = () => {
+                    const em = (state?.authState?.googleUserInfo?.email || '').trim().toLowerCase();
+                    if (em) {
+                        const ok = listEmpty || USERS_CONFIG.isAdmin(em);
+                        li.style.display = ok ? '' : 'none';
+                        console.log('[Dashboard][retry] email=', em, 'ok=', ok);
+                        return;
+                    }
+                    if (++tries < 10) setTimeout(retry, 300);
+                };
+                setTimeout(retry, 300);
+            }
+        } catch(e){ console.warn('aggregated dashboard tab toggle failed', e); }
+    })();
+
     document.querySelectorAll('.nav-tab').forEach(tab => {
         const page = tab.dataset.page;
         let shouldDisable = false;
-        if (noRunners && page !== PAGES.RUNNERS) {
-            shouldDisable = true;
-        }
-        // NEW: נעילת כל שאר העמודים עד התחלת מקצים
-        if (!state.competitionStarted && page !== PAGES.RUNNERS) {
-            shouldDisable = true;
+        const isDash = page === PAGES.AGGREGATED_DASHBOARD;
+        const emailDash = (state?.authState?.googleUserInfo?.email || '').toLowerCase();
+        const adminEmailsDash = (window.USERS_CONFIG?.getAdminEmails?.() || []).map(e=>String(e||'').toLowerCase());
+        const dashAllowed = adminEmailsDash.length===0 || (emailDash && adminEmailsDash.includes(emailDash));
+        // חסימה של עמודים אחרים ללא מתמודדים
+        if (!dashAllowed && !state.runners?.length && page !== PAGES.RUNNERS) shouldDisable = true;
+        // לפני התחלת מקצים – חסום הכל מלבד runners ו dashboard (if מורשה)
+        if (!state.competitionStarted && !isDash && page !== PAGES.RUNNERS) shouldDisable = true;
+        if (!dashAllowed && isDash) {
+            shouldDisable = true; // דשבורד חסום if לא מורשה
         }
         tab.classList.toggle('is-disabled', shouldDisable);
         tab.setAttribute('aria-disabled', shouldDisable ? 'true' : 'false');
-        tab.style.pointerEvents = shouldDisable ? 'none' : '';
         if (shouldDisable) {
-            if (noRunners) {
-                tab.title = 'יש להוסיף מתמודדים תחילה';
-            } else if (!state.competitionStarted) {
-                tab.title = 'יש להתחיל מקצים (לחיצה על "התחל מקצים")';
-            }
+            tab.style.pointerEvents = 'none';
+            if (isDash && !dashAllowed) tab.title = 'גישה לדשבורד רק למנהל מורשה';
+            else if (!state.competitionStarted && !isDash && page !== PAGES.RUNNERS) tab.title = 'יש להתחיל מקצים';
+            else if (!state.runners?.length && page !== PAGES.RUNNERS) tab.title = 'הוסף מתמודדים תחילה';
         } else {
+            tab.style.pointerEvents = '';
             tab.removeAttribute('title');
         }
     });
@@ -1801,7 +1442,10 @@ function renderPage() {
         state.lastPage = state.currentPage;
     }
 
-    ensureUserAvatar();
+    // קריאה לפונקציה מ-user-avatar.js
+    if (typeof window.UserAvatar?.ensureUserAvatar === 'function') {
+        window.UserAvatar.ensureUserAvatar();
+    }
 
     switch (state.currentPage) {
         case PAGES.RUNNERS: 
@@ -1844,6 +1488,10 @@ function renderPage() {
             }
             window.Pages.renderReportPage?.(); 
             break;
+        case PAGES.AGGREGATED_DASHBOARD:
+            setPageTitle('דשבורד מאוחד');
+            window.Pages.renderAggregatedDashboardPage?.();
+            break;
     }
 }
 
@@ -1872,198 +1520,9 @@ function setPageTitle(title) {
 
  */
 
-function showEditBasicDetailsModal() {
-    const backdrop = document.createElement('div');
-    backdrop.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
-    backdrop.id = 'edit-basic-details-modal';
-
-    backdrop.innerHTML = `
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 text-right">
-        <h3 class="text-xl font-bold mb-4 text-center text-blue-600 dark:text-blue-400">עריכת פרטי הערכה</h3>
-        
-        <div class="space-y-4 mb-6">
-            <div>
-                <label class="block text-right mb-1 text-sm font-medium">שם המעריך:</label>
-                <input type="text" id="edit-basic-evaluator-name" value="${state.evaluatorName}" 
-                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
-            </div>
-            <div>
-                <label class="block text-right mb-1 text-sm font-medium">מספר קבוצה:</label>
-                <input type="text" id="edit-basic-group-number" value="${state.groupNumber}" 
-                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-lg text-right bg-white dark:bg-gray-700 dark:text-white">
-            </div>
-        </div>
-        
-        <div class="flex justify-center gap-4">
-            <button id="save-basic-details" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
-                שמור שינויים
-            </button>
-            <button id="cancel-basic-details" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">
-                ביטול
-            </button>
-        </div>
-        
-        <div id="basic-edit-error" class="mt-4 text-red-500 text-center text-sm hidden"></div>
-    </div>`;
-
-    document.body.appendChild(backdrop);
-
-    document.getElementById('save-basic-details').addEventListener('click', () => {
-        const evaluatorName = document.getElementById('edit-basic-evaluator-name').value.trim();
-        const groupNumber = document.getElementById('edit-basic-group-number').value.trim();
-        const errorDiv = document.getElementById('basic-edit-error');
-
-        if (!evaluatorName || !groupNumber) {
-            errorDiv.textContent = 'יש למלא את שם המעריך ומספר הקבוצה';
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        state.evaluatorName = evaluatorName;
-        state.groupNumber = groupNumber;
-        saveState();
-
-        document.body.removeChild(backdrop);
-        renderPage();
-    });
-
-    document.getElementById('cancel-basic-details').addEventListener('click', () => {
-        document.body.removeChild(backdrop);
-    });
-}
-
 /**
  * מצב עריכת רצים בתוך העמוד
  */
-function showRunnerEditMode() {
-    const runnerListDiv = document.getElementById('runner-list');
-    const editAreaDiv = document.getElementById('runner-edit-area');
-    const editListDiv = document.getElementById('editable-runner-list');
-
-    // הסתר רשימה רגילה והצג אזור עריכה
-    runnerListDiv.style.display = 'none';
-    editAreaDiv.classList.remove('hidden');
-
-    // יצירת גיבוי למקרה של ביטול
-    window.tempRunners = JSON.parse(JSON.stringify(state.runners));
-
-    renderEditableRunnerList();
-
-    // Event listeners
-    document.getElementById('add-runner-row').addEventListener('click', addRunnerRow);
-    document.getElementById('save-runners-btn').addEventListener('click', saveRunnersEdit);
-    document.getElementById('cancel-runners-btn').addEventListener('click', cancelRunnersEdit);
-}
-
-function renderEditableRunnerList() {
-    const editListDiv = document.getElementById('editable-runner-list');
-
-    editListDiv.innerHTML = state.runners.map((runner, index) => `
-        <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-600 rounded border runner-edit-row" data-index="${index}">
-            <span class="w-8 text-center font-medium">${index + 1}.</span>
-            <input type="number" class="runner-edit-input flex-1 p-2 border border-gray-300 dark:border-gray-500 rounded text-center bg-white dark:bg-gray-700 dark:text-white" 
-                   value="${runner.shoulderNumber}" min="1" max="999" placeholder="מספר כתף">
-            <button class="remove-runner-edit bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm" data-index="${index}">
-                מחק
-            </button>
-        </div>
-    `).join('');
-
-    // מאזינים למחיקה
-    editListDiv.querySelectorAll('.remove-runner-edit').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const index = parseInt(e.target.dataset.index);
-            state.runners.splice(index, 1);
-            renderEditableRunnerList();
-        });
-    });
-
-    // מאזינים לשינוי ערכים
-    editListDiv.querySelectorAll('.runner-edit-input').forEach(input => {
-        input.addEventListener('input', (e) => {
-            const row = e.target.closest('.runner-edit-row');
-            const index = parseInt(row.dataset.index);
-            const value = parseInt(e.target.value) || '';
-            if (state.runners[index]) {
-                state.runners[index].shoulderNumber = value;
-            }
-        });
-    });
-}
-
-function addRunnerRow() {
-    if (state.runners.length >= CONFIG.MAX_RUNNERS) {
-        const errorDiv = document.getElementById('runner-edit-error');
-        errorDiv.textContent = `לא ניתן להוסיף יותר מ-${CONFIG.MAX_RUNNERS} מועמדים`;
-        errorDiv.classList.remove('hidden');
-        return;
-    }
-
-    state.runners.push({ shoulderNumber: '' });
-    renderEditableRunnerList();
-
-    // Focus על השדה החדש
-    setTimeout(() => {
-        const newInput = document.querySelector('.runner-edit-row:last-child .runner-edit-input');
-        if (newInput) newInput.focus();
-    }, 0);
-}
-
-function saveRunnersEdit() {
-    const errorDiv = document.getElementById('runner-edit-error');
-    errorDiv.classList.add('hidden');
-
-    // בדיקת תקינות
-    const newRunners = [];
-    const usedNumbers = new Set();
-
-    for (const runner of state.runners) {
-        const shoulderNumber = parseInt(runner.shoulderNumber);
-
-        if (!shoulderNumber || shoulderNumber <= 0) {
-            errorDiv.textContent = 'כל מספרי הכתף חייבים להיות מספרים חיוביים';
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        if (usedNumbers.has(shoulderNumber)) {
-            errorDiv.textContent = 'נמצאו מספרי כתף כפולים';
-            errorDiv.classList.remove('hidden');
-            return;
-        }
-
-        usedNumbers.add(shoulderNumber);
-        newRunners.push({ shoulderNumber });
-    }
-
-    // שמירה וסיום עריכה
-    state.runners = newRunners.sort((a, b) => a.shoulderNumber - b.shoulderNumber);
-    saveState();
-    exitRunnerEditMode();
-}
-
-function cancelRunnersEdit() {
-    // שחזור מהגיבוי
-    if (window.tempRunners) {
-        state.runners = window.tempRunners;
-        delete window.tempRunners;
-    }
-    exitRunnerEditMode();
-}
-
-function exitRunnerEditMode() {
-    const runnerListDiv = document.getElementById('runner-list');
-    const editAreaDiv = document.getElementById('runner-edit-area');
-
-    // הצג רשימה רגילה והסתר אזור עריכה
-    runnerListDiv.style.display = '';
-    editAreaDiv.classList.add('hidden');
-
-    // עדכן רשימה
-    renderRunnerList();
-}
-
-
 
 /**
 
@@ -2072,6 +1531,18 @@ function exitRunnerEditMode() {
  * performing initial render, and starting the autosave timer.
 
  */
+
+// NEW: פונקציה לבדיקת הרשאת משתמש לדשבורד
+function isUserAuthorizedForDashboard() {
+    try {
+        const email = state?.authState?.googleUserInfo?.email;
+        if (!email) return false;
+        if (window.USERS_CONFIG?.isAdmin) return USERS_CONFIG.isAdmin(email);
+        return false;
+    } catch (e) {
+        return false;
+    }
+}
 
 async function init() {
     try { if ('wakeLock' in navigator) { /* no-op */ }} catch { /* Handle error if needed */ }
@@ -2084,18 +1555,23 @@ async function init() {
             if (!tab) return;
             e.preventDefault(); // מונע קפיצה/רענון של <a>
 
-            // אל תלחץ אם מושבת
+            // אל תלחץ if מושבת
             if (tab.classList.contains('is-disabled') || tab.getAttribute('aria-disabled') === 'true') return;
 
             const nextPage = tab.dataset.page;
             
-            // NEW: חסימת ניווט לפני התחלת מקצים
+            // NEW: חסימת ניווט לפני התחלת מקצים - עם חריג לדשבורד למנהלים מורשים
             if (!state.competitionStarted && nextPage !== PAGES.RUNNERS) {
-                showModal('התחלת מקצים נדרשת', 'לא ניתן לעבור לעמודים אחרים לפני התחלת המקצים. לחץ על "התחל מקצים" בעמוד ניהול הקבוצה.');
-                return;
+                // if זה דשבורד ומשתמש מורשה - אפשר מעבר
+                if (nextPage === PAGES.AGGREGATED_DASHBOARD && isUserAuthorizedForDashboard()) {
+                    // עבור ישירות לדשבורד ללא חסימה
+                } else {
+                    showModal('התחלת מקצים נדרשת', 'לא ניתן לעבור לעמודים אחרים לפני התחלת המקצים. לחץ על "התחל מקצים" בעמוד ניהול הקבוצה.');
+                    return;
+                }
             }
             
-            // NEW: בדיקה אם יש מקצה פעיל שלא הסתיים
+            // NEW: בדיקה if יש מקצה פעיל שלא הסתיים
             if (state.currentPage === PAGES.HEATS && nextPage !== PAGES.HEATS) {
                 const currentHeat = state.heats[state.currentHeatIndex];
                 if (currentHeat && currentHeat.started && !currentHeat.finished) {
@@ -2138,9 +1614,16 @@ async function init() {
 
     loadState();
     applyTheme();
-    setupPWAInstallUI(); // FIX: was never called
     renderPage();
-    ensureUserAvatar();
+    
+    // הוספת האווטר לאחר שהכל נטען
+    setTimeout(() => {
+        if (typeof window.UserAvatar?.ensureUserAvatar === 'function') {
+            console.log('🎭 קורא ל-ensureUserAvatar מ-init');
+            window.UserAvatar.ensureUserAvatar();
+        }
+    }, 100);
+    
     setInterval(saveState, 60000);
 }
 
@@ -2236,3 +1719,7 @@ function generateRandomRunners(count) {
         console.warn('generateRandomRunners failed', e);
     }
 }
+
+// === מנגנון שליחה אוטומטית של גיבוי ===
+// Moved to js/utils/auto-backup-manager.js
+// autoBackupManager is loaded from external file

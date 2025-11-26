@@ -92,28 +92,6 @@
         });
     }
 
-    function buildCommentButton(shoulderNumber) {
-        const raw = state.generalComments?.[shoulderNumber];
-        const arr = Array.isArray(raw)
-            ? raw.filter(c => c && c.trim())
-            : (raw && String(raw).trim() ? [String(raw).trim()] : []);
-        const count = arr.length;
-        const level = Math.min(count, 5);
-        let summary = 'כתוב הערה...';
-        if (count) {
-            const joined = arr.join(' | ').replace(/\s+/g,' ');
-            summary = joined.length > 24 ? joined.slice(0,24) + '…' : joined;
-        }
-        return `
-        <button type="button"
-            class="comment-btn comment-level-${level} ${count ? '' : 'comment-btn-empty'}"
-            data-comment-btn="${shoulderNumber}"
-            data-comment-count="${count}"
-            title="הערות (${count})">
-            ${summary} ✎
-        </button>`;
-    }
-
     function getCommentMeta(sn){
         const raw = state.generalComments?.[sn];
         const arr = Array.isArray(raw)
@@ -124,7 +102,7 @@
         let summary = 'כתוב הערה...';
         if (count){
             const joined = arr.join(' | ').replace(/\s+/g,' ');
-            summary = joined.length > 24 ? joined.slice(0,24)+'…' : joined;
+            summary = joined.length > 20 ? joined.slice(0,20)+'…' : joined; // align with arrivalRows default truncate
         }
         return { summary, count, level, empty: count===0 };
     }
@@ -138,8 +116,9 @@
         btn.classList.toggle('comment-btn-empty', empty);
         btn.dataset.commentCount = count;
         btn.title = `הערות (${count})`;
-        const desired = `${summary} ✎`;
-        if (btn.innerHTML !== desired) btn.innerHTML = desired;
+        // Update only the text span to preserve icon structure created by ArrivalRows
+        const txt = btn.querySelector('.comment-text');
+        if (txt && txt.textContent !== summary) txt.textContent = summary;
     }
 
     function refreshAllHeatCommentButtons(root=document){
@@ -208,12 +187,12 @@
 
         const arrivalsBlockHtml = ArrivalRows.render({
           arrivals: heat.arrivals,
-          getCommentButtonHtml: buildCommentButton,
+          getComment: (sn) => state.generalComments?.[sn],
           formatTime: formatNoMs,
           showHeader: true,
           labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן ריצה' },
           listId: 'arrival-list',
-          hideCommentsColumn: false // Will be updated in edit mode
+          hideCommentsColumn: false
         });
 
         const bodyHtml = `
@@ -328,8 +307,6 @@
 
         document.getElementById('runner-buttons-container')?.addEventListener('click', (e) => {
             handleAddRunnerToHeat(e, heat, state.currentHeatIndex);
-            
-            // עדכון הרשימה של הכפתורים אחרי הוספת רץ
             setTimeout(() => {
                 const container = document.getElementById('runner-buttons-container');
                 if (container && !heat.finished) {
@@ -344,22 +321,19 @@
                     }
                 }
                 refreshAllHeatCommentButtons(contentDiv);
-                
-                // ADDED: רינדור מחדש של רשימת ההגעות
+                // Re-render arrivals list only (rows) keeping wrapper
                 const arrivalList = document.getElementById('arrival-list');
                 if (arrivalList && window.ArrivalRows?.render) {
-                    const newArrivalsHtml = window.ArrivalRows.render({
+                    const newSectionHtml = window.ArrivalRows.render({
                         arrivals: heat.arrivals,
-                        getCommentButtonHtml: buildCommentButton,
+                        getComment: (sn)=>state.generalComments?.[sn],
                         formatTime: formatNoMs,
                         showHeader: true,
                         labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן ריצה' },
                         listId: 'arrival-list'
                     });
-                    
-                    // עדכון התוכן בלבד
                     const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = newArrivalsHtml;
+                    tempDiv.innerHTML = newSectionHtml;
                     const newList = tempDiv.querySelector('#arrival-list');
                     if (newList) {
                         arrivalList.innerHTML = newList.innerHTML;
@@ -429,51 +403,40 @@
         function enterEditMode() {
             const editBtn = document.getElementById('edit-order-btn');
             const cancelBtn = document.getElementById('cancel-edit-btn');
-            const arrivalList = document.getElementById('arrival-list');
-            
+            let arrivalList = document.getElementById('arrival-list');
+            const arrivalSection = arrivalList ? arrivalList.closest('.arrival-section') : null;
             editBtn.textContent = 'סיים עריכה';
             editBtn.classList.add('editing');
             cancelBtn.classList.remove('hidden');
             arrivalList.classList.add('editing-order');
-            
-            // Re-render arrivals without comments header
-            const newArrivalsHtml = ArrivalRows.render({
+            if (arrivalSection) arrivalSection.classList.add('editing-order');
+            // Re-render arrivals without comments column
+            const newHtml = ArrivalRows.render({
                 arrivals: heat.arrivals,
-                getCommentButtonHtml: buildCommentButton,
+                getComment: (sn)=>state.generalComments?.[sn],
                 formatTime: formatNoMs,
                 showHeader: true,
                 labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן ריצה' },
                 listId: 'arrival-list',
-                hideCommentsColumn: true // Hide comments in edit mode
+                hideCommentsColumn: true
             });
-            
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newArrivalsHtml;
+            tempDiv.innerHTML = newHtml;
             const newList = tempDiv.querySelector('#arrival-list');
-            if (newList) {
-                arrivalList.innerHTML = newList.innerHTML;
-                arrivalList.classList.add('editing-order');
-            }
-            
-            // הוספת drag handlers ואייקון גרירה
+            if (newList && arrivalList) arrivalList.innerHTML = newList.innerHTML;
+            arrivalList = document.getElementById('arrival-list');
             arrivalList.querySelectorAll('.arrival-row').forEach((row, index) => {
                 row.draggable = true;
                 row.dataset.originalIndex = index;
-                
-                // הוספת אייקון גרירה בצד ימין
                 const dragHandle = document.createElement('div');
                 dragHandle.className = 'drag-handle';
                 dragHandle.innerHTML = '⋮⋮⋮';
                 dragHandle.title = 'גרור לשינוי מיקום';
                 row.appendChild(dragHandle);
-                
-                // Desktop drag events
                 row.addEventListener('dragstart', handleDragStart);
                 row.addEventListener('dragover', handleDragOver);
                 row.addEventListener('drop', handleDrop);
                 row.addEventListener('dragend', handleDragEnd);
-                
-                // NEW: Mobile touch events
                 row.addEventListener('touchstart', handleTouchStart, { passive: false });
                 row.addEventListener('touchmove', handleTouchMove, { passive: false });
                 row.addEventListener('touchend', handleTouchEnd);
@@ -484,46 +447,38 @@
             const editBtn = document.getElementById('edit-order-btn');
             const cancelBtn = document.getElementById('cancel-edit-btn');
             const arrivalList = document.getElementById('arrival-list');
-            
+            const arrivalSection = arrivalList ? arrivalList.closest('.arrival-section') : null;
             editBtn.textContent = 'ערוך מיקומים';
             editBtn.classList.remove('editing');
             cancelBtn.classList.add('hidden');
             arrivalList.classList.remove('editing-order');
-            originalOrder = null; // ניקוי הגיבוי
-            
-            // Re-render arrivals with comments header back
-            const newArrivalsHtml = ArrivalRows.render({
+            if (arrivalSection) arrivalSection.classList.remove('editing-order');
+            originalOrder = null;
+            const newHtml = ArrivalRows.render({
                 arrivals: heat.arrivals,
-                getCommentButtonHtml: buildCommentButton,
+                getComment: (sn)=>state.generalComments?.[sn],
                 formatTime: formatNoMs,
                 showHeader: true,
                 labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן ריצה' },
                 listId: 'arrival-list',
-                hideCommentsColumn: false // Show comments again
+                hideCommentsColumn: false
             });
-            
             const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newArrivalsHtml;
+            tempDiv.innerHTML = newHtml;
             const newList = tempDiv.querySelector('#arrival-list');
-            if (newList) {
+            if (newList && arrivalList) {
                 arrivalList.innerHTML = newList.innerHTML;
-                refreshAllHeatCommentButtons(contentDiv);
+                refreshAllHeatCommentButtons(document.getElementById('content'));
             }
-            
-            // הסרת drag handlers
             arrivalList.querySelectorAll('.arrival-row').forEach(row => {
                 row.draggable = false;
                 row.removeEventListener('dragstart', handleDragStart);
                 row.removeEventListener('dragover', handleDragOver);
                 row.removeEventListener('drop', handleDrop);
                 row.removeEventListener('dragend', handleDragEnd);
-                
-                // NEW: Remove mobile touch events
                 row.removeEventListener('touchstart', handleTouchStart);
                 row.removeEventListener('touchmove', handleTouchMove);
                 row.removeEventListener('touchend', handleTouchEnd);
-                
-                // הסרת אייקון הגרירה
                 row.querySelector('.drag-handle')?.remove();
             });
         }

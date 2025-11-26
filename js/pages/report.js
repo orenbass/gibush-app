@@ -1,133 +1,5 @@
 (function () {
   window.Pages = window.Pages || {};
-  
-  function ensureReportCss() {
-    let st = document.getElementById('report-cards-style');
-    if(!st){
-      st = document.createElement('style');
-      st.id = 'report-cards-style';
-      document.head.appendChild(st);
-    }
-    st.textContent = `
-      .report-header-bar{
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:center; /* מרכוז אופקי */
-        gap:6px;
-        margin:8px 0 32px; /* רווח שורה מתחת לכותרת */
-        width:100%;
-        text-align:center;
-      }
-      .report-header-bar h2{
-        margin:0;
-        font-size:26px;
-        font-weight:700;
-        color:#1e293b;
-        line-height:1.25;
-      }
-      .dark .report-header-bar h2{color:#f1f5f9}
-
-      /* כפתורי תחתית */
-      .report-bottom-actions{
-        display:flex;
-        justify-content:space-between;
-        gap:12px;
-        max-width:980px;
-        margin:28px auto 8px;
-        width:100%;
-      }
-      .report-bottom-actions .report-btn{
-        font-size:13px;
-        font-weight:600;
-        border:1px solid #cbd5e1;
-        background:transparent;
-        color:#334155;
-        border-radius:10px;
-        padding:9px 18px;
-        cursor:pointer;
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        white-space:nowrap;
-        transition:.15s;
-      }
-      .report-bottom-actions .report-btn:hover{background:#e2e8f0}
-      .dark .report-bottom-actions .report-btn{color:#e2e8f0;border-color:#475569}
-      .dark .report-bottom-actions .report-btn:hover{background:#374151}
-      @media (max-width:650px){
-        .report-bottom-actions{flex-direction:column}
-        .report-bottom-actions .report-btn{width:100%;justify-content:center}
-      }
-
-      .export-hint{font-size:11px;opacity:.6;text-align:center;margin:18px auto 4px;max-width:980px}
-      .report-cards-grid{display:flex;flex-direction:column;gap:10px;max-width:980px;margin:0 auto 34px;padding:0}
-      .runner-card-r{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px 12px 12px 16px;display:flex;flex-direction:column;gap:12px;position:relative;padding-right:60px}
-      .runner-card-r:hover{box-shadow:0 2px 8px -2px rgba(0,0,0,.12)}
-      .dark .runner-card-r{background:#1f2937;border-color:#334155}
-      .rank-badge{position:absolute;top:0;right:0;width:50px;height:100%;border-radius:0 14px 14px 0;background:#6b7280;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:-2px 0 6px rgba(0,0,0,.15);z-index:10;flex-direction:column;gap:2px}
-      .runner-card-r.gold .rank-badge{background:linear-gradient(180deg,#fbbf24,#d97706);color:#1f2937}
-      .runner-card-r.silver .rank-badge{background:linear-gradient(180deg,#e5e7eb,#9ca3af);color:#1f2937}
-      .runner-card-r.bronze .rank-badge{background:linear-gradient(180deg,#cd7c0f,#92400e);color:#fff}
-      .rank-number{font-size:16px;font-weight:700;line-height:1}
-      .rank-medal{font-size:24px;line-height:1}
-      .shoulder-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#fff;border:2px solid #e2e8f0;border-radius:8px;padding:3px 10px;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15)}
-      .dark .shoulder-badge{background:#1f2937;border-color:#334155;color:#f1f5f9}
-      .runner-number-big{font-size:16px;font-weight:800;color:#0f172a;line-height:1;margin:0}
-      .dark .runner-number-big{color:#f1f5f9}
-      .scores-inline{display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;justify-content:start;max-width:100%}
-      .score-item{display:flex;flex-direction:column;align-items:center;gap:6px}
-      .score-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;text-align:center}
-      .dark .score-label{color:#94a3b8}
-      .score-input{width:48px;height:36px;border:2px solid #e2e8f0;border-radius:12px;text-align:center;font-size:15px;font-weight:700;background:#f8fafc;color:#1e293b;transition:all .2s ease;outline:none;box-shadow:0 1px 2px rgba(0,0,0,0.08)}
-      .score-input:focus,.score-input:not([readonly]){border-color:#3b82f6;background:#fff;box-shadow:0 0 0 2px rgba(59,130,246,.1)}
-      .dark .score-input{background:#374151;border-color:#475569;color:#f1f5f9}
-      .dark .score-input:focus,.dark .score-input:not([readonly]){border-color:#60a5fa;background:#1f2937}
-      .comment-trigger{display:flex;justify-content:center;margin-top:8px}
-      .inactive-panel{max-width:980px;margin:34px auto 0}
-      .inactive-grid{display:flex;flex-wrap:wrap;gap:8px}
-      .inactive-chip{background:#e2e8f0;color:#334155;font-weight:600;padding:6px 12px;border-radius:24px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
-      .dark .inactive-chip{background:#374151;color:#e2e8f0}
-      .runner-card-r.gold{box-shadow:0 0 0 2px #fbbf24 inset,0 2px 10px -3px rgba(251,191,36,.45)}
-      .runner-card-r.silver{box-shadow:0 0 0 2px #9ca3af inset,0 2px 10px -3px rgba(156,163,175,.4)}
-      .runner-card-r.bronze{box-shadow:0 0 0 2px #cd7c0f inset,0 2px 10px -3px rgba(205,124,15,.4)}
-      .runner-card-r.gold .shoulder-badge{border-color:#fbbf24}
-      .runner-card-r.silver .shoulder-badge{border-color:#9ca3af}
-      .runner-card-r.bronze .shoulder-badge{border-color:#cd7c0f}
-      .runner-card-r.gold .rank-badge,
-      .runner-card-r.silver .rank-badge,
-      .runner-card-r.bronze .rank-badge{
-        font-size:34px;
-      }
-      @media (max-width:750px){
-        .runner-card-r{padding-right:50px;gap:10px}
-        .scores-inline{gap:8px}
-        .score-input{width:42px;height:32px;font-size:14px}
-        .score-label{font-size:10px}
-        .rank-badge{width:40px}
-        .runner-number-big{font-size:14px}
-        .report-header-bar{flex-direction:column;align-items:flex-start}
-        .runner-card-r.gold .rank-badge,
-        .runner-card-r.silver .rank-badge,
-        .runner-card-r.bronze .rank-badge{
-          font-size:28px;
-        }
-      }
-      @media (max-width:400px){
-        .runner-card-r{padding-right:45px}
-        .scores-inline{gap:6px}
-        .score-input{width:38px;height:30px;font-size:13px}
-        .score-label{font-size:9px}
-        .rank-badge{width:35px}
-        .runner-number-big{font-size:13px}
-        .runner-card-r.gold .rank-badge,
-        .runner-card-r.silver .rank-badge,
-        .runner-card-r.bronze .rank-badge{
-          font-size:24px;
-        }
-      }
-    `;
-  }
 
   function safeScore(fnName, runner) {
     try { if (typeof window[fnName] === 'function') return window[fnName](runner); } catch(e){ console.warn(e); }
@@ -196,19 +68,15 @@
 
   // הוספת פונקציה לhודעות מערכת
   function showNotification(message, type = 'info') {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-    // אם יש מערכת התראות במערכת - השתמש בה
     if (typeof window.showToast === 'function') {
       window.showToast(message, type);
     } else if (typeof window.showMessage === 'function') {
       window.showMessage(message);
     } else {
-      // Fallback - הצגת הודעה פשוטה
       const isError = type === 'error';
       if (isError) {
         console.error(message);
       }
-      // אפשר להוסיף כאן toast או הודעה ויזואלית
     }
   }
 
@@ -228,8 +96,6 @@
 
     const contentDiv = document.getElementById('content');
     if (!contentDiv) return console.error("renderReportPage: לא נמצא האלמנט #content");
-    
-    ensureReportCss();
 
     state.manualScores = state.manualScores || {};
     state.generalComments = state.generalComments || {};
@@ -237,7 +103,7 @@
 
     const allRunners = runnersArr.map(r => {
       const status = state.crawlingDrills?.runnerStatuses?.[r.shoulderNumber] || 'פעיל';
-      let sprintScore = 0, crawlingScore = 0, stretcherScore = 0, totalScore = -1;
+      let sprintScore = 0, crawlingScore = 0, stretcherScore = 0, totalScore = -1, averageScore = 0;
       if (status === 'פעיל') {
         const manual = state.manualScores[r.shoulderNumber];
         sprintScore = manual?.sprint ?? safeScore('calculateSprintFinalScore', r);
@@ -245,8 +111,10 @@
         crawlingScore = manual?.crawl ?? safeScore('calculateCrawlingFinalScore', r);
         stretcherScore = manual?.stretcher ?? safeScore('calculateStretcherFinalScore', r);
         totalScore = sprintScore + crawlingScore + stretcherScore;
+        // NEW: חישוב ממוצע (מעוגל לספרה אחת אחרי הנקודה)
+        averageScore = Math.round((totalScore / 3) * 10) / 10;
       }
-      return { ...r, sprintScore, crawlingScore, stretcherScore, status, totalScore };
+      return { ...r, sprintScore, crawlingScore, stretcherScore, status, totalScore, averageScore };
     });
 
     const active = allRunners.filter(r => r.status === 'פעיל').sort((a, b) => b.totalScore - a.totalScore);
@@ -254,6 +122,16 @@
 
     const getCardClass = i => i===0?'gold':i===1?'silver':i===2?'bronze':'';
     const getRankDisplay = rank => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+
+    // Helper: בדיקת משתמש אורח
+    const isGuestUser = (() => {
+      try {
+        const saved = localStorage.getItem('gibushAuthState');
+        if(!saved) return true;
+        const session = JSON.parse(saved);
+        return session?.authState?.authMethod === 'guest';
+      } catch(e){ return true; }
+    })();
 
     contentDiv.innerHTML = `
       <div class="report-header-bar">
@@ -279,6 +157,10 @@
                   <div class="score-label">${(CONFIG?.STRETCHER_PAGE_LABEL || 'אלונקה').replace('אלונקה','אלונקות')}</div>
                   <input class="score-input" type="tel" value="${r.stretcherScore}" data-shoulder="${r.shoulderNumber}" data-type="stretcher">
                 </div>
+                <div class="score-item score-item-average">
+                  <div class="score-label">ממוצע</div>
+                  <div class="score-display score-display-average" title="ממוצע כל הציונים">${r.averageScore.toFixed(1)}</div>
+                </div>
               </div>
               <div class="comment-trigger">${buildCommentButton(r.shoulderNumber)}</div>
             </div>
@@ -295,6 +177,7 @@
       <div class="export-hint">עדכון ציון: יציאה מהשדה שומר. עריכת הערה: לחיצה על כפתור ההערה.</div>
 
       <div class="report-bottom-actions">
+        ${!isGuestUser ? '<button id="finish-gibush-btn" class="report-btn">🏁 סיים גיבוש</button>' : ''}
         <button id="upload-drive-btn" class="report-btn">📤 שלח קובץ למנהל</button>
         <button id="export-excel-btn" class="report-btn">💾 הורדת אקסל</button>
       </div>
@@ -303,20 +186,57 @@
     window.Pages.initReportPageListeners();
   };
 
+  // Helper: בדיקת משתמש אורח
+  function isGuestUser(){
+    try {
+      const saved = localStorage.getItem('gibushAuthState');
+      if(!saved) return true;
+      const session = JSON.parse(saved);
+      return session?.authState?.authMethod === 'guest';
+    } catch(e){ return true; }
+  }
+
   async function handleDriveUploadClick(btn) {
+    // דרישת סיסמה אם אורח
+    if (isGuestUser() && !sessionStorage.getItem('reportDriveApproved')) {
+      const pwd = prompt('הזן סיסמת מנהל לשליחת הקובץ:');
+      if (pwd === null) return; // ביטול
+      const adminPwd = (window.ADMIN_PASSWORD || typeof ADMIN_PASSWORD !== 'undefined' && ADMIN_PASSWORD) || '';
+      if (pwd !== adminPwd) {
+        alert('סיסמה שגויה');
+        return;
+      }
+      sessionStorage.setItem('reportDriveApproved','1');
+    }
+    
     const original = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'מכין קובץ...';
+    btn.textContent = 'מכין קבצים...';
+    
     try {
+      // NEW: עצירת שליחה אוטומטית מכיוון שעכשיו שולחים ידנית
+      if (window.autoBackupManager) {
+        window.autoBackupManager.markManuallyStopped();
+      }
+      
+      // שליחת דוח אקסל
       if (typeof window.GibushAppExporter?.exportReport === 'function') {
+        btn.textContent = 'שולח דוח...';
         await window.GibushAppExporter.exportReport('drive');
+        
+        // NEW: שליחת קובץ גיבוי נוסף
+        btn.textContent = 'שולח גיבוי...';
+        await sendBackupFile();
+        
         btn.textContent = 'נשלח בהצלחה ✔';
+        showNotification('✅ דוח וגיבוי נשלחו בהצלחה!', 'success');
       } else {
         throw new Error('מערכת הייצוא לא זמינה');
       }
     } catch (e) {
       console.error(e);
       btn.textContent = 'שגיאה - שמירה מקומית';
+      showNotification('❌ שגיאה בשליחה: ' + e.message, 'error');
       try {
         if (typeof window.GibushAppExporter?.exportReport === 'function') {
           await window.GibushAppExporter.exportReport('download');
@@ -329,6 +249,38 @@
     }
   }
 
+  // NEW: פונקציה לשליחת קובץ גיבוי
+  async function sendBackupFile() {
+    try {
+      if (typeof window.CompactBackup?.createBackup === 'function') {
+        const backupData = window.CompactBackup.createBackup();
+        const backupBlob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        
+        const date = new Date().toLocaleDateString('he-IL').replace(/\./g, '-');
+        const time = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, '-');
+        const fileName = `GibushBackup_Manual_${state.groupNumber || 'group'}_${date}_${time}.json`;
+        
+        if (window.GoogleDriveUploader?.upload) {
+          const result = await window.GoogleDriveUploader.upload(backupBlob, fileName, {
+            folder: 'GibushManualBackups',
+            type: 'backup'
+          });
+          if (result.status !== 'success') {
+            console.warn('⚠️ שליחת גיבוי נכשלה:', result.message);
+            throw new Error('שליחת גיבוי נכשלה: ' + result.message);
+          }
+        } else {
+          throw new Error('מערכת העלאה לא זמינה');
+        }
+      } else {
+        throw new Error('מערכת גיבוי קומפקטי לא זמינה');
+      }
+    } catch (error) {
+      console.error('❌ שגיאה בשליחת גיבוי:', error);
+      throw error;
+    }
+  }
+
   function handleExcelDownloadClick(e) {
     e.preventDefault();
     
@@ -336,7 +288,6 @@
     if (typeof window.GibushAppExporter?.exportReport === 'function') {
       window.GibushAppExporter.exportReport('download')
         .then(result => {
-          console.log('הורדת דוח הושלמה:', result.filename);
           showNotification('✅ קובץ הדוח הורד בהצלחה!', 'success');
         })
         .catch(error => {
@@ -357,10 +308,10 @@
     contentDiv.addEventListener('click', async (e) => {
       const uploadBtn = e.target.closest('#upload-drive-btn');
       if (uploadBtn) return await handleDriveUploadClick(uploadBtn);
-      
       const exportBtn = e.target.closest('#export-excel-btn');
       if (exportBtn) return handleExcelDownloadClick(e);
-
+      const finishBtn = e.target.closest('#finish-gibush-btn');
+      if (finishBtn) return startFinishGibushFlow(finishBtn);
       const commentBtn = e.target.closest('[data-comment-btn]');
       if (commentBtn) return localOpenHandler(commentBtn.dataset.commentBtn, commentBtn);
     });
@@ -388,5 +339,120 @@
 
   window.handleDriveUploadClick = handleDriveUploadClick;
   window.handleExcelDownloadClick = handleExcelDownloadClick;
+
+  function startFinishGibushFlow(btn){
+    if (window.__finishingGibush) return;
+    const msg = 'סיום הגיבוש ישלח את קובץ האקסל והגיבוי למנהל, יעצור העלאה אוטומטית ויאפס את האפליקציה כדי להתחיל גיבוש חדש. להמשיך?';
+    if (typeof showModal === 'function') {
+      showModal('סיום גיבוש', msg, () => runFinishGibushSequence(btn));
+    } else {
+      if (confirm(msg)) runFinishGibushSequence(btn);
+    }
+  }
+
+  function createFinishProgressModal(){
+    const existing = document.getElementById('finish-gibush-progress-modal');
+    if (existing) return existing;
+    const wrap = document.createElement('div');
+    wrap.id = 'finish-gibush-progress-modal';
+    wrap.style.position='fixed';
+    wrap.style.inset='0';
+    wrap.style.zIndex='9999';
+    wrap.style.display='flex';
+    wrap.style.alignItems='center';
+    wrap.style.justifyContent='center';
+    wrap.style.background='rgba(0,0,0,.55)';
+    wrap.innerHTML = `<div style="min-width:320px;max-width:420px;background:#ffffff;box-shadow:0 12px 40px -8px rgba(0,0,0,.4);border-radius:20px;padding:24px 26px;display:flex;flex-direction:column;gap:18px;font-family:system-ui,Segoe UI,sans-serif;">
+      <h3 style="margin:0;font-size:20px;font-weight:800;color:#0d9488;display:flex;align-items:center;gap:8px;">🏁 סיום גיבוש</h3>
+      <div id="finish-progress-status" style="font-size:14px;font-weight:600;color:#334155;min-height:34px;line-height:1.3;white-space:pre-line"></div>
+      <div id="finish-progress-bar-wrap" style="height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;position:relative;">
+        <div id="finish-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#0d9488,#059669);transition:width .4s ease"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button id="finish-progress-cancel" style="display:none;background:#ef4444;color:#fff;font-weight:700;font-size:12px;border:none;border-radius:10px;padding:8px 16px;cursor:pointer;">בטל</button>
+        <button id="finish-progress-close" style="display:none;background:#0d9488;color:#fff;font-weight:700;font-size:12px;border:none;border-radius:10px;padding:8px 18px;cursor:pointer;">סגור</button>
+      </div>
+    </div>`;
+    document.body.appendChild(wrap);
+    return wrap;
+  }
+  function updateFinishProgress(msg, pct){
+    const stEl = document.getElementById('finish-progress-status');
+    const bar = document.getElementById('finish-progress-bar');
+    if (stEl) stEl.textContent = msg;
+    if (bar && typeof pct==='number') bar.style.width = pct+"%";
+  }
+
+  async function runFinishGibushSequence(btn){
+    if (window.__finishingGibush) return; window.__finishingGibush = true;
+    const original = btn.textContent; btn.disabled = true;
+    const modal = createFinishProgressModal();
+    updateFinishProgress('שולח אקסל...', 10);
+    try {
+      if (typeof window.GibushAppExporter?.exportReport !== 'function') throw new Error('מערכת ייצוא לא זמינה');
+      await window.GibushAppExporter.exportReport('drive');
+      updateFinishProgress('שולח גיבוי...', 40);
+      await sendBackupFile();
+      updateFinishProgress('עוצר העלאה אוטומטית...', 55);
+      if (window.autoBackupManager) { try { window.autoBackupManager.stop('סיום גיבוש'); } catch(e){} }
+      // אין איפוס כאן – נדחה לאחר לחיצה על סגירה
+      updateFinishProgress('מכין לסיום... (האיפוס יבוצע אחרי סגירה)', 75);
+      const preservedEvaluator = state.evaluatorName || '';
+      window.__pendingFinishResetEvaluator = preservedEvaluator; // שמירת שם המעריך לדחייה
+      updateFinishProgress('הגיבוש הסתיים בהצלחה! לחץ על סגור להתחלת גיבוש חדש.', 100);
+      btn.disabled=false; btn.textContent=original; window.__finishingGibush=false;
+      const closeBtn = document.getElementById('finish-progress-close');
+      if (closeBtn){
+        closeBtn.style.display='inline-block';
+        closeBtn.onclick = ()=> {
+          const preserved = window.__pendingFinishResetEvaluator || '';
+          modal.remove();
+          // שלב 1: מעבר לדף הרצים עם הנתונים הישנים
+          state.currentPage = PAGES.RUNNERS;
+          renderPage?.();
+          // שלב 2: איפוס מלא לאחר מעבר (עם השהייה קטנה לציור)
+          setTimeout(()=>{
+            try {
+              initializeAllData?.();
+              state.evaluatorName = preserved; // שחזור שם המעריך
+              state.groupNumber = '';
+              localStorage.setItem('groupNumberCleared','1');
+              // עדכון authState (הסרת מספר קבוצה ושמירת שם מעריך)
+              try {
+                const raw = localStorage.getItem('gibushAuthState');
+                if (raw){
+                  const session = JSON.parse(raw);
+                  if (session.authState){
+                    session.authState.evaluatorName = preserved;
+                    delete session.authState.groupNumber;
+                    localStorage.setItem('gibushAuthState', JSON.stringify(session));
+                  }
+                }
+              } catch(e){ console.warn('authState update after finish failed', e); }
+              saveState?.();
+              renderPage?.();
+              // פתיחת חלון פרטי הערכה להזנת מספר קבוצה חדש
+              if (typeof showEditBasicDetailsModal==='function') showEditBasicDetailsModal();
+            } finally {
+              delete window.__pendingFinishResetEvaluator;
+            }
+          }, 250);
+        };
+      }
+    } catch(err){
+      const reason = err?.message || 'שגיאה לא ידועה';
+      console.error(err);
+      updateFinishProgress('סיום גיבוש נכשל: '+reason+'\nלא בוצע איפוס.', 100);
+      const closeBtn = document.getElementById('finish-progress-close');
+      if (closeBtn){ closeBtn.style.display='inline-block'; closeBtn.onclick = ()=> modal.remove(); }
+      btn.disabled=false; btn.textContent=original; window.__finishingGibush=false;
+      showNotification('❌ סיום גיבוש נכשל: '+reason,'error');
+      if (typeof showModal === 'function') {
+        showModal('סיום גיבוש נכשל', 'התהליך הופסק. סיבה: '+reason+'\nלא נמחקו נתונים.', ()=>{});
+      }
+    }
+  }
+
+  window.startFinishGibushFlow = startFinishGibushFlow;
 
 })();
