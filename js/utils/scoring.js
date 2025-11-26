@@ -17,8 +17,9 @@
       console.warn('computeHeatResults: arrivals is not an array:', arrivals);
       return [];
     }
-    
-    const withOrder = arrivals.map((a, i) => ({ ...a, _order: i }));
+    // NEW: סינון מתמודדים שאינם פעילים (status !== 'active') כדי שלא ישפיעו על דירוג
+    const activeArrivals = arrivals.filter(a => !a.status || a.status === 'active');
+    const withOrder = activeArrivals.map((a, i) => ({ ...a, _order: i }));
     const isFinisher = a => typeof a.finishTime === 'number' && a.finishTime > 0;
     const finishers = withOrder.filter(isFinisher).sort((a, b) => (a.finishTime - b.finishTime) || (a._order - b._order));
     const dnfs = withOrder.filter(a => !isFinisher(a));
@@ -129,81 +130,111 @@
   function calculateSprintFinalScore(runner) {
     const shoulderNumber = runner.shoulderNumber;
     const statuses = window.state?.crawlingDrills?.runnerStatuses || {};
-    if (statuses[shoulderNumber] !== 'פעיל' && statuses[shoulderNumber] !== undefined) return 1;
+    // אם הרץ עצמו מוגדר פרש/נגרע מוחלט – החזר 1
+    if (statuses[shoulderNumber] && statuses[shoulderNumber] !== 'active') return 1;
 
     const heats = window.state?.heats || [];
     if (heats.length === 0) return 1;
     
-    // סינון רק מקצים פעילים (שבהם לפחות אחד השתתף)
-    const activeHeats = heats.filter(heat => heat.arrivals && heat.arrivals.length > 0);
-    if (activeHeats.length === 0) return 1;
-    
     const validScores = [];
     
-    activeHeats.forEach(heat => {
-      // עכשיו אנחנו עובדים רק עם מקצים פעילים
+    heats.forEach(heat => {
+      if (!heat.arrivals || !heat.arrivals.length) return; // מקצה ריק – דלג
+      // מציאת הגעה של הרץ כשהוא פעיל
+      const arrival = heat.arrivals.find(a => a.shoulderNumber === shoulderNumber && (!a.status || a.status === 'active'));
+      if (!arrival) return; // לא השתתף בפועל – לא מוסיפים ציון 1 יותר
+
       const heatResults = window.computeHeatResults?.(heat.arrivals) || [];
       const runnerResult = heatResults.find(r => r.shoulderNumber === shoulderNumber);
-      const runnerParticipated = heat.arrivals.some(a => a.shoulderNumber === shoulderNumber);
-      
-      if (runnerParticipated) {
-        // אם הרץ השתתף במקצה הפעיל
-        if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
-          // אם יש לו זמן תקין - השתמש בציון המחושב
-          validScores.push(runnerResult.score);
-        } else {
-          // אם השתתף אבל אין זמן תקין - ציון 1
-          validScores.push(1);
-        }
+      if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
+        validScores.push(runnerResult.score);
       } else {
-        // אם לא השתתף במקצה פעיל - ציון 1
+        // השתתף אבל לא סיים
         validScores.push(1);
       }
     });
     
-    // ממוצע הציונים מהמקצים הפעילים
-    return Math.round(validScores.reduce((sum, score) => sum + score, 0) / validScores.length);
+    if (!validScores.length) return 1; // לא השתתף באף מקצה פעיל
+    return Math.round(validScores.reduce((s, v) => s + v, 0) / validScores.length);
   }
 
   // UPDATED: חישוב ציון זחילה ספרינט סופי - עכשיו בטווח 1-5 במקום 1-7
   function getCrawlingSprintScore(runner) {
     const shoulderNumber = runner.shoulderNumber;
     const statuses = window.state?.crawlingDrills?.runnerStatuses || {};
-    if (statuses[shoulderNumber] !== 'פעיל' && statuses[shoulderNumber] !== undefined) return 1;
+    if (statuses[shoulderNumber] && statuses[shoulderNumber] !== 'active') return 1;
 
     const crawlingSprints = window.state?.crawlingDrills?.sprints || [];
-    if (crawlingSprints.length === 0) return 1;
-    
-    // סינון רק זחילות פעילות (שבהן לפחות אחד השתתף)
-    const activeCrawlingSprints = crawlingSprints.filter(sprint => 
-      sprint.arrivals && sprint.arrivals.length > 0
-    );
-    if (activeCrawlingSprints.length === 0) return 1;
+    if (!crawlingSprints.length) return 1;
     
     const validScores = [];
-    
-    activeCrawlingSprints.forEach(sprint => {
-      // חישוב תוצאות עם קנה מידה של 1-5 (במקום 1-7)
+    crawlingSprints.forEach(sprint => {
+      if (!sprint.arrivals || !sprint.arrivals.length) return;
+      const arrival = sprint.arrivals.find(a => a.shoulderNumber === shoulderNumber && (!a.status || a.status === 'active'));
+      if (!arrival) return; // לא השתתף => לא מוסיפים 1
+
       const crawlingResults = computeCrawlingSprintResults(sprint.arrivals);
       const runnerResult = crawlingResults.find(r => r.shoulderNumber === shoulderNumber);
-      const runnerParticipated = sprint.arrivals.some(a => a.shoulderNumber === shoulderNumber);
-      
-      if (runnerParticipated) {
-        if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
-          validScores.push(runnerResult.score);
-        } else {
-          validScores.push(1);
-        }
+      if (runnerResult && runnerResult.finishTime && runnerResult.finishTime > 0) {
+        validScores.push(runnerResult.score);
       } else {
-        validScores.push(1);
+        validScores.push(1); // השתתף ולא סיים
       }
     });
     
-    // ממוצע הציונים מהזחילות הפעילות
-    return Math.round(validScores.reduce((sum, score) => sum + score, 0) / validScores.length);
+    if (!validScores.length) return 1;
+    return Math.round(validScores.reduce((s, v) => s + v, 0) / validScores.length);
   }
 
-  // FIXED: חישוב ציון אלונקות סוציומטריות - כולל מתמודדים שהשתתפו אבל לא נבחרו
+  // NEW MODEL 2: Sociometric stretcher heat scoring
+  function computeSociometricStretcherHeatScores(heat) {
+    if (!heat) return {};
+    const selections = heat.selections || {};
+    const order = heat.selectionOrder || { stretcher: [], jerrican: [] };
+    const res = {}; // shoulderNumber -> { role, score }
+
+    // Stretcher scoring (first 4 only). Assumes system constraint prevents >4.
+    const stretcherScores = [7, 6.5, 6.0, 5.5];
+    (order.stretcher || []).forEach((sn, idx) => {
+      if (idx < stretcherScores.length) {
+        res[sn] = { role: 'אלונקה', score: stretcherScores[idx] };
+      }
+    });
+
+    // Jerrican scoring: first 4.5 then -0.5 each, floor at 1
+    (order.jerrican || []).forEach((sn, idx) => {
+      if (res[sn]) return; // already stretcher
+      const base = 4.5 - 0.5 * idx; // 4.5,4.0,3.5,...
+      const score = Math.max(1, base);
+      res[sn] = { role: "ג'ריקן", score };
+    });
+
+    // NEW: הוספת כל המתמודדים הפעילים באופן אוטומטי
+    const allActiveRunners = (window.state?.runners || [])
+      .filter(r => {
+        const sn = r.shoulderNumber;
+        const status = window.state?.crawlingDrills?.runnerStatuses?.[sn];
+        // רק פעילים - לא פרשו ולא הוסרו
+        return !status || status === 'פעיל' || status === 'active';
+      })
+      .map(r => String(r.shoulderNumber));
+
+    // Determine participants: all active runners + explicit participants + selections
+    const participantSet = new Set(allActiveRunners);
+    (heat.participants || []).forEach(p => participantSet.add(String(p)));
+    Object.keys(selections).forEach(sn => participantSet.add(String(sn)));
+    (order.stretcher || []).forEach(sn => participantSet.add(String(sn)));
+    (order.jerrican || []).forEach(sn => participantSet.add(String(sn)));
+
+    // Any participant not selected gets baseline 1
+    participantSet.forEach(sn => {
+      if (!res[sn]) res[sn] = { role: 'לא נבחר', score: 1 };
+    });
+
+    return res; // map of shoulderNumber(string) -> {role, score}
+  }
+
+  // REPLACED: calculateStretcherFinalScore now uses Model 2 scoring
   function calculateStretcherFinalScore(runner) {
     const shoulderNumber = runner.shoulderNumber;
     const statuses = window.state?.crawlingDrills?.runnerStatuses || {};
@@ -211,114 +242,85 @@
 
     const sociometricData = window.state?.sociometricStretcher;
     const heats = sociometricData?.heats || [];
-    
-    if (heats.length === 0) return 1;
-    
-    const validScores = [];
-    
+    if (!heats.length) return 1;
+
+    const perHeatScores = [];
+
     heats.forEach(heat => {
-      // בדיקה אם המקצה פעיל (יש בחירות או משתתפים רשומים)
-      const selections = heat.selections || {};
-      const participants = heat.participants || [];
-      const hasSelections = Object.keys(selections).some(key => selections[key] && selections[key] !== '');
-      const hasParticipants = participants.length > 0;
-      const isActiveHeat = hasSelections || hasParticipants;
-      
-      // אם המקצה פעיל
-      if (isActiveHeat) {
-        const runnerParticipated = participants.includes(shoulderNumber) || 
-                                  Object.keys(selections).includes(shoulderNumber.toString());
-        
-        if (runnerParticipated) {
-          // אם הרץ השתתף במקצה
-          const selection = selections[shoulderNumber];
-          let score = 1; // ברירת מחדל למי שהשתתף אבל לא נבחר
-          
-          if (selection === 'stretcher') score = 7;      // אלונקה = ציון מלא
-          else if (selection === 'jerrican') score = 3.5; // ג'ריקן = חצי ציון
-          // אחרת - ציון 1 (השתתף אבל לא נבחר)
-          
-          validScores.push(score);
-        }
-      }
+      // Only consider heats that have any selection order data / selections
+      if (!heat) return;
+      const hasData = (heat.selectionOrder && ((heat.selectionOrder.stretcher||[]).length || (heat.selectionOrder.jerrican||[]).length)) || (heat.selections && Object.keys(heat.selections).length);
+      if (!hasData) return;
+      const map = computeSociometricStretcherHeatScores(heat);
+      const rec = map[String(shoulderNumber)];
+      if (rec) perHeatScores.push(rec.score);
     });
-    
-    // אם לא השתתף באף מקצה פעיל - ציון 1
-    if (validScores.length === 0) return 1;
-    
-    // ממוצע הציונים מכל המקצים שהשתתף בהם
-    const averageScore = validScores.reduce((sum, score) => sum + score, 0) / validScores.length;
-    
-    return Math.round(averageScore);
+
+    if (!perHeatScores.length) return 1;
+
+    const avg = perHeatScores.reduce((s,v)=>s+v,0)/perHeatScores.length;
+    // Keep internal average with one decimal; finalScore remains integer (legacy interface)
+    const finalScore = Math.round(avg); // preserve existing expectations
+
+    // Cache per-runner details structure for reports (optional)
+    window.state.sociometricStretcherResults = window.state.sociometricStretcherResults || {};
+    window.state.sociometricStretcherResults[shoulderNumber] = {
+      shoulderNumber,
+      averageScore: Math.round(avg*10)/10,
+      heats: perHeatScores.length,
+      rawScores: perHeatScores.slice(),
+      finalScore
+    };
+
+    return finalScore;
   }
 
-  // FIXED: פונקציה לקבלת פרטי אלונקות לרץ מסוים - כולל מתמודדים שהשתתפו אבל לא נבחרו
+  // REPLACED: getRunnerStretcherDetails uses Model 2 scoring map
   function getRunnerStretcherDetails(shoulderNumber) {
     const sociometricData = window.state?.sociometricStretcher;
     const heats = sociometricData?.heats || [];
-    
-    // סינון רק מקצים פעילים (יש בחירות או משתתפים)
-    const validHeats = heats.filter(heat => {
-      const selections = heat.selections || {};
-      const participants = heat.participants || [];
-      const hasSelections = Object.keys(selections).some(key => selections[key] && selections[key] !== '');
-      const hasParticipants = participants.length > 0;
-      return hasSelections || hasParticipants;
-    });
-    
-    const heatResults = validHeats.map((heat, index) => {
-      const selections = heat.selections || {};
-      const participants = heat.participants || [];
-      const runnerParticipated = participants.includes(shoulderNumber) || 
-                                Object.keys(selections).includes(shoulderNumber.toString());
-      
-      if (!runnerParticipated) {
-        return {
-          heatIndex: index + 1,
-          heatName: `מקצה ${index + 1}`,
+
+    const heatResults = [];
+    heats.forEach((heat, idx) => {
+      if (!heat) return;
+      const hasData = (heat.selectionOrder && ((heat.selectionOrder.stretcher||[]).length || (heat.selectionOrder.jerrican||[]).length)) || (heat.selections && Object.keys(heat.selections).length);
+      if (!hasData) return; // skip inactive heat
+      const map = computeSociometricStretcherHeatScores(heat);
+      const rec = map[String(shoulderNumber)];
+      if (rec) {
+        heatResults.push({
+          heatIndex: idx + 1,
+            heatName: `מקצה ${idx + 1}`,
+            role: rec.role,
+            score: rec.score,
+            participated: true
+        });
+      } else {
+        // Not a participant in this active heat
+        heatResults.push({
+          heatIndex: idx + 1,
+          heatName: `מקצה ${idx + 1}`,
           role: 'לא השתתף',
           score: null,
           participated: false
-        };
+        });
       }
-      
-      const selection = selections[shoulderNumber];
-      let score = 1; // ברירת מחדל למי שהשתתף
-      let role = 'השתתף - לא נבחר';
-      
-      if (selection === 'stretcher') {
-        score = 7;
-        role = 'אלונקה';
-      } else if (selection === 'jerrican') {
-        score = 3.5;
-        role = 'ג\'ריקן';
-      }
-      
-      return {
-        heatIndex: index + 1,
-        heatName: `מקצה ${index + 1}`,
-        role,
-        score,
-        participated: true
-      };
     });
-    
-    const participatedResults = heatResults.filter(h => h.participated);
-    const validScores = participatedResults.map(h => h.score);
-    const finalScore = validScores.length > 0 
-      ? Math.round(validScores.reduce((sum, score) => sum + score, 0) / validScores.length)
-      : 1;
-    
+
+    const participated = heatResults.filter(h => h.participated);
+    const scores = participated.map(h => h.score).filter(s => typeof s === 'number');
+    const avg = scores.length ? (scores.reduce((s,v)=>s+v,0)/scores.length) : 0;
+
     return {
       shoulderNumber,
       heatResults,
-      finalScore,
-      totalHeats: validHeats.length, // רק מקצים פעילים
-      participatedHeats: participatedResults.length, // מקצים שהשתתף בהם
+      finalScore: Math.round(avg),
+      averageScore: Math.round(avg*10)/10,
+      totalHeats: heatResults.length,
+      participatedHeats: participated.length,
       stretcherCount: heatResults.filter(h => h.role === 'אלונקה').length,
-      jerricanCount: heatResults.filter(h => h.role === 'ג\'ריקן').length,
-      notSelectedCount: heatResults.filter(h => h.role === 'השתתף - לא נבחר').length,
-      averageScore: validScores.length > 0 ? Math.round((validScores.reduce((sum, score) => sum + score, 0) / validScores.length) * 10) / 10 : 0
+      jerricanCount: heatResults.filter(h => h.role === "ג'ריקן").length,
+      notSelectedCount: heatResults.filter(h => h.role === 'השתתף - לא נבחר').length
     };
   }
 
@@ -354,9 +356,9 @@
     // נקודות סחיבת שק (0+)
     const sackPoints = getSackCarryScore(runner);
     
-    // ציון כולל = ספרינט + נקודות שק, בטווח 1-5
+    // ציון כולל = ספרינט + נקודות שק, בטווח 1-7 (נחתך ב-7)
     const totalScore = sprintScore + sackPoints;
-    const finalScore = Math.min(5, Math.max(1, totalScore));
+    const finalScore = Math.min(7, Math.max(1, totalScore)); // UPDATED: היה 5, כעת 7
     
     return finalScore;
   }
@@ -564,7 +566,7 @@
     updateAllSprintScores,
     getRunnerSprintDetails,
     exportSprintResultsForExcel,
-    // NEW: פונקציה חדשה לפרטי אלונקות
+    computeSociometricStretcherHeatScores,
     getRunnerStretcherDetails
   };
 
@@ -580,5 +582,6 @@
   window.updateAllSprintScores ??= updateAllSprintScores;
   window.getRunnerSprintDetails ??= getRunnerSprintDetails;
   window.exportSprintResultsForExcel ??= exportSprintResultsForExcel;
+  window.computeSociometricStretcherHeatScores ??= computeSociometricStretcherHeatScores;
   window.getRunnerStretcherDetails ??= getRunnerStretcherDetails;
 })();

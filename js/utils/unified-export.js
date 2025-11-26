@@ -492,7 +492,7 @@ window.GibushAppExporter.createDetailedReport = function createDetailedReport() 
         stretcherWs.mergeCells(`A${stretcherCurrentRow}:E${stretcherCurrentRow}`);
         stretcherCurrentRow++;
         
-        // כותרות עמודות המקצה
+        // כותרות עמודות המקצה (עודכן לשימוש במודל 2)
         const stretcherHeaders = ['מס\' כתף', 'תפקיד', 'ציון', 'הערות'];
         stretcherHeaders.forEach((header, colIndex) => {
           const cell = stretcherWs.getCell(stretcherCurrentRow, colIndex + 1);
@@ -504,35 +504,37 @@ window.GibushAppExporter.createDetailedReport = function createDetailedReport() 
         });
         stretcherCurrentRow++;
         
-        // נתוני המקצה
+        // מיפוי ציונים לפי מודל 2
+        const heatScoreMap = (typeof window.computeSociometricStretcherHeatScores === 'function')
+          ? window.computeSociometricStretcherHeatScores(heat)
+          : {};
+        
+        // נתוני המקצה (משתמשים ברצים פעילים בלבד לצורך דירוג, לא פעילים לא מוצגים)
         activeRunners.forEach((runner, runnerIndex) => {
           const shoulderNumber = runner.shoulderNumber;
-          const selection = heat.selections?.[shoulderNumber];
-          
-          let role = 'לא נבחר';
-          let score = 'לא השתתף';
-          
-          if (selection === 'stretcher') {
-            role = 'אלונקה';
-            score = 7;
-          } else if (selection === 'jerrican') {
-            role = 'ג\'ריקן';
-            score = 3.5;
+          const rec = heatScoreMap ? heatScoreMap[String(shoulderNumber)] : undefined;
+          let role, score;
+          if (rec) {
+            role = rec.role; // 'אלונקה' | 'ג'ריקן' | 'השתתף - לא נבחר'
+            score = rec.score; // מספר (כולל שברים 6.5 וכו') או 1
+          } else {
+            // לא השתתף כלל במקצה זה
+            role = 'לא השתתף';
+            score = 'לא השתתף';
           }
           
           const rowData = [
             shoulderNumber,
             role,
             score,
-            '' // הערות
+            '' // הערות (עתידי)
           ];
           
-          rowData.forEach((value, colIndex) => {
+            rowData.forEach((value, colIndex) => {
             const cell = stretcherWs.getCell(stretcherCurrentRow, colIndex + 1);
             cell.value = value;
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            
             if (runnerIndex % 2 === 0) {
               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
             }

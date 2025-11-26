@@ -424,32 +424,46 @@
         function enterEditMode() {
             const editBtn = document.getElementById('edit-order-btn');
             const cancelBtn = document.getElementById('cancel-edit-btn');
-            const arrivalList = document.getElementById('arrival-list');
-            
+            let arrivalList = document.getElementById('arrival-list');
+            const arrivalSection = arrivalList ? arrivalList.closest('.arrival-section') : null;
             editBtn.textContent = 'סיים עריכה';
             editBtn.classList.add('editing');
             cancelBtn.classList.remove('hidden');
             arrivalList.classList.add('editing-order');
-            
-            // הוספת drag handlers ואייקון גרירה
+            if (arrivalSection) arrivalSection.classList.add('editing-order');
+
+            // NEW: רינדור מחדש ללא עמודת הערות (הסתרת כפתורי ההערות + כותרת)
+            const reHtml = ArrivalRows.render({
+                arrivals: sprint.arrivals,
+                getComment: sn => state.generalComments?.[sn],
+                formatTime: formatTime_no_ms,
+                truncate: truncateCommentsSummary,
+                maxChars: 20,
+                variant: 'float',
+                showHeader: true,
+                labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן זחילה' },
+                listId: 'arrival-list',
+                hideCommentsColumn: true
+            });
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = reHtml;
+            const newList = tempDiv.querySelector('#arrival-list');
+            if (newList && arrivalList) arrivalList.innerHTML = newList.innerHTML;
+            arrivalList = document.getElementById('arrival-list');
+
+            // הוספת drag handlers ואייקון גרירה לאחר הרינדור ללא הערות
             arrivalList.querySelectorAll('.arrival-row').forEach((row, index) => {
                 row.draggable = true;
                 row.dataset.originalIndex = index;
-                
-                // הוספת אייקון גרירה בצד ימין
                 const dragHandle = document.createElement('div');
                 dragHandle.className = 'drag-handle';
                 dragHandle.innerHTML = '⋮⋮⋮';
                 dragHandle.title = 'גרור לשינוי מיקום';
                 row.appendChild(dragHandle);
-                
-                // Desktop drag events
                 row.addEventListener('dragstart', handleDragStart);
                 row.addEventListener('dragover', handleDragOver);
                 row.addEventListener('drop', handleDrop);
                 row.addEventListener('dragend', handleDragEnd);
-                
-                // NEW: Mobile touch events
                 row.addEventListener('touchstart', handleTouchStart, { passive: false });
                 row.addEventListener('touchmove', handleTouchMove, { passive: false });
                 row.addEventListener('touchend', handleTouchEnd);
@@ -459,30 +473,41 @@
         function exitEditMode() {
             const editBtn = document.getElementById('edit-order-btn');
             const cancelBtn = document.getElementById('cancel-edit-btn');
-            const arrivalList = document.getElementById('arrival-list');
-            
+            let arrivalList = document.getElementById('arrival-list');
+            const arrivalSection = arrivalList ? arrivalList.closest('.arrival-section') : null;
             editBtn.textContent = 'ערוך מיקומים';
             editBtn.classList.remove('editing');
             cancelBtn.classList.add('hidden');
             arrivalList.classList.remove('editing-order');
+            if (arrivalSection) arrivalSection.classList.remove('editing-order');
             originalOrder = null; // ניקוי הגיבוי
-            
-            // הסרת drag handlers
-            arrivalList.querySelectorAll('.arrival-row').forEach(row => {
-                row.draggable = false;
-                row.removeEventListener('dragstart', handleDragStart);
-                row.removeEventListener('dragover', handleDragOver);
-                row.removeEventListener('drop', handleDrop);
-                row.removeEventListener('dragend', handleDragEnd);
-                
-                // NEW: Remove mobile touch events
-                row.removeEventListener('touchstart', handleTouchStart);
-                row.removeEventListener('touchmove', handleTouchMove);
-                row.removeEventListener('touchend', handleTouchEnd);
-                
-                // הסרת אייקון הגרירה
-                row.querySelector('.drag-handle')?.remove();
+
+            // NEW: רינדור מחדש עם עמודת הערות חוזרת
+            const reHtml = ArrivalRows.render({
+                arrivals: sprint.arrivals,
+                getComment: sn => state.generalComments?.[sn],
+                formatTime: formatTime_no_ms,
+                truncate: truncateCommentsSummary,
+                maxChars: 20,
+                variant: 'float',
+                showHeader: true,
+                labels: { shoulder:'מספר כתף', comment:'הערות', time:'זמן זחילה' },
+                listId: 'arrival-list',
+                hideCommentsColumn: false
             });
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = reHtml;
+            const newList = tempDiv.querySelector('#arrival-list');
+            if (newList && arrivalList) {
+                arrivalList.innerHTML = newList.innerHTML;
+                // השבתת האזנות drag + כפתורי הערות מחדש
+                arrivalList.querySelectorAll('.arrival-row').forEach(row => {
+                    row.draggable = false;
+                    row.querySelector('.drag-handle')?.remove();
+                });
+                // רענון כפתורי הערות אחרי שחזור
+                setTimeout(()=>refreshAllCommentButtons(),0);
+            }
         }
 
         function cancelEditOrder() {

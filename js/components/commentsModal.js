@@ -6,12 +6,14 @@
     const st = document.createElement('style');
     st.id = 'comments-modal-style';
     st.textContent = `
-      .comment-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;overflow:auto;z-index:1000;padding:40px 18px}
-      .comment-modal{background:#ffffff;max-width:500px;width:100%;border-radius:16px;padding:18px 18px 14px;box-shadow:0 4px 18px -2px rgba(0,0,0,.25);animation:cmIn .18s ease}
+      .comment-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;overflow:auto;z-index:1000;padding:80px 18px 40px;padding-top:max(80px, env(safe-area-inset-top, 20px) + 60px)}
+      .comment-modal{background:#ffffff;max-width:500px;width:100%;border-radius:16px;padding:18px 18px 14px;box-shadow:0 4px 18px -2px rgba(0,0,0,.25);animation:cmIn .18s ease;margin-top:0}
       .dark .comment-modal{background:#1f2937;color:#e2e8f0}
       @keyframes cmIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-      .comment-modal h3{margin:0 0 4px;font-size:16px;font-weight:700}
-      .note-muted{font-size:11px;opacity:.65;margin:4px 0 10px}
+      .comment-modal h3{margin:0 0 4px;font-size:16px;font-weight:700;color:#111827}
+      .dark .comment-modal h3{color:#f3f4f6}
+      .note-muted{font-size:11px;opacity:.65;margin:4px 0 10px;color:#64748b}
+      .dark .note-muted{color:#94a3b8}
       .comment-modal .add-row input{background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;border-radius:10px}
       .dark .comment-modal .add-row input{background:#374151;border-color:#475569;color:#f1f5f9}
       .comment-modal .c-row{background:#f1f5f9}
@@ -21,7 +23,7 @@
       .comment-modal .c-edit{
         background:#f8fafc;
         border:1px solid #cbd5e1;
-        color:#1e293b;
+        color:#111827;
         border-radius:10px;
       }
       .dark .comment-modal input[type="text"],
@@ -112,7 +114,7 @@
 
       .comment-mic-btn{
         position:relative;
-        border:1px solid #cbd5e1;
+        border:1.5px solid #cbd5e1;
         background:#ffffff;
         width:38px;
         height:38px;
@@ -124,13 +126,18 @@
         color:#334155;
         font-size:18px;
         transition:.18s;
+        box-shadow:0 1px 2px rgba(0,0,0,0.05);
       }
       .dark .comment-mic-btn{
         background:#1f2937;
         border-color:#475569;
         color:#cbd5e1;
       }
-      .comment-mic-btn:hover{background:#f1f5f9}
+      .comment-mic-btn:hover{
+        background:#f1f5f9;
+        border-color:#94a3b8;
+        box-shadow:0 2px 4px rgba(0,0,0,0.08);
+      }
       .dark .comment-mic-btn:hover{background:#273549}
       .comment-mic-btn.listening{
         background:#dc2626;
@@ -172,12 +179,31 @@
         font-size:16px;
       }
       .comment-mic-btn.listening{
-        /* שמירה – רק הקטנה קלה של ה-radius */
         border-radius:10px;
       }
       .comment-mic-status{
         margin-top:2px;
         font-size:10px;
+      }
+      
+      /* תיקון צבעי טקסט במצב בהיר */
+      .comment-modal .c-row {
+        color: #111827;
+      }
+      .dark .comment-modal .c-row {
+        color: #f3f4f6;
+      }
+      .comment-modal .c-text {
+        color: #111827;
+      }
+      .dark .comment-modal .c-text {
+        color: #f3f4f6;
+      }
+      .comment-modal .c-row > div:first-child {
+        color: #374151;
+      }
+      .dark .comment-modal .c-row > div:first-child {
+        color: #9ca3af;
       }
     `;
     document.head.appendChild(st);
@@ -236,13 +262,18 @@
 
         <div class="note-muted">הוסף כמה הערות. ניתן לערוך ולמחוק כל שורה.</div>
 
-        <div class="add-row" style="display:flex;align-items:center;margin-bottom:4px">
-          <input id="new-comment-input" type="text" placeholder="כתוב הערה חדשה..." style="flex:1;min-width:0" />
-          <button class="comment-mic-btn" type="button" data-mic title="הקלטה בלחיצה ארוכה (Android)">
-            🎤
-            <span class="mic-dot"></span>
-          </button>
-          <button class="btn btn-primary" data-add style="padding:6px 10px;font-size:12px">הוסף</button>
+        <div class="add-row" style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <input id="new-comment-input" type="text" placeholder="כתוב הערה חדשה..." style="flex:1;min-width:0" />
+            <button class="comment-mic-btn" type="button" data-mic title="הקלטה בלחיצה ארוכה">
+              🎤
+              <span class="mic-dot"></span>
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button id="modal-preset-comments-btn" class="btn btn-outline" type="button" title="הערות מוכנות מראש" style="padding:6px 10px;font-size:12px;white-space:nowrap;flex:1">📝 הערות מוכנות</button>
+            <button class="btn btn-primary" data-add style="padding:6px 10px;font-size:12px;min-width:80px">הוסף</button>
+          </div>
         </div>
         <div class="comment-mic-status" data-mic-status></div>
         <div id="comments-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto;padding-right:2px">
@@ -257,6 +288,7 @@
     document.body.appendChild(backdrop);
 
     const inputNew = backdrop.querySelector('#new-comment-input');
+    const presetBtn = backdrop.querySelector('#modal-preset-comments-btn');
     setTimeout(()=>inputNew.focus(),30);
 
     function escHtml(s=''){
@@ -415,123 +447,146 @@
       }
     });
 
-    // ===== Voice (Android only, long press) =====
+    // ===== Voice Integration - Using Unified System =====
     const micBtn = backdrop.querySelector('[data-mic]');
     const micStatus = backdrop.querySelector('[data-mic-status]');
-    const recInput = inputNew;
 
-    function isAndroid(){ return /Android/i.test(navigator.userAgent||''); }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition = null;
-    let listening = false;
-    let partialBuffer = '';
-    let pressTimer = null;
-    let pressed = false;
-    const PRESS_DELAY = 220; // ms threshold for long press
+    // זיהוי מכשיר אפל (iOS + iPadOS המדווח כ-Mac)
+    const ua = navigator.userAgent || navigator.vendor || '';
+    const isIOS = /iPad|iPhone|iPod/i.test(ua);
+    const isMacTouch = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1; // iPadOS
+    const isApple = isIOS || isMacTouch;
 
-    if (!isAndroid() || !SR){
-      micBtn.style.display='none';
-    } else {
-      recognition = new SR();
-      recognition.lang = 'he-IL';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      function startMic(){
-        if (listening) return;
-        try{
-          partialBuffer='';
-          recInput.value='';
-          listening = true;
-          recognition.start();
-          micBtn.classList.add('listening');
-          micStatus.textContent = 'האזנה...';
-        }catch(err){
-          console.warn('speech start error', err);
-          micStatus.textContent='שגיאה בהתחלה';
-          listening = false;
-        }
-      }
-      function finalizeVoice(){
-        const t = (recInput.value||'').trim();
-        if (t){
-          add(t);
-          recInput.value='';
-          micStatus.textContent='הערה נוספה';
-        } else {
-          micStatus.textContent='לא זוהה דיבור';
-        }
-        setTimeout(()=>{ if(micStatus.textContent) micStatus.textContent=''; },1300);
-      }
-      function stopMic(forceEnd){
-        if (!listening) return;
-        try{ recognition.stop(); }catch(_) {}
-        listening = false;
-        micBtn.classList.remove('listening');
-        if (forceEnd) finalizeVoice();
-      }
-
-      recognition.onresult = (e)=>{
-        let finalText = '';
-        partialBuffer='';
-        for(let i=0;i<e.results.length;i++){
-          const r = e.results[i];
-          if (r.isFinal) finalText += r[0].transcript;
-          else partialBuffer += r[0].transcript;
-        }
-        const merged = (finalText + ' ' + partialBuffer).trim();
-        if (merged) recInput.value = merged;
-      };
-      recognition.onerror = (e)=>{
-        micStatus.textContent = 'שגיאה: ' + (e.error||'');
-        stopMic(false);
-      };
-      recognition.onend = ()=>{
-        if (listening){ // אם הסתיים ללא שחרור ידני (timeout)
-          stopMic(true);
-        }
-      };
-
-      function clearPressTimer(){
-        if (pressTimer){ clearTimeout(pressTimer); pressTimer=null; }
-      }
-
-      function pointerDown(ev){
-        pressed = true;
-        micStatus.textContent='...';
-        clearPressTimer();
-        pressTimer = setTimeout(()=>{
-          if (pressed){
-            startMic();
+    // טעינת מערכת המיקרופון המאוחדת אם לא קיימת, רק אם לא אפל
+    if (!isApple) {
+      if (!window.attachCommentMic) {
+        const script = document.createElement('script');
+        script.src = 'js/utils/comment-mic.js';
+        script.onload = () => {
+          if (window.attachCommentMic && micBtn && inputNew) {
+            window.attachCommentMic(micBtn, inputNew);
           }
-        }, PRESS_DELAY);
-      }
-      function pointerUp(){
-        if (!pressed) return;
-        pressed = false;
-        if (!listening){
-          // היה קצר מדי – ביטול
-          micStatus.textContent='';
-        } else {
-          stopMic(true);
+        };
+        document.head.appendChild(script);
+      } else {
+        if (micBtn && inputNew) {
+          window.attachCommentMic(micBtn, inputNew);
         }
-        clearPressTimer();
       }
-      function pointerLeave(){
-        if (!pressed) return;
-        pressed = false;
-        if (listening){
-          stopMic(true);
-        } else {
-          micStatus.textContent='';
-        }
-        clearPressTimer();
-      }
+    } else if (micBtn) {
+      micBtn.style.display = 'none';
+    }
 
-      ['pointerdown','touchstart','mousedown'].forEach(ev=> micBtn.addEventListener(ev, pointerDown));
-      ['pointerup','touchend','mouseup'].forEach(ev=> document.addEventListener(ev, pointerUp));
-      ['pointercancel','touchcancel','mouseleave'].forEach(ev=> micBtn.addEventListener(ev, pointerLeave));
+    // הסתרת סטטוס מיקרופון (לא נדרש עם המערכת החדשה)
+    if (micStatus) {
+      micStatus.style.display = 'none';
+    }
+
+    // NEW: טיפול בכפתור הערות מוכנות מראש
+    if (presetBtn) {
+      presetBtn.addEventListener('click', () => {
+        const GROUP = (window.CONFIG && window.CONFIG.CRAWLING_GROUP_COMMON_COMMENTS) || {};
+        const hasContent = (Array.isArray(GROUP.good) && GROUP.good.length > 0) ||
+                          (Array.isArray(GROUP.neutral) && GROUP.neutral.length > 0) ||
+                          (Array.isArray(GROUP.bad) && GROUP.bad.length > 0);
+        
+        if (!hasContent) {
+          if (window.showModal) {
+            window.showModal('אין הערות זמינות', 'לא הוגדרו הערות מוכנות מראש.');
+          } else {
+            alert('אין הערות מוכנות מראש זמינות');
+          }
+          return;
+        }
+
+        // שימוש באותה קומפוננטה כמו quick-comments.js
+        let presetBackdrop = document.getElementById('qc-group-backdrop-modal');
+        let presetModal = document.getElementById('qc-group-modal-modal');
+        
+        if (!presetBackdrop) {
+          presetBackdrop = document.createElement('div');
+          presetBackdrop.id = 'qc-group-backdrop-modal';
+          presetBackdrop.className = 'qc-group-modal-backdrop';
+          presetBackdrop.setAttribute('aria-hidden', 'true');
+          presetBackdrop.style.display = 'none';
+          presetBackdrop.style.zIndex = '10001'; // מעל מודל ההערות
+          document.body.appendChild(presetBackdrop);
+        }
+        
+        if (!presetModal) {
+          presetModal = document.createElement('div');
+          presetModal.id = 'qc-group-modal-modal';
+          presetModal.className = 'qc-group-modal';
+          presetModal.setAttribute('role', 'dialog');
+          presetModal.setAttribute('aria-modal', 'true');
+          presetModal.setAttribute('aria-label', 'בחירת הערה מקוטלגת');
+          presetModal.style.display = 'none';
+          presetModal.style.zIndex = '10002'; // מעל ה-backdrop
+          document.body.appendChild(presetModal);
+        }
+
+        // בניית התוכן
+        const mk = (cls,title,arr)=> (Array.isArray(arr)&&arr.length)?`
+          <div class="qc-group-box ${cls}">
+            <div class="qc-group-title">${title}</div>
+            <div class="qc-group-items">
+              ${arr.map(t=>`<span class="qc-group-item" data-value="${t}" role="button" tabindex="0">${t}</span>`).join('')}
+            </div>
+          </div>`:'';
+        
+        presetModal.innerHTML = `
+          <button class="qc-group-close" type="button" id="qc-group-close-modal">סגור ✕</button>
+          <h2>בחרו הערה</h2>
+          ${mk('good','חיובי',GROUP.good)}
+          ${mk('neutral','ניטרלי',GROUP.neutral)}
+          ${mk('bad','טעון שיפור',GROUP.bad)}`;
+
+        const closePreset = () => {
+          presetModal.style.display = 'none';
+          presetBackdrop.style.display = 'none';
+          presetBackdrop.setAttribute('aria-hidden', 'true');
+          inputNew.focus();
+        };
+
+        presetBackdrop.style.display = 'block';
+        presetModal.style.display = 'block';
+        presetBackdrop.setAttribute('aria-hidden', 'false');
+
+        // פוקוס על הפריט הראשון
+        setTimeout(() => {
+          presetModal.querySelector('.qc-group-item')?.focus();
+        }, 50);
+
+        // סגירה בלחיצה על backdrop
+        presetBackdrop.onclick = closePreset;
+
+        // טיפול בלחיצות
+        presetModal.onclick = (e) => {
+          if (e.target.id === 'qc-group-close-modal') {
+            closePreset();
+            return;
+          }
+          
+          const item = e.target.closest('.qc-group-item');
+          if (item) {
+            const value = item.getAttribute('data-value');
+            inputNew.value = (inputNew.value ? inputNew.value.trimEnd() + ' ' : '') + value;
+            inputNew.dispatchEvent(new Event('input', {bubbles: true}));
+            closePreset();
+          }
+        };
+
+        // תמיכה במקלדת
+        presetModal.onkeydown = (e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('qc-group-item')) {
+            e.preventDefault();
+            e.target.click();
+          }
+          if (e.key === 'Escape') {
+            closePreset();
+          }
+        };
+      });
     }
   }
 

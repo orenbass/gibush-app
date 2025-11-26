@@ -7,7 +7,7 @@
     
     <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script id="gsi-script" src="https://accounts.google.com/gsi/client" async defer onload="window.__gsiLoaded=true;console.log('GSI script loaded');"></script>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,12 @@
     <meta name="mobile-web-app-capable" content="yes">
     
     <!-- Config -->
-    <script src="./landing-config.js"></script>
+    <script src="./js/config/app-version.js"></script>
+    <script src="./js/config/users-config.js"></script>
+    <script src="./js/config/config.js"></script>
+    
+    <!-- Google Drive Services -->
+    <script src="./js/services/google-drive-reader.js"></script>
     
     <style>
         * {
@@ -394,8 +399,8 @@
                     מערכת דיגיטלית מתקדמת לניהול ומעקב אחר תהליכי גיבוש
                 </p>
                 <div class="mt-4">
-                    <span class="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
-                        גרסה 2.0
+                    <span id="landing-version-badge" class="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
+                        <!-- version populated dynamically -->
                     </span>
                 </div>
             </div>
@@ -474,5 +479,16 @@
     </div>
 
     <script src="./landing-auth.js"></script>
+    <script>
+      // עדכון גרסה בדף הנחיתה באופן דינמי לפי app-version.js
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          const raw = window.APP_VERSION || (window.LANDING_CONFIG?.branding?.version) || '';
+          const display = raw.replace(/^v/i,'');
+          const badge = document.getElementById('landing-version-badge');
+          if (badge) badge.textContent = display ? `גרסה ${display}` : '';
+        } catch(e) { /* silent */ }
+      });
+    </script>
 </body>
 </html>

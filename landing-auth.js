@@ -18,9 +18,7 @@ class LandingAuthManager {
      */
     async init() {
         try {
-            console.log('🚀 מאתחל מערכת התחברות...');
-            
-            // בדיקה אם המשתמש כבר מחובר
+            // בדיקה if המשתמש כבר מחובר
             if (this.checkExistingSession()) {
                 return; // כבר מחובר, לא צריך להמשיך
             }
@@ -32,7 +30,6 @@ class LandingAuthManager {
             this.setupEventListeners();
             
             this.isInitialized = true;
-            console.log('✅ מערכת התחברות הותחלה בהצלחה');
             
         } catch (error) {
             console.error('❌ שגיאה באתחול מערכת ההתחברות:', error);
@@ -49,9 +46,8 @@ class LandingAuthManager {
             if (savedSession) {
                 const session = JSON.parse(savedSession);
                 
-                // בדיקה אם הסשן תקף
+                // בדיקה if הסשן תקף
                 if (this.isSessionValid(session)) {
-                    console.log('📋 נמצא סשן תקף, מעביר לאפליקציה...');
                     this.redirectToApp();
                     return true;
                 }
@@ -68,7 +64,7 @@ class LandingAuthManager {
     }
 
     /**
-     * בדיקה אם סשן תקף
+     * בדיקה if סשן תקף
      */
     isSessionValid(session) {
         if (!session || !session.authState) return false;
@@ -84,7 +80,7 @@ class LandingAuthManager {
      * אתחול Google Sign-In
      */
     async initGoogleSignIn() {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             // המתנה לטעינת Google API
             const checkGoogleAPI = () => {
                 if (typeof google !== 'undefined' && google.accounts) {
@@ -113,12 +109,10 @@ class LandingAuthManager {
                             }
                         );
 
-                        console.log('✅ Google Sign-In הותחל בהצלחה');
                         resolve();
                         
                     } catch (error) {
                         console.error('❌ שגיאה באתחול Google Sign-In:', error);
-                        console.log('🔧 עובר למצב פיתוח עקב שגיאת OAuth...');
                         this.showDevelopmentGoogleButton();
                         resolve(); // ממשיכים גם במקרה של שגיאה
                     }
@@ -169,8 +163,6 @@ class LandingAuthManager {
      * הדמיה להתחברות Google (למצב פיתוח)
      */
     simulateGoogleLogin() {
-        console.log('🔧 מדמה התחברות Google...');
-        
         const mockUser = {
             name: 'משתמש לדוגמה',
             email: 'test@example.com',
@@ -184,25 +176,17 @@ class LandingAuthManager {
     /**
      * טיפול בתגובה מGoogle
      */
-    handleGoogleCallback(response) {
+    async handleGoogleCallback(response) {
         try {
-            console.log('📨 התקבלה תגובה מGoogle');
             this.showLoading(true);
             
             // פענוח JWT Token
             const token = response.credential;
             const payload = JSON.parse(atob(token.split('.')[1]));
             
-            // DEBUG: בדיקת הנתונים הגולמיים מגוגל
-            console.log('🔍 נתונים גולמיים מGoogle JWT:', payload);
-            console.log('🔍 שם כמו שמגיע:', payload.name);
-            console.log('🔍 bytes של השם:', Array.from(payload.name || '').map(c => c.charCodeAt(0)));
-            
-            // תיקון קידוד UTF-8 אם נדרש
+            // תיקון קידוד UTF-8 if נדרש
             const fixedName = this.fixUTF8Encoding(payload.name);
             const fixedEmail = this.fixUTF8Encoding(payload.email);
-            
-            console.log('✅ שם לאחר תיקון:', fixedName);
             
             const userInfo = {
                 ...payload,
@@ -210,12 +194,10 @@ class LandingAuthManager {
                 email: fixedEmail
             };
             
-            console.log('👤 פרטי משתמש מGoogle אחרי תיקון:', {
-                name: userInfo.name,
-                email: userInfo.email,
-                verified: userInfo.email_verified
-            });
+            // **שלב חדש: הורדת וטעינת הגדרות המערכת לפני בדיקת הרשאות**
+            await this.downloadAndUpdateSettings();
             
+            // עכשיו מעבד את המשתמש עם ההגדרות המעודכנות
             this.processGoogleUser(userInfo);
             
         } catch (error) {
@@ -226,13 +208,104 @@ class LandingAuthManager {
     }
 
     /**
+     * הורדה ועדכון הגדרות המערכת מ-Google Drive
+     */
+    async downloadAndUpdateSettings() {
+        try {
+            // בדיקה if השירות קיים
+            if (!window.GoogleDriveReader || !window.GoogleDriveReader.fetchSystemSettings) {
+                console.warn('⚠️ GoogleDriveReader לא זמין, ממשיך עם הגדרות מקומיות');
+                return false;
+            }
+            
+            // הורדת ההגדרות
+            const settings = await window.GoogleDriveReader.fetchSystemSettings();
+            
+            if (!settings) {
+                return false;
+            }
+            
+            // עדכון הגדרות תרגילים
+            if (settings.exerciseSettings && window.CONFIG) {
+                Object.assign(window.CONFIG, settings.exerciseSettings);
+            }
+            
+            // עדכון הגדרות גיבוי
+            if (settings.backupSettings && window.CONFIG) {
+                if (settings.backupSettings.enabled !== undefined) {
+                    window.CONFIG.AUTO_BACKUP_UPLOAD_ENABLED = settings.backupSettings.enabled;
+                }
+                if (settings.backupSettings.intervalMinutes !== undefined) {
+                    window.CONFIG.AUTO_BACKUP_UPLOAD_INTERVAL_MS = settings.backupSettings.intervalMinutes * 60 * 1000;
+                }
+                if (settings.backupSettings.stopAfterMinutes !== undefined) {
+                    window.CONFIG.AUTO_BACKUP_UPLOAD_MAX_DURATION_MS = settings.backupSettings.stopAfterMinutes * 60 * 1000;
+                }
+            }
+            
+            // **עדכון הערות מהירות מהדרייב (quickComments) - חדש!**
+            if (settings.quickComments && window.CONFIG) {
+                const qc = settings.quickComments;
+                // וידוא מבנה
+                const sanitizeArr = (arr) => Array.isArray(arr) ? arr.map(s => String(s||'').trim()).filter(Boolean) : [];
+                window.CONFIG.CRAWLING_GROUP_COMMON_COMMENTS = {
+                    good: sanitizeArr(qc.good),
+                    neutral: sanitizeArr(qc.neutral),
+                    bad: sanitizeArr(qc.bad)
+                };
+            }
+            
+            // **עדכון משתמשים מורשים - ההגדרות כבר נשמרו ב-localStorage**
+            // USERS_CONFIG קורא אותם דינמית דרך getter, אין צורך בדריסה
+            // שימו לב: המבנה יכול להיות settings.userManagement.authorizedUsers או settings.users
+            let usersArray = null;
+            
+            if (settings.userManagement && Array.isArray(settings.userManagement.authorizedUsers)) {
+                usersArray = settings.userManagement.authorizedUsers;
+            } else if (Array.isArray(settings.users)) {
+                usersArray = settings.users;
+            }
+            
+            if (!usersArray) {
+                console.warn('⚠️ לא נמצאו משתמשים בהגדרות שהורדו');
+            }
+            
+            // שמירת ההגדרות המעודכנות ב-localStorage
+            try {
+                localStorage.setItem('downloadedSystemSettings', JSON.stringify(settings));
+                localStorage.setItem('settingsLastUpdated', new Date().toISOString());
+            } catch (e) {
+                console.warn('⚠️ לא ניתן לשמור הגדרות ב-localStorage:', e);
+            }
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ שגיאה בהורדה ועדכון הגדרות:', error);
+            return false;
+        }
+    }
+
+    /**
+     * קבלת שם המשתמש מקובץ ההגדרות על פי המייל
+     * @param {string} email - כתובת המייל
+     * @returns {string|null} - השם של המשתמש או null
+     */
+    getUserNameFromSettings(email) {
+        if (!email || !window.USERS_CONFIG) return null;
+        
+        const user = window.USERS_CONFIG.getUserByEmail(email);
+        return user ? user.name : null;
+    }
+
+    /**
      * תיקון קידוד UTF-8 עבור טקסט שמגיע מGoogle
      */
     fixUTF8Encoding(text) {
         if (!text || typeof text !== 'string') return text;
         
         try {
-            // בדיקה אם הטקסט כבר תקין
+            // בדיקה if הטקסט כבר תקין
             if (this.isValidUTF8(text)) {
                 return text;
             }
@@ -243,7 +316,6 @@ class LandingAuthManager {
             try {
                 const fixed1 = decodeURIComponent(escape(text));
                 if (this.isValidUTF8(fixed1) && fixed1 !== text) {
-                    console.log('🔧 תוקן בשיטה 1:', fixed1);
                     return fixed1;
                 }
             } catch (e) { /* ignore */ }
@@ -258,7 +330,6 @@ class LandingAuthManager {
                     .replace(/ש/g, 'ש');
                     
                 if (fixed2 !== text) {
-                    console.log('🔧 תוקן בשיטה 2:', fixed2);
                     return fixed2;
                 }
             } catch (e) { /* ignore */ }
@@ -267,12 +338,11 @@ class LandingAuthManager {
             try {
                 const fixed3 = text.replace(/[^\u0000-\u007F\u0590-\u05FF\u200E\u200F]/g, '');
                 if (fixed3 !== text) {
-                    console.log('🔧 תוקן בשיטה 3:', fixed3);
                     return fixed3;
                 }
             } catch (e) { /* ignore */ }
             
-            console.warn('⚠️ לא ניתן לתקן את הקידוד, משאיר כמו שהוא:', text);
+            console.warn('⚠️ לא ניתן לתקן את הקידוד:', text);
             return text;
             
         } catch (error) {
@@ -282,18 +352,18 @@ class LandingAuthManager {
     }
 
     /**
-     * בדיקה אם הטקסט הוא UTF-8 תקין
+     * בדיקה if הטקסט הוא UTF-8 תקין
      */
     isValidUTF8(text) {
         if (!text || typeof text !== 'string') return false;
         
         try {
-            // בדיקה אם יש תווים לא תקינים
+            // בדיקה if יש תווים לא תקינים
             const hasInvalidChars = /[Â×]/.test(text);
             const hasValidHebrew = /[\u0590-\u05FF]/.test(text);
             const hasValidLatin = /[a-zA-Z]/.test(text);
             
-            // אם יש עברית או לטינית ללא תווים לא תקינים - זה בסדר
+            // if יש עברית או לטינית ללא תווים לא תקינים - זה בסדר
             return (hasValidHebrew || hasValidLatin) && !hasInvalidChars;
         } catch (e) {
             return false;
@@ -305,22 +375,33 @@ class LandingAuthManager {
      */
     processGoogleUser(userInfo) {
         try {
-            // בדיקת הרשאה - אם יש הגדרת authorizedEmails
-            if (this.config.authorizedEmails && !this.isEmailAuthorized(userInfo.email)) {
-                console.warn('🚫 כתובת מייל לא מורשה:', userInfo.email);
-                this.showError(`כתובת המייל ${userInfo.email} אינה מורשית להתחבר למערכת`);
+            // **בדיקת הגדרות גישה - תיקון לוגיקה!**
+            const dsRaw = localStorage.getItem('downloadedSystemSettings');
+            const dsObj = dsRaw ? JSON.parse(dsRaw) : {};
+            
+            // האם המערכת במצב "אורחים ומנהלים בלבד"?
+            // כאשר guestsAndAdminsOnly = true, רק מנהלים ואורחים יכולים להיכנס
+            const guestsAndAdminsOnly = dsObj.appAccess?.guestsAndAdminsOnly === true;
+            
+            // בדיקה אם המשתמש הוא מנהל או אורח
+            const user = window.USERS_CONFIG?.getUserByEmail(userInfo.email);
+            const isAdmin = user?.isAdmin || false;
+            const isGuest = user?.isGuest || false;
+            
+            // אם המצב הוא "אורחים ומנהלים בלבד" והמשתמש לא מנהל ולא אורח - חסום!
+            if (guestsAndAdminsOnly && !isAdmin && !isGuest) {
+                console.warn('🚫 גישה חסומה - מצב אורחים ומנהלים בלבד');
+                this.showError('⛔ גישה מוגבלת\n\nהמערכת פתוחה כעת רק לאורחים ומנהלים מורשים.\n\nאם אתה צריך גישה, פנה למנהל המערכת.');
                 this.showLoading(false);
                 return;
             }
             
-            // בדיקת אימות מייל
-            if (this.config.security?.requireEmailVerification && !userInfo.email_verified) {
-                console.warn('📧 כתובת מייל לא מאומתת');
-                this.showError('כתובת המייל צריכה להיות מאומתת');
-                this.showLoading(false);
-                return;
-            }
-            
+            // סדר עדיפויות חדש לשם תצוגה: 1) מהדרייב (USERS_CONFIG) 2) מהקונפיגורציה/LocalStorage 3) מגוגל 4) ברירת מחדל
+            const driveName = this.getUserNameFromSettings(userInfo.email);
+            const configStoredName = localStorage.getItem('evaluatorNameFromSettings') || window.CONFIG?.evaluatorNameFromSettings || null;
+            const googleName = userInfo.name; // לא נשתמש אם יש מקור קודם
+            const nameForDisplay = driveName || configStoredName || googleName || 'מנהל';
+
             // שמירת פרטי משתמש
             const authState = {
                 authState: {
@@ -330,9 +411,12 @@ class LandingAuthManager {
                         name: userInfo.name,
                         email: userInfo.email,
                         picture: userInfo.picture,
-                        verified: userInfo.email_verified || userInfo.verified_email
+                        verified: userInfo.email_verified || userInfo.verified_email,
+                        isAdmin: isAdmin // שמירת מצב מנהל
                     },
-                    isInitialSetupComplete: false
+                    isInitialSetupComplete: isAdmin ? true : false,
+                    evaluatorName: isAdmin ? nameForDisplay : undefined,
+                    groupNumber: undefined
                 },
                 timestamp: Date.now(),
                 sessionId: this.generateSessionId()
@@ -341,10 +425,25 @@ class LandingAuthManager {
             // שמירה ב-localStorage
             localStorage.setItem('gibushAuthState', JSON.stringify(authState));
             
-            console.log('✅ התחברות Google הושלמה בהצלחה');
+            // אם מנהל – נוודא גם שמירת evaluatorName ב-localStorage הראשי (למקרה שהאפליקציה מצפה)
+            if (isAdmin) {
+                try {
+                    const existingAppStateRaw = localStorage.getItem('gibushAppState');
+                    let appState = {};
+                    if (existingAppStateRaw) {
+                        const parsed = JSON.parse(existingAppStateRaw);
+                        appState = parsed.appState || parsed;
+                    }
+                    appState.evaluatorName = driveName || configStoredName || googleName || 'מנהל';
+                    // להסיר מספר קבוצה למנהל - נשאר ריק
+                    // appState.groupNumber = 'ADMIN';
+                    const fullState = { config: appState.config || {}, appState };
+                    localStorage.setItem('gibushAppState', JSON.stringify(fullState));
+                } catch(e){ /* silent */ }
+            }
             
             // הצגת הודעת הצלחה ומעבר
-            this.showSuccessAndRedirect(`ברוך הבא, ${userInfo.name}!`);
+            this.showSuccessAndRedirect(`ברוך הבא, ${nameForDisplay}!`);
             
         } catch (error) {
             console.error('❌ שגיאה בעיבוד פרטי משתמש:', error);
@@ -354,23 +453,10 @@ class LandingAuthManager {
     }
 
     /**
-     * בדיקה אם כתובת מייל מורשית
-     */
-    isEmailAuthorized(email) {
-        if (!email || !this.config.authorizedEmails) return true; // אם אין הגבלת מיילים
-        
-        const normalizedEmail = email.toLowerCase().trim();
-        return this.config.authorizedEmails.some(
-            authorizedEmail => authorizedEmail.toLowerCase() === normalizedEmail
-        );
-    }
-
-    /**
      * טיפול בכניסת אורח
      */
     handleGuestLogin() {
         try {
-            console.log('👤 מבצע כניסת אורח...');
             this.showLoading(true);
             
             const authState = {
@@ -386,8 +472,6 @@ class LandingAuthManager {
             
             // שמירה ב-localStorage
             localStorage.setItem('gibushAuthState', JSON.stringify(authState));
-            
-            console.log('✅ כניסת אורח הושלמה בהצלחה');
             
             // הצגת הודעת הצלחה ומעבר
             this.showSuccessAndRedirect('נכנסת כאורח');
@@ -419,7 +503,23 @@ class LandingAuthManager {
             loadingText.style.color = '#10b981'; // ירוק
         }
         
-        // הצגת חלון הגדרת פרטי קבוצה
+        // זיהוי אם המשתמש הוא מנהל – במקרה כזה דילוג על חלון פרטי הקבוצה
+        const isAdmin = (() => {
+            try {
+                const st = JSON.parse(localStorage.getItem('gibushAuthState'));
+                return !!st?.authState?.googleUserInfo?.isAdmin;
+            } catch(e){ return false; }
+        })();
+        
+        if (isAdmin) {
+            setTimeout(() => { 
+                this.showLoading(false); 
+                this.redirectToApp(); 
+            }, 600);
+            return;
+        }
+        
+        // משתמש רגיל / אורח – ממשיכים לשלב פרטי הקבוצה
         setTimeout(() => {
             this.showLoading(false);
             this.showGroupSetupModal();
@@ -443,9 +543,20 @@ class LandingAuthManager {
         const session = JSON.parse(savedSession);
         const authState = session.authState;
 
-        // אם יש מידע ממשתמש Google, מלא את שם המעריך
-        if (authState.googleUserInfo && authState.googleUserInfo.name) {
-            evaluatorNameInput.value = authState.googleUserInfo.name;
+        // **שינוי: מילוי אוטומטי של שם המעריך מקובץ ההגדרות**
+        // סדר עדיפות: 1. קובץ הגדרות מהדרייב, 2. שדה ריק להזנה ידנית
+        if (authState.googleUserInfo && authState.googleUserInfo.email) {
+            const userNameFromSettings = this.getUserNameFromSettings(authState.googleUserInfo.email);
+            if (userNameFromSettings) {
+                evaluatorNameInput.value = userNameFromSettings;
+                
+                // **חדש: שמירה מיידית של השם ב-localStorage כדי שיהיה זמין לאפליקציה**
+                try {
+                    localStorage.setItem('evaluatorNameFromSettings', userNameFromSettings);
+                } catch (e) {
+                    console.warn('⚠️ לא ניתן לשמור שם מעריך:', e);
+                }
+            }
         }
 
         // הגבלת הזנה למספרי קבוצה (מספרים בלבד עד 999)
@@ -539,6 +650,7 @@ class LandingAuthManager {
                 return;
             }
 
+            // **שימוש בשם שהמשתמש הזין (או השם מהדרייב שהוצג כברירת מחדל)**
             // עדכון מצב האימות
             authState.evaluatorName = evaluatorNameValue;
             authState.groupNumber = groupNumberValue;
@@ -550,6 +662,13 @@ class LandingAuthManager {
                 authState: authState
             };
             localStorage.setItem('gibushAuthState', JSON.stringify(updatedSession));
+
+            // **שמירה גם במקום הייעודי לשם מהגדרות**
+            try {
+                localStorage.setItem('evaluatorNameFromSettings', evaluatorNameValue);
+            } catch (e) {
+                console.warn('⚠️ לא ניתן לשמור evaluatorNameFromSettings:', e);
+            }
 
             // שמירת הפרטים גם ב-localStorage הרגיל של האפליקציה
             try {
@@ -572,7 +691,6 @@ class LandingAuthManager {
                 };
                 localStorage.setItem('gibushAppState', JSON.stringify(fullState));
                 
-                console.log('✅ פרטי קבוצה נשמרו:', { evaluatorNameValue, groupNumberValue });
             } catch (error) {
                 console.warn('⚠️ שגיאה בשמירת פרטי קבוצה:', error);
             }
@@ -591,7 +709,6 @@ class LandingAuthManager {
                 // מחיקת מצב האימות
                 localStorage.removeItem('gibushAuthState');
                 
-                console.log('🔙 חזרה לדף ההתחברות');
             });
         }
 
@@ -631,8 +748,6 @@ class LandingAuthManager {
      * מעבר לאפליקציה הראשית
      */
     redirectToApp() {
-        console.log('🚀 מעביר לאפליקציה הראשית...');
-        
         // מעבר ל-index.html (האפליקציה הראשית)
         window.location.href = './index.html';
     }
@@ -692,7 +807,6 @@ class LandingAuthManager {
         setTimeout(() => {
             buttons.forEach(btn => btn.disabled = false);
             this.loginAttempts = 0;
-            console.log('🔓 חסימה זמנית הוסרה');
         }, 60000);
     }
 
@@ -730,10 +844,7 @@ class LandingAuthManager {
  * אתחול מנהל ההתחברות
  */
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🎯 מתחיל אתחול מערכת התחברות...');
-    
     // יצירת instance של מנהל ההתחברות
     window.authManager = new LandingAuthManager();
     
-    console.log('✅ מערכת התחברות מוכנה');
 });
